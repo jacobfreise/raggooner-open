@@ -55,8 +55,21 @@ const init = async () => {
     await signInAnonymously(auth);
   }
 
+  // 1. Check if ID is in the URL (First priority)
   const urlParams = new URLSearchParams(window.location.search);
-  const tid = urlParams.get('tid');
+  let tid = urlParams.get('tid');
+
+  if (tid) {
+    // Found in URL? Save it to browser storage for safety
+    sessionStorage.setItem('active_tid', tid);
+
+    // CLEAN THE URL IMMEDIATELY
+    // This removes '?tid=...' from the address bar without reloading the page
+    window.history.replaceState({}, document.title, window.location.pathname);
+  } else {
+    // Not in URL? Check if we have one saved from before (handling page refreshes)
+    tid = sessionStorage.getItem('active_tid');
+  }
 
   if (tid) {
     subscribeToTournament(tid);
@@ -102,17 +115,22 @@ const createTournament = async () => {
   };
 
   await setDoc(getTournamentRef(id), newDoc);
+  // NEW: Save to storage so it persists on refresh
+  sessionStorage.setItem('active_tid', id);
   subscribeToTournament(id);
-  window.history.pushState({}, '', `?tid=${id}`);
+  // window.history.pushState({}, '', `?tid=${id}`);
 };
 
 const joinTournament = () => {
   if(!joinId.value) return;
   subscribeToTournament(joinId.value);
-  window.history.pushState({}, '', `?tid=${joinId.value}`);
+  // window.history.pushState({}, '', `?tid=${joinId.value}`);
 };
 
 const exitTournament = () => {
+  // NEW: Clear the saved ID
+  sessionStorage.removeItem('active_tid');
+
   tournament.value = null;
   window.history.pushState({}, '', window.location.pathname);
 };
@@ -260,7 +278,7 @@ const shouldShowGroup = (group: string) => {
 };
 
 // Race Logic
-const activeStagePlayers = (targetGroup: 'A' | 'B' | 'Finals') => {
+const activeStagePlayers = (targetGroup: 'A' | 'B' | 'Finals') : Player[] => {
   if (!tournament.value) return [];
 
   let targetTeams: Team[] = [];
@@ -274,10 +292,10 @@ const activeStagePlayers = (targetGroup: 'A' | 'B' | 'Finals') => {
     }
   }
 
-  let players: {id: string, name: string, uma: string}[] = [];
+  let players: {id: string, name: string, isCaptain: boolean, uma: string}[] = [];
   targetTeams.forEach(t => {
-    players.push({ id: t.captainId, name: getPlayerName(t.captainId), uma: getPlayerUma(t.captainId) });
-    t.memberIds.forEach(mid => players.push({ id: mid, name: getPlayerName(mid), uma: getPlayerUma(mid) }));
+    players.push({ id: t.captainId, name: getPlayerName(t.captainId), isCaptain: true, uma: getPlayerUma(t.captainId) });
+    t.memberIds.forEach(mid => players.push({ id: mid, name: getPlayerName(mid), isCaptain: false, uma: getPlayerUma(mid) }));
   });
   return players;
 };
@@ -722,7 +740,7 @@ onMounted(() => {
               </div>
               <div class="space-y-2">
                 <div class="flex items-center gap-2 text-sm text-amber-400">
-                  <i class="ph-fill ph-crown"></i> {{ getPlayerName(team?.captainId) }}
+                  <i class="ph-fill ph-crown"></i> {{ getPlayerName(team.captainId) }}
                 </div>
                 <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ml-2">
                   <i class="ph-fill ph-user"></i> {{ getPlayerName(memberId) }}
@@ -835,7 +853,7 @@ onMounted(() => {
                     <span v-for="pid in [team.captainId, ...team.memberIds]" :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) }}</span>
                   </div>
                 </div>
-                <div class="text-4xl font-mono font-bold text-indigo-400">{{ team?.finalsPoints || 0 }}</div>
+                <div class="text-4xl font-mono font-bold text-indigo-400">{{ team.finalsPoints || 0 }}</div>
               </div>
             </div>
 
@@ -982,13 +1000,13 @@ onMounted(() => {
 
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 
-            <div v-for="player in tournament.players" :key="player.id"
+            <div v-for="player in tournament!.players!" :key="player.id"
                  class="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-indigo-500/50 transition-all flex flex-col h-full">
 
               <div class="flex justify-between items-start mb-4 pb-3 border-b border-slate-700/50">
                 <div>
                   <div class="font-bold text-white text-lg leading-tight">{{ player.name }}</div>
-                  <div class="text-xs text-slate-500 mt-1" v-if="player.uma">{{ player?.uma }}</div>
+                  <div class="text-xs text-slate-500 mt-1" v-if="player.uma">{{ player.uma }}</div>
                 </div>
                 <div class="text-right">
                   <div class="text-2xl font-mono font-bold text-indigo-400">
@@ -1060,7 +1078,7 @@ onMounted(() => {
       <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
         <div class="flex justify-between items-center mb-6">
           <h3 class="text-2xl font-bold text-white">Edit Umas</h3>
-          <button @click="showUmaModal = false" class="text-slate-400 hover:text-white"><i class="ph-bold ph-x text-xl"></i></button>
+          <button @click="submitUmas" class="text-slate-400 hover:text-white"><i class="ph-bold ph-x text-xl"></i></button>
         </div>
 
         <div class="space-y-6">
@@ -1081,7 +1099,6 @@ onMounted(() => {
           </div>
 
           <div class="pt-4 border-t border-slate-700 flex justify-end gap-3">
-            <button @click="showUmaModal = false" class="px-4 py-2 text-slate-300 hover:text-white">Cancel</button>
             <button @click="submitUmas" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded font-bold">Submit Umas</button>
           </div>
         </div>
