@@ -124,6 +124,7 @@ const createTournament = async () => {
 const joinTournament = () => {
   if(!joinId.value) return;
   subscribeToTournament(joinId.value);
+  joinId.value = '';
   // window.history.pushState({}, '', `?tid=${joinId.value}`);
 };
 
@@ -139,6 +140,13 @@ const copyId = () => {
   if(tournament.value) {
     navigator.clipboard.writeText(tournament.value.id);
     alert("ID Copied!");
+  }
+};
+
+const copyLink = () => {
+  if(tournament.value) {
+    navigator.clipboard.writeText(window.location.href + '?tid=' + tournament.value.id);
+    alert("Link Copied!");
   }
 };
 
@@ -572,6 +580,9 @@ onMounted(() => {
           <div class="hidden md:flex flex-col items-end">
             <button @click="copyId" class="text-sm font-mono text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
               Tournament ID <i class="ph ph-copy"></i>
+            </button>
+            <button @click="copyLink" class="text-sm font-mono text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+              Link <i class="ph ph-share"></i>
             </button>
           </div>
           <button @click="exitTournament" class="text-slate-400 hover:text-white">
