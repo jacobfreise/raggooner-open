@@ -590,7 +590,7 @@ onMounted(() => {
       <div v-else-if="!tournament" class="max-w-md mx-auto mt-10 space-y-8">
         <div class="text-center space-y-2">
           <h1 class="text-5xl font-bold text-white">Race Manager</h1>
-          <p class="text-slate-400">Organize drafts, track standings, and manage race leagues.</p>
+          <p class="text-slate-400">Organize Racc Open. Draft a Team, low-roll your career, mald a lot and race against the other teams.</p>
         </div>
 
         <div class="glass-panel p-6 rounded-xl space-y-6">
