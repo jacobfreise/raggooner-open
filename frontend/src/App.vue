@@ -11,6 +11,17 @@ const POINTS_SYSTEM: Record<number, number> = {
   10: 1, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0, 16: 0, 17: 0, 18: 0
 };
 
+const TEAM_COLORS = [
+  '#8c2424', // Red 400
+  '#60a5fa', // Blue 400
+  '#4ade80', // Green 400
+  '#facc15', // Yellow 400
+  '#c084fc', // Purple 400
+  '#ff7fc1', // Pink 400
+  '#06868f', // Cyan 400
+  '#fb923c', // Orange 400
+];
+
 const UMAS = ['Manhattan Cafe', 'Kawakami Princess', 'Halloween Rice Shower', 'Halloween Super Creek',
   'Agnes Digital', 'Hishi Akebono', 'Full Armor Matikanefukukitaru', 'Eishin Flash', 'Meisho Doto', 'Summer Special Week',
   'Summer Maruzensky', 'Gold City', 'Fuji Kiseki', 'Fantasy Grass Wonder', 'Fantasy El Condor Pasa', 'Hishi Amazon',
@@ -206,14 +217,15 @@ const startDraft = async () => {
   const shuffledCaptains = [...captains].sort(() => Math.random() - 0.5);
   const groupCaptains = [...captains].sort(() => Math.random() - 0.5);
 
-  const teams: Team[] = shuffledCaptains.map((cap) => ({
+  const teams: Team[] = shuffledCaptains.map((cap, index) => ({
     id: crypto.randomUUID(),
     captainId: cap.id,
     memberIds: [],
     name: `Team ${cap.name}`,
     points: 0,
     finalsPoints: 0,
-    group: groupCaptains.indexOf(cap) < 3 ? 'A' : 'B'
+    group: groupCaptains.indexOf(cap) < 3 ? 'A' : 'B',
+    color: TEAM_COLORS[index % TEAM_COLORS.length]
   }));
 
   const draftOrder: string[] = [];
@@ -228,6 +240,17 @@ const startDraft = async () => {
       currentIdx: 0
     }
   });
+};
+
+const getPlayerColor = (playerId: string) => {
+  if (!tournament.value) return '#e2e8f0'; // Default slate-200
+
+  // Find the team this player is in (either as captain or member)
+  const team = tournament.value.teams.find(t =>
+      t.captainId === playerId || t.memberIds.includes(playerId)
+  );
+
+  return team?.color || '#e2e8f0'; // Return team color or default
 };
 
 const availablePlayers = computed(() => {
@@ -291,12 +314,12 @@ const activeStagePlayers = (targetGroup: 'A' | 'B' | 'Finals') : Player[] => {
 
   let targetTeams: Team[] = [];
   if (currentView.value === 'finals' || targetGroup === 'Finals') {
-    targetTeams = tournament.value.teams.filter(t => t.inFinals);
+    targetTeams = tournament.value.teams.filter(t => t.inFinals).sort((a,b) => b.finalsPoints - a.finalsPoints);
   } else if (targetGroup) {
     if(tournament.value.teams.length === 6) {
-      targetTeams = tournament.value.teams.filter(t => t.group === targetGroup);
+      targetTeams = tournament.value.teams.filter(t => t.group === targetGroup).sort((a,b) => b.points - a.points);
     } else {
-      targetTeams = tournament.value.teams;
+      targetTeams = tournament.value.teams.sort((a,b) => b.points - a.points);
     }
   }
 
@@ -482,6 +505,11 @@ const getTotalPoints = (playerid: string) => {
   return points;
 };
 
+const sortedPlayers = computed(() => {
+  if (!tournament?.value?.players) return [];
+  return [...tournament!.value.players].sort((a,b) => getTotalPoints(b.id) - getTotalPoints(a.id))
+})
+
 const sortedTeamsA = computed(() => {
   if(!tournament.value) return [];
   const teams = tournament.value.teams.filter(t => tournament.value!.teams.length < 6 || t.group === 'A');
@@ -494,7 +522,7 @@ const sortedTeamsB = computed(() => {
   return teams.sort((a,b) => b.points - a.points);
 });
 
-const sortedFinalsTeams = computed(() => {
+const sortedFinalsTeams = computed<Team[]>(() => {
   if(!tournament.value) return [];
   return tournament.value.teams.filter(t => t.inFinals).sort((a,b) => b.finalsPoints - a.finalsPoints);
 });
@@ -746,7 +774,7 @@ onMounted(() => {
                  class="bg-slate-900 border rounded-lg p-4 transition-colors"
                  :class="currentDrafter?.id === team.captainId ? 'border-amber-500 ring-1 ring-amber-500/50' : 'border-slate-800'">
               <div class="flex justify-between items-center mb-2">
-                <span class="font-bold text-white">{{ team.name }}</span>
+                <span class="font-bold text-white" :style="{ color: team.color }">{{ team.name }}</span>
                 <i v-if="currentDrafter?.id === team.captainId" class="ph-fill ph-pencil-simple text-amber-500 animate-pulse"></i>
               </div>
               <div class="space-y-2">
@@ -791,7 +819,8 @@ onMounted(() => {
               <span v-if="tournament.teams.length < 6">Main Event</span>
               <span v-else>{{ currentView === 'groups' ? 'Group Stage' : 'Grand Finals' }}</span>
             </h2>
-            <p class="text-slate-400" v-if="currentView === 'groups' && tournament.teams.length === 6">Top winner of each group + best runner-up advance.</p>
+            <p class="text-slate-400"
+               v-if="currentView === 'groups' && tournament.teams.length === 6">Top winner of each group + best runner-up advance.</p>
           </div>
 
           <div class="bg-slate-800 p-1 rounded-lg flex gap-1">
@@ -819,11 +848,19 @@ onMounted(() => {
               <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('A') }} / 5 Races</span>
             </div>
             <div class="space-y-3">
-              <div v-for="(team, idx) in sortedTeamsA" :key="team.id" class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center" :class="getRankColor(idx)">
+              <div v-for="(team, idx) in sortedTeamsA"
+                   :key="team.id"
+                   class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
+                   :class="getRankColor(idx)">
                 <div>
-                  <div class="font-bold text-lg text-white">{{ team.name }}</div>
+                  <div>
+                    <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
+                    <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>
+                  </div>
                   <div class="text-xs text-slate-400 flex gap-2">
-                    <span v-for="pid in [team.captainId, ...team.memberIds]" :key="pid">{{ getPlayerNameOrUma(pid) }}</span>
+                    <span :style="{ color: team.color }"
+                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getTotalPoints(b) - getTotalPoints(a))"
+                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getTotalPoints(pid) + ')'}}</span>
                   </div>
                 </div>
                 <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
@@ -837,11 +874,19 @@ onMounted(() => {
               <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('B') }} / 5 Races</span>
             </div>
             <div class="space-y-3">
-              <div v-for="(team, idx) in sortedTeamsB" :key="team.id" class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center" :class="getRankColor(idx)">
+              <div v-for="(team, idx) in sortedTeamsB"
+                   :key="team.id"
+                   class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
+                   :class="getRankColor(idx)">
                 <div>
-                  <div class="font-bold text-lg text-white">{{ team.name }}</div>
+                  <div>
+                    <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
+                    <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>
+                  </div>
                   <div class="text-xs text-slate-400 flex gap-2">
-                    <span v-for="pid in [team.captainId, ...team.memberIds]" :key="pid">{{ getPlayerNameOrUma(pid) }}</span>
+                    <span :style="{ color: team.color }"
+                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getTotalPoints(b) - getTotalPoints(a))"
+                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getTotalPoints(pid) + ')'}}</span>
                   </div>
                 </div>
                 <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
@@ -859,9 +904,14 @@ onMounted(() => {
                   {{ idx + 1 }}
                 </div>
                 <div>
-                  <div class="font-bold text-2xl text-white heading">{{ team.name }}</div>
+                  <div>
+                    <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
+                    <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>
+                  </div>
                   <div class="text-sm text-slate-400 flex gap-2 mt-1">
-                    <span v-for="pid in [team.captainId, ...team.memberIds]" :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) }}</span>
+                    <span :style="{ color: team.color }"
+                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getTotalPoints(b) - getTotalPoints(a))"
+                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getTotalPoints(pid) + ')'}}</span>
                   </div>
                 </div>
                 <div class="text-4xl font-mono font-bold text-indigo-400">{{ team.finalsPoints || 0 }}</div>
@@ -918,9 +968,13 @@ onMounted(() => {
                           :disabled="tournament.stage !== 'groups'"
                           :value="getPlayerAtPosition('A', raceNum, pos)"
                           @change="updateRacePlacement('A', raceNum, pos, ($event.target as HTMLSelectElement).value)"
+                          :style="{ color: getPlayerColor(getPlayerAtPosition('A', raceNum, pos)) }"
                           class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
                         <option value="">- Select -</option>
-                        <option v-for="player in activeStagePlayers('A')" :key="player.id" :value="player.id">
+                        <option v-for="player in activeStagePlayers('A')"
+                                :key="player.id"
+                                :value="player.id"
+                                :style="{ color: getPlayerColor(player.id) }">
                           {{ player.name }} {{ player.uma ? `(${player.uma})` : '' }}
                         </option>
                       </select>
@@ -955,9 +1009,13 @@ onMounted(() => {
                           :disabled="tournament.stage !== 'groups'"
                           :value="getPlayerAtPosition('B', raceNum, pos)"
                           @change="updateRacePlacement('B', raceNum, pos, ($event.target as HTMLSelectElement).value)"
+                          :style="{ color: getPlayerColor(getPlayerAtPosition('A', raceNum, pos)) }"
                           class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
                         <option value="">- Select -</option>
-                        <option v-for="player in activeStagePlayers('B')" :key="player.id" :value="player.id">
+                        <option v-for="player in activeStagePlayers('B')"
+                                :key="player.id"
+                                :value="player.id"
+                                :style="{ color: getPlayerColor(player.id) }">
                           {{ player.name }} {{ player.uma ? `(${player.uma})` : '' }}
                         </option>
                       </select>
@@ -992,9 +1050,13 @@ onMounted(() => {
                           :disabled="tournament.stage !== 'finals'"
                           :value="getPlayerAtPosition('Finals', raceNum, pos)"
                           @change="updateRacePlacement('Finals', raceNum, pos, ($event.target as HTMLSelectElement).value)"
+                          :style="{ color: getPlayerColor(getPlayerAtPosition('A', raceNum, pos)) }"
                           class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all">
                         <option value="">- Select -</option>
-                        <option v-for="player in activeStagePlayers('Finals')" :key="player.id" :value="player.id">
+                        <option v-for="player in activeStagePlayers('Finals')"
+                                :key="player.id"
+                                :value="player.id"
+                                :style="{ color: getPlayerColor(player.id) }">
                           {{ player.name }} {{ player.uma ? `(${player.uma})` : '' }}
                         </option>
                       </select>
@@ -1011,12 +1073,13 @@ onMounted(() => {
 
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 
-            <div v-for="player in tournament!.players!" :key="player.id"
+            <div v-for="player in sortedPlayers" :key="player.id"
                  class="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-indigo-500/50 transition-all flex flex-col h-full">
 
               <div class="flex justify-between items-start mb-4 pb-3 border-b border-slate-700/50">
                 <div>
-                  <div class="font-bold text-white text-lg leading-tight">{{ player.name }}</div>
+                  <div class="font-bold text-white text-lg leading-tight"
+                       :style="{ color: getPlayerColor(player.id) }">{{ player.name }}</div>
                   <div class="text-xs text-slate-500 mt-1" v-if="player.uma">{{ player.uma }}</div>
                 </div>
                 <div class="text-right">
@@ -1074,7 +1137,7 @@ onMounted(() => {
                      class="text-sm rounded px-2 py-1.5 flex items-center gap-2 border"
                      :class="result.position === 1 ? 'bg-amber-500/10 border-amber-500/50 text-amber-100' : 'bg-slate-900 border-slate-700 text-slate-300'">
                   <span class="font-mono w-5 font-bold" :class="result.position === 1 ? 'text-amber-400' : 'text-slate-500'">{{ result.position }}</span>
-                  <span class="truncate">{{ result.name }} - {{ result.uma }}</span>
+                  <span class="truncate" :style="{ color: getPlayerColor(result.playerId) }">{{ result.name }} - {{ result.uma }}</span>
                 </div>
               </div>
             </div>
