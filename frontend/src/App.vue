@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import type { Tournament, Player, Team, Race } from './types';
 
@@ -48,6 +48,8 @@ const joinId = ref('');
 const newPlayerName = ref('');
 const isCaptain = ref(false);
 const currentView = ref<'groups' | 'finals'>('groups');
+const banSearch = ref('');
+const showBans = ref(false);
 
 // Modals & UI
 const showUmaModal = ref(false);
@@ -213,18 +215,38 @@ const canStartDraft = computed(() => validTeamCount.value && validTotalPlayers.v
 // Draft
 const startDraft = async () => {
   if(!tournament.value) return;
-  const captains = tournament.value.players.filter(p => p.isCaptain);
-  const shuffledCaptains = [...captains].sort(() => Math.random() - 0.5);
-  const groupCaptains = [...captains].sort(() => Math.random() - 0.5);
 
-  const teams: Team[] = shuffledCaptains.map((cap, index) => ({
+  // 1. Get Captains
+  const captains = tournament.value.players.filter(p => p.isCaptain);
+
+  // 2. Randomize Draft Order (This determines who picks 1st, 2nd, etc.)
+  const draftOrderCaptains = [...captains].sort(() => Math.random() - 0.5);
+
+  // 3. Randomize Groups (Create a balanced deck of A/B and shuffle it)
+  // This ensures exactly half get A and half get B, regardless of draft order
+  let groupDeck: string[] = [];
+  if (captains.length === 6) {
+    // Create 3 'A's and 3 'B's
+    groupDeck = ['A', 'A', 'A', 'B', 'B', 'B'];
+    // Shuffle them so draft position doesn't determine group
+    groupDeck.sort(() => Math.random() - 0.5);
+  } else {
+    // Everyone is in Group A (Single Stage)
+    groupDeck = Array(captains.length).fill('A');
+  }
+  // Shuffle the "Group Cards"
+  groupDeck.sort(() => Math.random() - 0.5);
+
+  // 4. Create Teams
+  const teams: Team[] = draftOrderCaptains.map((cap, index) => ({
     id: crypto.randomUUID(),
     captainId: cap.id,
     memberIds: [],
     name: `Team ${cap.name}`,
     points: 0,
     finalsPoints: 0,
-    group: groupCaptains.indexOf(cap) < 3 ? 'A' : 'B',
+    // Deal one card from the shuffled group deck
+    group: groupDeck[index] as 'A' | 'B',
     color: TEAM_COLORS[index % TEAM_COLORS.length]
   }));
 
@@ -240,17 +262,6 @@ const startDraft = async () => {
       currentIdx: 0
     }
   });
-};
-
-const getPlayerColor = (playerId: string) => {
-  if (!tournament.value) return '#e2e8f0'; // Default slate-200
-
-  // Find the team this player is in (either as captain or member)
-  const team = tournament.value.teams.find(t =>
-      t.captainId === playerId || t.memberIds.includes(playerId)
-  );
-
-  return team?.color || '#e2e8f0'; // Return team color or default
 };
 
 const availablePlayers = computed(() => {
@@ -290,11 +301,32 @@ const draftPlayer = async (player: Player) => {
   };
 
   if(nextIdx >= t.draft!.order!.length) {
-    updates.status = 'active';
+    updates.status = 'ban';
   }
 
   await updateDoc(getTournamentRef(t.id), updates);
 };
+
+// Toggle Logic (Add/Remove)
+const toggleBan = async (uma: string) => {
+  if(!tournament.value) return;
+
+  const currentlyBanned = isBanned(uma);
+
+  // If banned -> Remove. If not -> Add.
+  const updateOp = currentlyBanned ? arrayRemove(uma) : arrayUnion(uma);
+
+  await updateDoc(getTournamentRef(tournament.value.id), {
+    bans: updateOp
+  });
+};
+
+const finishBanPhase = async () => {
+  const updates: any = {
+    status: 'active'
+  };
+  await updateDoc(getTournamentRef(tournament.value!.id), updates)
+}
 
 // Data Helpers
 const getUmaList = () => [...UMAS].sort();
@@ -589,6 +621,28 @@ const getRankColor = (idx: number) => {
   return 'border-slate-700';
 };
 
+const getPlayerColor = (playerId: string) => {
+  if (!tournament.value) return '#e2e8f0'; // Default slate-200
+
+  // Find the team this player is in (either as captain or member)
+  const team = tournament.value.teams.find(t =>
+      t.captainId === playerId || t.memberIds.includes(playerId)
+  );
+
+  return team?.color || '#e2e8f0'; // Return team color or default
+};
+
+// Filtered list based on search
+const filteredUmas = computed(() => {
+  const query = banSearch.value.toLowerCase();
+  return getUmaList().filter(u => u.toLowerCase().includes(query));
+});
+
+// Helper to check status
+const isBanned = (uma: string) => {
+  return tournament.value?.bans?.includes(uma) || false;
+};
+
 const canShowFinals = computed(() => tournament.value && tournament.value.stage === 'finals');
 
 onMounted(() => {
@@ -729,7 +783,7 @@ onMounted(() => {
         <div class="flex items-center justify-between">
           <div>
             <h2 class="text-3xl font-bold text-white">Team Draft</h2>
-            <p class="text-slate-400">Captains are picking their crew</p>
+            <p class="text-slate-400">Captains are picking their team</p>
           </div>
           <div class="text-right">
             <div class="text-sm text-slate-400">Remaining Pool</div>
@@ -755,7 +809,7 @@ onMounted(() => {
 
         <div class="grid md:grid-cols-12 gap-6">
           <div class="md:col-span-8">
-            <h3 class="text-lg font-bold mb-3 text-slate-300">Available Drivers</h3>
+            <h3 class="text-lg font-bold mb-3 text-slate-300">Available Players</h3>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               <button v-for="player in availablePlayers" :key="player.id"
                       @click="draftPlayer(player)"
@@ -793,9 +847,100 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-else-if="tournament.status === 'ban'" class="space-y-6"></div>
+      <div v-else-if="tournament.status === 'ban'" class="space-y-6">
+        <div class="sticky top-20 z-30 bg-slate-900/90 backdrop-blur-md p-4 rounded-xl border border-slate-700 shadow-xl flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div>
+            <h2 class="text-3xl font-bold text-white flex items-center gap-3">
+              <i class="ph-fill ph-prohibit text-red-500"></i>
+              Ban Phase
+            </h2>
+            <p class="text-slate-400 text-sm">Select characters to exclude from the tournament.</p>
+          </div>
+
+          <div class="flex items-center gap-4 w-full sm:w-auto">
+            <div class="text-right hidden sm:block">
+              <div class="text-2xl font-mono font-bold text-red-400">
+                {{ tournament.bans?.length || 0 }}
+              </div>
+              <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Banned</div>
+            </div>
+
+            <button @click="finishBanPhase"
+                    class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg font-bold shadow-lg shadow-indigo-900/20 transition-all flex items-center justify-center gap-2">
+              <span>Start Tournament</span>
+              <i class="ph-bold ph-arrow-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="relative">
+          <i class="ph-bold ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-xl"></i>
+          <input v-model="banSearch"
+                 type="text"
+                 placeholder="Search Umas..."
+                 class="w-full bg-slate-800 border border-slate-700 rounded-xl py-4 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-sm">
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <button v-for="uma in filteredUmas" :key="uma"
+                  @click="toggleBan(uma)"
+                  class="relative group p-4 rounded-lg border-2 text-left transition-all duration-200 overflow-hidden"
+                  :class="isBanned(uma)
+                    ? 'bg-red-900/20 border-red-500/50'
+                    : 'bg-slate-800 border-slate-700 hover:border-indigo-400 hover:bg-slate-750'">
+
+            <div v-if="isBanned(uma)" class="absolute inset-0 opacity-10 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8cGF0aCBkPSJNLTEgMUwyIC0xTTEgOUw5IDFNOSA5TDEgMSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+')]"></div>
+
+            <div class="flex justify-between items-start relative z-10">
+                <span class="font-medium text-sm pr-2"
+                      :class="isBanned(uma) ? 'text-red-300 line-through decoration-red-500/50' : 'text-slate-200 group-hover:text-white'">
+                    {{ uma }}
+                </span>
+
+              <div class="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors"
+                   :class="isBanned(uma) ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-500 group-hover:bg-indigo-500 group-hover:text-white'">
+                <i class="ph-bold" :class="isBanned(uma) ? 'ph-x' : 'ph-check'"></i>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <div v-if="filteredUmas.length === 0" class="text-center py-12 text-slate-500">
+          No Umas found matching "{{ banSearch }}"
+        </div>
+      </div>
 
       <div v-else-if="tournament.status === 'active' || tournament.status === 'completed'" class="space-y-6">
+        <div v-if="tournament.bans && tournament.bans.length > 0" class="mb-8">
+          <div class="bg-red-900/10 border border-red-500/20 rounded-xl overflow-hidden transition-all duration-300"
+               :class="showBans ? 'shadow-lg shadow-red-900/10' : ''">
+
+            <button @click="showBans = !showBans"
+                    class="w-full px-4 py-3 flex items-center justify-between hover:bg-red-500/5 transition-colors group">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20 group-hover:bg-red-500/20 transition-colors">
+                  <i class="ph-bold ph-prohibit text-lg"></i>
+                </div>
+                <div class="text-left">
+                  <span class="block text-red-200 font-bold uppercase tracking-wider text-sm">Banned List</span>
+                  <span class="text-xs text-red-400/70">{{ tournament.bans.length }} characters restricted</span>
+                </div>
+              </div>
+              <i class="ph-bold ph-caret-down text-red-400 transition-transform duration-300"
+                 :class="showBans ? 'rotate-180' : ''"></i>
+            </button>
+
+            <div v-show="showBans" class="border-t border-red-500/10 bg-red-950/10 p-4">
+              <div class="flex flex-wrap gap-2">
+                <span v-for="uma in tournament.bans" :key="uma"
+                      class="px-3 py-1 bg-red-900/40 border border-red-500/30 rounded text-red-200 text-sm flex items-center gap-2">
+                    <i class="ph-fill ph-prohibit text-xs opacity-50"></i>
+                    {{ uma }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div v-if="tournament.teams.length === 6" class="flex justify-center mb-6">
           <div class="bg-slate-800 p-1 rounded-lg flex gap-1">
