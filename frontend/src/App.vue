@@ -225,7 +225,8 @@ const startDraft = async () => {
   // 3. Randomize Groups (Create a balanced deck of A/B and shuffle it)
   // This ensures exactly half get A and half get B, regardless of draft order
   let groupDeck: string[] = [];
-  if (captains.length === 6) {
+  const isSmallTournament = captains.length === 6
+  if (isSmallTournament) {
     // Create 3 'A's and 3 'B's
     groupDeck = ['A', 'A', 'A', 'B', 'B', 'B'];
     // Shuffle them so draft position doesn't determine group
@@ -247,7 +248,8 @@ const startDraft = async () => {
     finalsPoints: 0,
     // Deal one card from the shuffled group deck
     group: groupDeck[index] as 'A' | 'B',
-    color: TEAM_COLORS[index % TEAM_COLORS.length]
+    color: TEAM_COLORS[index % TEAM_COLORS.length],
+    inFinals: !isSmallTournament
   }));
 
   const draftOrder: string[] = [];
@@ -321,11 +323,32 @@ const toggleBan = async (uma: string) => {
   });
 };
 
+// const finishBanPhase = async () => {
+//   const updates: any = {
+//     status: 'active',
+//     stage: tournament.value!.teams.length === 6 ? 'groups' : 'finals'
+//   };
+//   await updateDoc(getTournamentRef(tournament.value!.id), updates)
+// }
 const finishBanPhase = async () => {
+  if(!tournament.value) return;
+
+  const isSmallTournament = tournament.value.teams.length < 6;
+  const nextStage = isSmallTournament ? 'finals' : 'groups';
+
   const updates: any = {
-    status: 'active'
+    status: 'active',
+    stage: nextStage
   };
-  await updateDoc(getTournamentRef(tournament.value!.id), updates)
+
+  await updateDoc(getTournamentRef(tournament.value.id), updates);
+
+  // UX Improvement: Auto-switch the local view for the admin immediately
+  if (isSmallTournament) {
+    currentView.value = 'finals';
+  } else {
+    currentView.value = 'groups';
+  }
 }
 
 // Data Helpers
