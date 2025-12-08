@@ -14,6 +14,7 @@ export interface Team {
     finalsPoints: number;
     group: 'A' | 'B';
     inFinals?: boolean;
+    color?: string;
 }
 
 export interface Race {
