@@ -34,6 +34,7 @@ export interface Tournament {
     players: Player[];
     teams: Team[];
     races: Race[];
+    bans?: string[];
     createdAt: string;
     draft?: {
         order: string[];
