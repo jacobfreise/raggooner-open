@@ -147,7 +147,7 @@ const subscribeToTournament = (id: string) => {
     if (docSnap.exists()) {
       const data = docSnap.data() as Tournament;
 
-      if (!data.password) {
+      if (!data.password || data.password === '') {
         isPublicTournament.value = true;
       }
       delete data.password;
