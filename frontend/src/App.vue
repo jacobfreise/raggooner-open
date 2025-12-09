@@ -46,7 +46,6 @@ const hasInitialViewLoaded = ref(false);
 const newTournamentName = ref('');
 const joinId = ref('');
 const newPlayerName = ref('');
-const isCaptain = ref(false);
 const currentView = ref<'groups' | 'finals'>('groups');
 const banSearch = ref('');
 const showBans = ref(false);
