@@ -29,6 +29,7 @@ export interface Race {
 export interface Tournament {
     id: string;
     name: string;
+    password?: string;
     status: 'registration' | 'draft' | 'active' | 'ban' | 'completed';
     stage: 'groups' | 'finals';
     players: Player[];

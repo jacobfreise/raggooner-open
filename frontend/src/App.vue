@@ -39,6 +39,12 @@ const getTournamentRef = (id: string) => {
   return doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', id);
 };
 
+//Security
+const adminPasswordInput = ref('');
+const localAdminPassword = ref('');
+const showAdminModal = ref(false);
+const isPublicTournament = ref(false);
+
 // State
 const tournament = ref<Tournament | null>(null);
 const loading = ref(true);
@@ -77,24 +83,71 @@ const init = async () => {
 
     // CLEAN THE URL IMMEDIATELY
     // This removes '?tid=...' from the address bar without reloading the page
-    window.history.replaceState({}, document.title, window.location.pathname);
+    // window.history.replaceState({}, document.title, window.location.pathname);
   } else {
     // Not in URL? Check if we have one saved from before (handling page refreshes)
     tid = sessionStorage.getItem('active_tid');
   }
 
   if (tid) {
+    // Try to retrieve password from session
+    const savedPwd = sessionStorage.getItem(`admin_pwd_${tid}`);
+    if(savedPwd) localAdminPassword.value = savedPwd;
+
     subscribeToTournament(tid);
   } else {
     loading.value = false;
   }
 };
 
+// --- CRITICAL: Secure Update Helper ---
+// Replace ALL your `updateDoc` calls with this function!
+const secureUpdate = async (data: Partial<Tournament>) => {
+  if (!tournament.value) return;
+
+  // We MUST send the password with every write request to satisfy the Firestore Rule
+  const pwdToSend = data.password || localAdminPassword.value;
+
+  const secureData = {
+    ...data,
+    password: pwdToSend
+  };
+
+  try {
+    await updateDoc(getTournamentRef(tournament.value.id), secureData);
+  } catch (e: any) {
+    console.error("Update failed", e);
+    if(e.code === 'permission-denied') {
+      localAdminPassword.value = '';
+      alert("Permission Denied: You do not have the correct admin password.");
+    } else {
+      alert("Error saving data.");
+    }
+  }
+};
+
+// --- Action: Check Password ---
+const loginAsAdmin = () => {
+  // Simple local check against the loaded document
+  localAdminPassword.value = adminPasswordInput.value.toUpperCase();
+  // Persist in session so refresh works
+  sessionStorage.setItem(`admin_pwd_${tournament.value.id}`, adminPasswordInput.value);
+  showAdminModal.value = false;
+  adminPasswordInput.value = '';
+};
+
 const subscribeToTournament = (id: string) => {
   loading.value = true;
   onSnapshot(getTournamentRef(id), (docSnap) => {
     if (docSnap.exists()) {
-      tournament.value = docSnap.data() as Tournament;
+      const data = docSnap.data() as Tournament;
+
+      if (!data.password) {
+        isPublicTournament.value = true;
+      }
+      delete data.password;
+
+      tournament.value = data;
 
       // Fix: Only auto-switch to finals once
       if(!hasInitialViewLoaded.value && tournament.value.stage === 'finals') {
@@ -115,9 +168,14 @@ const subscribeToTournament = (id: string) => {
 // Actions
 const createTournament = async () => {
   const id = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+  // Generate simple 4-char password
+  const password = Math.random().toString(36).substring(2, 6).toUpperCase();
+
   const newDoc: Tournament = {
     id,
     name: newTournamentName.value,
+    password: password, // Store it
     status: 'registration',
     stage: 'groups',
     players: [],
@@ -126,18 +184,22 @@ const createTournament = async () => {
     createdAt: new Date().toISOString()
   };
 
+  tournament.value = newDoc;
+  localAdminPassword.value = password;
+  sessionStorage.setItem(`admin_pwd_${id}`, password);
+
   await setDoc(getTournamentRef(id), newDoc);
   // NEW: Save to storage so it persists on refresh
   sessionStorage.setItem('active_tid', id);
   subscribeToTournament(id);
-  // window.history.pushState({}, '', `?tid=${id}`);
+  window.history.pushState({}, '', `?tid=${id}`);
 };
 
 const joinTournament = () => {
   if(!joinId.value) return;
   subscribeToTournament(joinId.value);
+  window.history.pushState({}, '', `?tid=${joinId.value}`);
   joinId.value = '';
-  // window.history.pushState({}, '', `?tid=${joinId.value}`);
 };
 
 const exitTournament = () => {
@@ -157,8 +219,15 @@ const copyId = () => {
 
 const copyLink = () => {
   if(tournament.value) {
-    navigator.clipboard.writeText(window.location.href + '?tid=' + tournament.value.id);
+    navigator.clipboard.writeText(window.location.href);
     alert("Link Copied!");
+  }
+};
+
+const copyPassword = () => {
+  if (localAdminPassword.value) {
+    navigator.clipboard.writeText(localAdminPassword.value);
+    alert("Password copied to clipboard!");
   }
 };
 
@@ -171,15 +240,18 @@ const addPlayer = async () => {
     uma: ''
   };
 
-  await updateDoc(getTournamentRef(tournament.value.id), {
+  const updates = {
     players: arrayUnion(player)
-  });
+  };
+
+  await secureUpdate(updates)
   newPlayerName.value = '';
 };
 
 const toggleCaptain = async (playerId: string) => {
   if(!tournament.value) return;
 
+  if(!isAdmin.value) return;
   // Create a new array with the flipped status
   const newPlayers = tournament.value.players.map(p => {
     if (p.id === playerId) {
@@ -188,7 +260,7 @@ const toggleCaptain = async (playerId: string) => {
     return p;
   });
 
-  await updateDoc(getTournamentRef(tournament.value.id), {
+  await secureUpdate( {
     players: newPlayers
   });
 };
@@ -196,7 +268,7 @@ const toggleCaptain = async (playerId: string) => {
 const removePlayer = async (pid: string) => {
   if(!tournament.value) return;
   const newPlayers = tournament.value.players.filter(p => p.id !== pid);
-  await updateDoc(getTournamentRef(tournament.value.id), {
+  await secureUpdate({
     players: newPlayers
   });
 };
@@ -204,7 +276,7 @@ const removePlayer = async (pid: string) => {
 const submitUmas = async () => {
   if(!tournament.value) return;
   const newPlayers = tournament.value.players.map(p => ({...p})); // Shallow copy
-  await updateDoc(getTournamentRef(tournament.value.id), {
+  await secureUpdate({
     players: newPlayers
   });
   showUmaModal.value = false;
@@ -269,7 +341,7 @@ const startDraft = async () => {
   for(let i=0; i<teams.length; i++) draftOrder.push(teams[i]!.id);
   for(let i=teams.length-1; i>=0; i--) draftOrder.push(teams[i]!.id);
 
-  await updateDoc(getTournamentRef(tournament.value.id), {
+  await secureUpdate({
     status: 'draft',
     teams: teams,
     draft: {
@@ -319,7 +391,7 @@ const draftPlayer = async (player: Player) => {
     updates.status = 'ban';
   }
 
-  await updateDoc(getTournamentRef(t.id), updates);
+  await secureUpdate(updates);
 };
 
 // Toggle Logic (Add/Remove)
@@ -331,7 +403,7 @@ const toggleBan = async (uma: string) => {
   // If banned -> Remove. If not -> Add.
   const updateOp = currentlyBanned ? arrayRemove(uma) : arrayUnion(uma);
 
-  await updateDoc(getTournamentRef(tournament.value.id), {
+  await secureUpdate({
     bans: updateOp
   });
 };
@@ -354,7 +426,7 @@ const finishBanPhase = async () => {
     stage: nextStage
   };
 
-  await updateDoc(getTournamentRef(tournament.value.id), updates);
+  await secureUpdate(updates);
 
   // UX Improvement: Auto-switch the local view for the admin immediately
   if (isSmallTournament) {
@@ -490,7 +562,7 @@ const updateRacePlacement = async (group: any, raceNumber: number, position: num
   });
 
   try {
-    await updateDoc(getTournamentRef(tournament.value.id), {
+    await secureUpdate({
       races: currentRaces,
       teams: updatedTeams
     });
@@ -573,6 +645,18 @@ const getTotalPoints = (playerid: string) => {
   return points;
 };
 
+const getRoundPoints = (playerid: string) => {
+  if(!tournament.value) return 0;
+  let points = 0;
+  tournament.value.races.filter(r => r.stage === currentView.value).forEach(race => {
+    const placement = race.placements[playerid];
+    if (placement) {
+      points += POINTS_SYSTEM[placement]!;
+    }
+  })
+  return points;
+};
+
 const sortedPlayers = computed(() => {
   if (!tournament?.value?.players) return [];
   return [...tournament!.value.players].sort((a,b) => getTotalPoints(b.id) - getTotalPoints(a.id))
@@ -634,7 +718,7 @@ const advanceToFinals = async () => {
     finalsPoints: 0
   }));
 
-  await updateDoc(getTournamentRef(tournament.value.id), {
+  await secureUpdate({
     teams: updatedTeams,
     stage: 'finals'
   });
@@ -645,7 +729,7 @@ const advanceToFinals = async () => {
 
 const endTournament = async () => {
   if(!tournament.value) return;
-  await updateDoc(getTournamentRef(tournament.value.id), {
+  await secureUpdate({
     status: 'completed'
   });
 };
@@ -679,6 +763,14 @@ const isBanned = (uma: string) => {
   return tournament.value?.bans?.includes(uma) || false;
 };
 
+const isAdmin = computed(() => {
+  if (!tournament.value) return false;
+  // If tournament has no password, treat as public/admin-enabled (or locked, your choice)
+  // if (!tournament.value.password) return true;
+  if (isPublicTournament.value) return true;
+  return localAdminPassword.value !== '';
+});
+
 const canShowFinals = computed(() => tournament.value && tournament.value.stage === 'finals');
 
 onMounted(() => {
@@ -695,6 +787,12 @@ onMounted(() => {
           <span class="text-2xl font-bold text-white heading tracking-widest">Raccoon Open</span>
         </div>
         <div v-if="tournament" class="flex items-center gap-4">
+          <button @click="showAdminModal = true"
+                  class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition-colors mr-2"
+                  :class="isAdmin ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400 hover:bg-emerald-900/50' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'">
+            <i class="ph-bold" :class="isAdmin ? 'ph-lock-open' : 'ph-lock'"></i>
+            {{ isAdmin ? 'Admin' : 'Viewer' }}
+          </button>
           <div class="hidden md:flex flex-col items-end">
             <button @click="copyId" class="text-sm font-mono text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
               Tournament ID <i class="ph ph-copy"></i>
@@ -765,11 +863,12 @@ onMounted(() => {
             <div class="space-y-4">
               <div class="relative">
                 <input v-model="newPlayerName"
+                       :disabled="!isAdmin"
                        @keyup.enter="addPlayer"
                        type="text"
-                       placeholder="Racer Name"
+                       placeholder="Player Name"
                        class="w-full bg-slate-900 border border-slate-700 rounded p-3 pl-4 pr-10 text-white focus:outline-none focus:border-indigo-500 transition-colors">
-                <button @click="addPlayer" :disabled="!newPlayerName" class="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-400 hover:text-white disabled:opacity-30 disabled:hover:text-indigo-400 transition-colors">
+                <button @click="addPlayer" :disabled="!newPlayerName || !isAdmin" class="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-400 hover:text-white disabled:opacity-30 disabled:hover:text-indigo-400 transition-colors">
                   <i class="ph-bold ph-plus text-xl"></i>
                 </button>
               </div>
@@ -791,7 +890,7 @@ onMounted(() => {
                   Players = Captains × 3
                 </li>
               </ul>
-              <button @click="startDraft" :disabled="!canStartDraft" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-20 disabled:cursor-not-allowed text-white py-3 rounded font-bold uppercase tracking-wider transition-colors shadow-lg shadow-emerald-900/20">
+              <button @click="startDraft" :disabled="!canStartDraft || !isAdmin" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-20 disabled:cursor-not-allowed text-white py-3 rounded font-bold uppercase tracking-wider transition-colors shadow-lg shadow-emerald-900/20">
                 Start Draft
               </button>
             </div>
@@ -799,7 +898,7 @@ onMounted(() => {
 
           <div class="md:col-span-2 space-y-4">
             <div v-if="tournament.players.length === 0" class="text-center py-12 text-slate-600 border-2 border-dashed border-slate-800 rounded-xl">
-              No racers added yet.
+              No players added yet.
             </div>
             <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div v-for="player in tournament.players" :key="player.id"
@@ -820,12 +919,13 @@ onMounted(() => {
                     <span class="font-medium" :class="player.isCaptain ? 'text-amber-100' : 'text-slate-200'">{{ player.name }}</span>
                     <span class="text-[10px] uppercase font-bold tracking-wider"
                           :class="player.isCaptain ? 'text-amber-500' : 'text-slate-600'">
-                                {{ player.isCaptain ? 'Captain' : 'Racer' }}
+                                {{ player.isCaptain ? 'Captain' : 'Player' }}
                             </span>
                   </div>
                 </div>
 
                 <button @click.stop="removePlayer(player.id)"
+                        :disabled="!isAdmin"
                         class="w-8 h-8 flex items-center justify-center rounded text-slate-600 hover:bg-red-500/10 hover:text-red-400 transition-colors">
                   <i class="ph-bold ph-trash"></i>
                 </button>
@@ -869,6 +969,7 @@ onMounted(() => {
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               <button v-for="player in availablePlayers" :key="player.id"
                       @click="draftPlayer(player)"
+                      :disabled="!isAdmin"
                       class="bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 p-4 rounded-lg transition-all text-left group relative overflow-hidden">
                 <span class="relative z-10 font-medium group-hover:text-white">{{ player.name }}</span>
                 <div class="absolute bottom-0 right-0 p-2 text-slate-700 group-hover:text-indigo-400 opacity-20">
@@ -922,6 +1023,7 @@ onMounted(() => {
             </div>
 
             <button @click="finishBanPhase"
+                    :disabled="!isAdmin"
                     class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg font-bold shadow-lg shadow-indigo-900/20 transition-all flex items-center justify-center gap-2">
               <span>Start Tournament</span>
               <i class="ph-bold ph-arrow-right"></i>
@@ -940,6 +1042,7 @@ onMounted(() => {
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           <button v-for="uma in filteredUmas" :key="uma"
                   @click="toggleBan(uma)"
+                  :disabled="!isAdmin"
                   class="relative group p-4 rounded-lg border-2 text-left transition-all duration-200 overflow-hidden"
                   :class="isBanned(uma)
                     ? 'bg-red-900/20 border-red-500/50'
@@ -1036,7 +1139,9 @@ onMounted(() => {
               Umas
             </button>
           </div>
-          <button @click="showUmaModal = true" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg shadow-indigo-900/20">
+          <button @click="showUmaModal = true"
+                  :disabled="!isAdmin"
+                  class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg shadow-indigo-900/20">
             <i class="ph-bold ph-gear"></i> Edit Umas
           </button>
         </div>
@@ -1060,8 +1165,8 @@ onMounted(() => {
                   </div>
                   <div class="text-xs text-slate-400 flex gap-2">
                     <span :style="{ color: team.color }"
-                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getTotalPoints(b) - getTotalPoints(a))"
-                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getTotalPoints(pid) + ')'}}</span>
+                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}</span>
                   </div>
                 </div>
                 <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
@@ -1086,8 +1191,8 @@ onMounted(() => {
                   </div>
                   <div class="text-xs text-slate-400 flex gap-2">
                     <span :style="{ color: team.color }"
-                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getTotalPoints(b) - getTotalPoints(a))"
-                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getTotalPoints(pid) + ')'}}</span>
+                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}</span>
                   </div>
                 </div>
                 <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
@@ -1114,8 +1219,8 @@ onMounted(() => {
                   </div>
                   <div class="text-sm text-slate-400 flex gap-2 mt-1">
                     <span :style="{ color: team.color }"
-                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getTotalPoints(b) - getTotalPoints(a))"
-                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getTotalPoints(pid) + ')'}}</span>
+                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}</span>
                   </div>
                 </div>
                 <div class="text-4xl font-mono font-bold text-indigo-400">{{ team.finalsPoints || 0 }}</div>
@@ -1130,13 +1235,17 @@ onMounted(() => {
         </div>
 
         <div v-if="canAdvanceToFinals" class="flex justify-center mt-8">
-          <button @click="advanceToFinals" class="bg-amber-500 hover:bg-amber-600 text-slate-900 text-lg font-bold py-3 px-8 rounded-lg shadow-lg shadow-amber-900/20 animate-pulse">
+          <button @click="advanceToFinals"
+                  :disabled="!isAdmin"
+                  class="bg-amber-500 hover:bg-amber-600 text-slate-900 text-lg font-bold py-3 px-8 rounded-lg shadow-lg shadow-amber-900/20 animate-pulse">
             Initialize Finals Stage
           </button>
         </div>
 
         <div v-if="canEndTournament" class="flex justify-center mt-8">
-          <button @click="endTournament" class="bg-slate-700 hover:bg-green-600 text-white text-lg font-bold py-3 px-8 rounded-lg transition-colors">
+          <button @click="endTournament"
+                  :disabled="!isAdmin"
+                  class="bg-slate-700 hover:bg-green-600 text-white text-lg font-bold py-3 px-8 rounded-lg transition-colors">
             Complete Tournament
           </button>
         </div>
@@ -1169,7 +1278,7 @@ onMounted(() => {
                         {{ pos }}
                       </div>
                       <select
-                          :disabled="tournament.stage !== 'groups'"
+                          :disabled="!isAdmin || tournament.stage !== 'groups'"
                           :value="getPlayerAtPosition('A', raceNum, pos)"
                           @change="updateRacePlacement('A', raceNum, pos, ($event.target as HTMLSelectElement).value)"
                           :style="{ color: getPlayerColor(getPlayerAtPosition('A', raceNum, pos)) }"
@@ -1210,7 +1319,7 @@ onMounted(() => {
                         {{ pos }}
                       </div>
                       <select
-                          :disabled="tournament.stage !== 'groups'"
+                          :disabled="!isAdmin || tournament.stage !== 'groups'"
                           :value="getPlayerAtPosition('B', raceNum, pos)"
                           @change="updateRacePlacement('B', raceNum, pos, ($event.target as HTMLSelectElement).value)"
                           :style="{ color: getPlayerColor(getPlayerAtPosition('B', raceNum, pos)) }"
@@ -1251,7 +1360,7 @@ onMounted(() => {
                         {{ pos }}
                       </div>
                       <select
-                          :disabled="tournament.stage !== 'finals'"
+                          :disabled="!isAdmin || tournament.stage !== 'finals'"
                           :value="getPlayerAtPosition('Finals', raceNum, pos)"
                           @change="updateRacePlacement('Finals', raceNum, pos, ($event.target as HTMLSelectElement).value)"
                           :style="{ color: getPlayerColor(getPlayerAtPosition('Finals', raceNum, pos)) }"
@@ -1377,9 +1486,50 @@ onMounted(() => {
           </div>
 
           <div class="pt-4 border-t border-slate-700 flex justify-end gap-3">
-            <button @click="submitUmas" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded font-bold">Submit Umas</button>
+            <button @click="submitUmas"
+                    :disabled="!isAdmin"
+                    class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded font-bold">Submit Umas</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div v-if="showAdminModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-sm w-full p-6 shadow-2xl relative overflow-hidden">
+
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-bold text-white">
+            {{ isAdmin ? 'Admin Settings' : 'Admin Access' }}
+          </h3>
+          <button @click="showAdminModal = false" class="text-slate-500 hover:text-white"><i class="ph-bold ph-x"></i></button>
+        </div>
+
+        <div v-if="!isAdmin">
+          <p class="text-sm text-slate-400 mb-4">Enter the tournament password to enable editing.</p>
+
+          <input v-model="adminPasswordInput" type="password" placeholder="Password"
+                 @keyup.enter="loginAsAdmin"
+                 class="w-full bg-slate-800 border border-slate-700 rounded p-3 text-white mb-6 focus:outline-none focus:border-indigo-500 text-center font-mono text-lg tracking-widest uppercase">
+
+          <button @click="loginAsAdmin" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-3 rounded-lg font-bold">
+            Unlock Editing
+          </button>
+        </div>
+
+        <div v-else>
+          <div class="bg-slate-800 rounded-lg p-4 mb-4 border border-slate-700 text-center">
+            <p class="text-xs text-slate-500 uppercase tracking-wider font-bold mb-2">Tournament Password</p>
+            <div class="text-3xl font-mono text-emerald-400 tracking-widest font-bold mb-1">
+              {{ "****" }}
+            </div>
+            <p class="text-xs text-slate-500">Share this with co-commentators.</p>
+          </div>
+
+          <button @click="copyPassword" class="w-full bg-slate-700 hover:bg-slate-600 text-white px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors">
+            <i class="ph-bold ph-copy"></i> Copy Password
+          </button>
+        </div>
+
       </div>
     </div>
   </div>
