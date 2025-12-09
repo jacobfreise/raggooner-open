@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, FieldValue } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import type { Tournament, Player, Team, Race } from './types';
+
+export type FirestoreUpdate<T> = {
+  [K in keyof T]?: T[K] | FieldValue;
+};
 
 // Constants
 const POINTS_SYSTEM: Record<number, number> = {
@@ -102,7 +106,7 @@ const init = async () => {
 
 // --- CRITICAL: Secure Update Helper ---
 // Replace ALL your `updateDoc` calls with this function!
-const secureUpdate = async (data: Partial<Tournament>) => {
+const secureUpdate = async (data: FirestoreUpdate<Tournament>) => {
   if (!tournament.value) return;
 
   // We MUST send the password with every write request to satisfy the Firestore Rule
@@ -119,6 +123,7 @@ const secureUpdate = async (data: Partial<Tournament>) => {
     console.error("Update failed", e);
     if(e.code === 'permission-denied') {
       localAdminPassword.value = '';
+      sessionStorage.removeItem(`admin_pwd_${tournament.value!.id}`);
       alert("Permission Denied: You do not have the correct admin password.");
     } else {
       alert("Error saving data.");
@@ -131,7 +136,7 @@ const loginAsAdmin = () => {
   // Simple local check against the loaded document
   localAdminPassword.value = adminPasswordInput.value.toUpperCase();
   // Persist in session so refresh works
-  sessionStorage.setItem(`admin_pwd_${tournament.value.id}`, adminPasswordInput.value);
+  sessionStorage.setItem(`admin_pwd_${tournament.value!.id}`, adminPasswordInput.value);
   showAdminModal.value = false;
   adminPasswordInput.value = '';
 };
