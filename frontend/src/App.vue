@@ -593,7 +593,7 @@ const canAdvanceToFinals = computed(() => {
 const canEndTournament = computed(() => {
   if(!tournament.value) return false;
   if(tournament.value.status === 'completed') return false;
-  if(tournament.value.teams.length < 6) return getRaceCount('A') >= 5;
+  // if(tournament.value.teams.length < 6) return getRaceCount('A') >= 5;
   const finalsRaces = tournament.value.races.filter(r => r.stage === 'finals').length;
   return finalsRaces >= 5;
 });
@@ -1067,10 +1067,13 @@ onMounted(() => {
               <i class="ph-fill ph-trophy text-amber-500 text-5xl mb-2"></i>
             </div>
             <div class="space-y-4">
-              <div v-for="(team, idx) in sortedFinalsTeams" :key="team.id" class="relative bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl p-6 border border-slate-700 flex justify-between items-center shadow-xl">
-                <div class="absolute -left-4 w-8 h-8 rounded-full bg-slate-900 border-2 border-slate-700 flex items-center justify-center font-bold font-mono text-slate-300">
-                  {{ idx + 1 }}
-                </div>
+              <div v-for="(team, idx) in sortedFinalsTeams"
+                   :key="team.id"
+                   class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
+                   :class="getRankColor(idx)">
+<!--                <div class="absolute -left-4 w-8 h-8 rounded-full bg-slate-900 border-2 border-slate-700 flex items-center justify-center font-bold font-mono text-slate-300">-->
+<!--                  {{ idx + 1 }}-->
+<!--                </div>-->
                 <div>
                   <div>
                     <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
@@ -1177,7 +1180,7 @@ onMounted(() => {
                           :disabled="tournament.stage !== 'groups'"
                           :value="getPlayerAtPosition('B', raceNum, pos)"
                           @change="updateRacePlacement('B', raceNum, pos, ($event.target as HTMLSelectElement).value)"
-                          :style="{ color: getPlayerColor(getPlayerAtPosition('A', raceNum, pos)) }"
+                          :style="{ color: getPlayerColor(getPlayerAtPosition('B', raceNum, pos)) }"
                           class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
                         <option value="">- Select -</option>
                         <option v-for="player in activeStagePlayers('B')"
@@ -1218,7 +1221,7 @@ onMounted(() => {
                           :disabled="tournament.stage !== 'finals'"
                           :value="getPlayerAtPosition('Finals', raceNum, pos)"
                           @change="updateRacePlacement('Finals', raceNum, pos, ($event.target as HTMLSelectElement).value)"
-                          :style="{ color: getPlayerColor(getPlayerAtPosition('A', raceNum, pos)) }"
+                          :style="{ color: getPlayerColor(getPlayerAtPosition('Finals', raceNum, pos)) }"
                           class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all">
                         <option value="">- Select -</option>
                         <option v-for="player in activeStagePlayers('Finals')"
