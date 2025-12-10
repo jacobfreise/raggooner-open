@@ -1241,9 +1241,19 @@ onMounted(() => {
               </div>
             </div>
 
-            <div v-if="tournament.status === 'completed'" class="mt-8 text-center p-6 bg-indigo-900/20 border border-indigo-500/30 rounded-xl">
+            <div v-if="tournament.status === 'completed'" class="mt-8 flex flex-col text-center items-center p-6 bg-indigo-900/20 border border-indigo-500/30 rounded-xl">
               <h3 class="text-2xl font-bold text-indigo-300 mb-2">Tournament Complete</h3>
               <p class="text-slate-300">Winner: <span class="font-bold text-white">{{ sortedFinalsTeams[0]?.name }}</span></p>
+              <button
+                  @click="copyResults"
+                  class="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold py-2 px-4 rounded flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                  <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                </svg>
+                Export for Discord
+              </button>
             </div>
           </div>
         </div>
@@ -1435,18 +1445,6 @@ onMounted(() => {
 
             </div>
           </div>
-        </div>
-        <div v-if="tournament.status === 'completed'">
-          <button
-              @click="copyResults"
-              class="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold py-2 px-4 rounded flex items-center gap-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-            </svg>
-            Export for Discord
-          </button>
         </div>
 
         <div class="mt-12 pt-8 border-t border-slate-700">
