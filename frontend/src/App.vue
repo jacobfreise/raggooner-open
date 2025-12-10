@@ -4,6 +4,7 @@ import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, FieldValue } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import type { Tournament, Player, Team, Race } from './types';
+import { generateDiscordReport } from './utils/exportUtils';
 
 export type FirestoreUpdate<T> = {
   [K in keyof T]?: T[K] | FieldValue;
@@ -234,6 +235,14 @@ const copyPassword = () => {
     navigator.clipboard.writeText(localAdminPassword.value);
     alert("Password copied to clipboard!");
   }
+};
+
+const copyResults = async () => {
+  if (!tournament.value) return;
+  const text = generateDiscordReport(tournament.value);
+
+  await navigator.clipboard.writeText(text);
+  alert("Results copied to clipboard!");
 };
 
 const addPlayer = async () => {
@@ -1426,6 +1435,18 @@ onMounted(() => {
 
             </div>
           </div>
+        </div>
+        <div v-if="tournament.status === 'completed'">
+          <button
+              @click="copyResults"
+              class="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold py-2 px-4 rounded flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+            </svg>
+            Export for Discord
+          </button>
         </div>
 
         <div class="mt-12 pt-8 border-t border-slate-700">
