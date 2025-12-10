@@ -18,7 +18,7 @@ service cloud.firestore {
       // (Also allows updates if the doc has no password, for backward compatibility)
       allow update: if
           (request.resource.data.password == resource.data.password) ||
-            !('password' in resource.data);
+            !('password' in resource.data) || resource.data.password == '';
     }
   }
 }
