@@ -839,7 +839,7 @@ onMounted(() => {
             <label class="block text-sm font-medium text-slate-300 mb-2">Create New Tournament</label>
             <input v-model="newTournamentName" type="text" placeholder="e.g. Sunday Cup" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none mb-3">
             <button @click="createTournament" :disabled="!newTournamentName" class="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors heading text-lg">
-              Start New Engine
+              Start
             </button>
           </div>
 
@@ -1010,7 +1010,7 @@ onMounted(() => {
                   <i class="ph-fill ph-user"></i> {{ getPlayerName(memberId) }}
                 </div>
                 <div v-for="n in (2 - team.memberIds.length)" :key="n" class="flex items-center gap-2 text-sm text-slate-700 ml-2 border-dashed border border-slate-800 p-1 rounded">
-                  <span class="text-xs">Empty Seat</span>
+                  <span class="text-xs">Empty Slot</span>
                 </div>
               </div>
             </div>
