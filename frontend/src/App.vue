@@ -95,7 +95,7 @@ const init = async () => {
 
   if (tid) {
     // Try to retrieve password from session
-    const savedPwd = sessionStorage.getItem(`admin_pwd_${tid}`);
+    const savedPwd = localStorage.getItem(`admin_pwd_${tid}`);
     if(savedPwd) localAdminPassword.value = savedPwd;
 
     subscribeToTournament(tid);
@@ -123,7 +123,7 @@ const secureUpdate = async (data: FirestoreUpdate<Tournament>) => {
     console.error("Update failed", e);
     if(e.code === 'permission-denied') {
       localAdminPassword.value = '';
-      sessionStorage.removeItem(`admin_pwd_${tournament.value!.id}`);
+      localStorage.removeItem(`admin_pwd_${tournament.value!.id}`);
       alert("Permission Denied: You do not have the correct admin password.");
     } else {
       alert("Error saving data.");
@@ -136,7 +136,7 @@ const loginAsAdmin = () => {
   // Simple local check against the loaded document
   localAdminPassword.value = adminPasswordInput.value.toUpperCase();
   // Persist in session so refresh works
-  sessionStorage.setItem(`admin_pwd_${tournament.value!.id}`, adminPasswordInput.value);
+  localStorage.setItem(`admin_pwd_${tournament.value!.id}`, adminPasswordInput.value);
   showAdminModal.value = false;
   adminPasswordInput.value = '';
 };
@@ -191,7 +191,7 @@ const createTournament = async () => {
 
   tournament.value = newDoc;
   localAdminPassword.value = password;
-  sessionStorage.setItem(`admin_pwd_${id}`, password);
+  localStorage.setItem(`admin_pwd_${id}`, password);
 
   await setDoc(getTournamentRef(id), newDoc);
   // NEW: Save to storage so it persists on refresh
