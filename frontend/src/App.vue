@@ -86,27 +86,18 @@ const init = async () => {
     // Found in URL? Save it to browser storage for safety
     sessionStorage.setItem('active_tid', tid);
 
-    // CLEAN THE URL IMMEDIATELY
-    // This removes '?tid=...' from the address bar without reloading the page
-    // window.history.replaceState({}, document.title, window.location.pathname);
-  } else {
-    // Not in URL? Check if we have one saved from before (handling page refreshes)
-    tid = sessionStorage.getItem('active_tid');
-  }
-
-  if (tid) {
     // Try to retrieve password from session
     const savedPwd = localStorage.getItem(`admin_pwd_${tid}`);
     if(savedPwd) localAdminPassword.value = savedPwd;
 
     subscribeToTournament(tid);
   } else {
+    sessionStorage.removeItem('active_tid');
     loading.value = false;
   }
 };
 
 // --- CRITICAL: Secure Update Helper ---
-// Replace ALL your `updateDoc` calls with this function!
 const secureUpdate = async (data: FirestoreUpdate<Tournament>) => {
   if (!tournament.value) return;
 
