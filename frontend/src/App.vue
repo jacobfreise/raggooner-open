@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, FieldValue } from 'firebase/firestore';
+import { doc, collection, query, orderBy, getDocs, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, FieldValue } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import type { Tournament, Player, Team, Race } from './types';
 import { generateDiscordReport } from './utils/exportUtils';
@@ -17,14 +17,7 @@ const POINTS_SYSTEM: Record<number, number> = {
 };
 
 const TEAM_COLORS = [
-  '#8c2424', // Red 400
-  '#60a5fa', // Blue 400
-  '#4ade80', // Green 400
-  '#facc15', // Yellow 400
-  '#c084fc', // Purple 400
-  '#ff7fc1', // Pink 400
-  '#06868f', // Cyan 400
-  '#fb923c', // Orange 400
+  '#8c2424', '#60a5fa', '#4ade80', '#facc15', '#c084fc', '#ff7fc1', '#06868f', '#fb923c',
 ];
 
 const UMAS = ['Manhattan Cafe', 'Kawakami Princess', 'Halloween Rice Shower', 'Halloween Super Creek',
@@ -38,7 +31,7 @@ const UMAS = ['Manhattan Cafe', 'Kawakami Princess', 'Halloween Rice Shower', 'H
   'Matikanefukukitaru', 'Nice Nature', 'King Halo'];
 
 // Config
-const appId = 'default-app'; // Can use import.meta.env.VITE_APP_ID if needed
+const appId = 'default-app';
 
 const getTournamentRef = (id: string) => {
   return doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', id);
@@ -61,6 +54,11 @@ const currentView = ref<'groups' | 'finals'>('groups');
 const banSearch = ref('');
 const showBans = ref(false);
 
+// --- NEW STATE FOR HOME PAGE ---
+const homeListLoading = ref(false);
+const showHistory = ref(false);
+const allTournaments = ref<Tournament[]>([]); // We store brief summaries here
+
 // Modals & UI
 const showUmaModal = ref(false);
 const showPlayerOrUmaName = ref(true);
@@ -68,8 +66,6 @@ const saving = ref(false);
 
 // Auth & Init
 const init = async () => {
-  // Check for custom token passed via global variable (common in some embedded scenarios)
-  // In strict TS/Vite, we usually use window object or env vars, but kept simplified here:
   const initialToken = (window as any).__initial_auth_token;
 
   if (initialToken) {
@@ -85,23 +81,65 @@ const init = async () => {
   if (tid) {
     // Found in URL? Save it to browser storage for safety
     sessionStorage.setItem('active_tid', tid);
-
-    // Try to retrieve password from session
     const savedPwd = localStorage.getItem(`admin_pwd_${tid}`);
     if(savedPwd) localAdminPassword.value = savedPwd;
-
     subscribeToTournament(tid);
   } else {
+    // No ID in URL -> Load the "Home Page" list
     sessionStorage.removeItem('active_tid');
-    loading.value = false;
+    loading.value = false; // Stop main loading to show Home
+    fetchPublicTournaments();
   }
 };
+
+// --- NEW FUNCTION: Fetch List for Home Page ---
+const fetchPublicTournaments = async () => {
+  homeListLoading.value = true;
+  try {
+    // Note: ensure you have an index on 'createdAt' desc in Firestore
+    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'tournaments'), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+
+    // Map docs to a lightweight version of Tournament (we don't need all races here really, but it's simpler to type)
+    allTournaments.value = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Tournament));
+  } catch (e) {
+    console.error("Error fetching tournament list", e);
+  } finally {
+    homeListLoading.value = false;
+  }
+};
+
+// Computed for Home Page
+const activeTournamentsList = computed(() =>
+    allTournaments.value.filter(t => t.status !== 'completed')
+);
+
+const pastTournamentsList = computed(() =>
+    allTournaments.value.filter(t => t.status === 'completed')
+);
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'registration': return 'bg-green-500/20 text-green-300 border-green-500/50';
+    case 'active': return 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50';
+    case 'draft': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50';
+    default: return 'bg-slate-500/20 text-slate-400 border-slate-500/50';
+  }
+};
+
+const selectTournamentFromHome = (id: string) => {
+  joinId.value = id;
+  joinTournament();
+}
+
 
 // --- CRITICAL: Secure Update Helper ---
 const secureUpdate = async (data: FirestoreUpdate<Tournament>) => {
   if (!tournament.value) return;
 
-  // We MUST send the password with every write request to satisfy the Firestore Rule
   const pwdToSend = data.password || localAdminPassword.value;
 
   const secureData = {
@@ -125,9 +163,7 @@ const secureUpdate = async (data: FirestoreUpdate<Tournament>) => {
 
 // --- Action: Check Password ---
 const loginAsAdmin = () => {
-  // Simple local check against the loaded document
   localAdminPassword.value = adminPasswordInput.value.toUpperCase();
-  // Persist in session so refresh works
   localStorage.setItem(`admin_pwd_${tournament.value!.id}`, adminPasswordInput.value);
   showAdminModal.value = false;
   adminPasswordInput.value = '';
@@ -146,14 +182,14 @@ const subscribeToTournament = (id: string) => {
 
       tournament.value = data;
 
-      // Fix: Only auto-switch to finals once
       if(!hasInitialViewLoaded.value && tournament.value.stage === 'finals') {
         currentView.value = 'finals';
         hasInitialViewLoaded.value = true;
       }
     } else {
       alert('Tournament not found');
-      window.history.pushState({}, document.title, window.location.pathname);
+      window.history.pushState({}, document.title, window.location.pathname.split('?')[0]);
+      tournament.value = null; // Go back to home
     }
     loading.value = false;
   }, (error) => {
@@ -165,14 +201,12 @@ const subscribeToTournament = (id: string) => {
 // Actions
 const createTournament = async () => {
   const id = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-  // Generate simple 4-char password
   const password = Math.random().toString(36).substring(2, 6).toUpperCase();
 
   const newDoc: Tournament = {
     id,
     name: newTournamentName.value,
-    password: password, // Store it
+    password: password,
     status: 'registration',
     stage: 'groups',
     players: [],
@@ -186,7 +220,6 @@ const createTournament = async () => {
   localStorage.setItem(`admin_pwd_${id}`, password);
 
   await setDoc(getTournamentRef(id), newDoc);
-  // NEW: Save to storage so it persists on refresh
   sessionStorage.setItem('active_tid', id);
   subscribeToTournament(id);
   window.history.pushState({}, '', `?tid=${id}`);
@@ -194,17 +227,26 @@ const createTournament = async () => {
 
 const joinTournament = () => {
   if(!joinId.value) return;
+  if (localStorage.getItem(`admin_pwd_${joinId.value}`)) {
+    localAdminPassword.value = localStorage.getItem(`admin_pwd_${joinId.value}`)!
+  } else {
+    localAdminPassword.value = '';
+  }
   subscribeToTournament(joinId.value);
   window.history.pushState({}, '', `?tid=${joinId.value}`);
   joinId.value = '';
 };
 
 const exitTournament = () => {
-  // NEW: Clear the saved ID
   sessionStorage.removeItem('active_tid');
-
   tournament.value = null;
-  window.history.pushState({}, '', window.location.pathname);
+  // Clear URL params
+  const url = new URL(window.location.href);
+  url.searchParams.delete('tid');
+  window.history.pushState({}, '', url);
+
+  // Reload list for home page
+  fetchPublicTournaments();
 };
 
 const copyId = () => {
@@ -255,9 +297,7 @@ const addPlayer = async () => {
 
 const toggleCaptain = async (playerId: string) => {
   if(!tournament.value) return;
-
   if(!isAdmin.value) return;
-  // Create a new array with the flipped status
   const newPlayers = tournament.value.players.map(p => {
     if (p.id === playerId) {
       return { ...p, isCaptain: !p.isCaptain };
@@ -305,30 +345,19 @@ const canStartDraft = computed(() => validTeamCount.value && validTotalPlayers.v
 // Draft
 const startDraft = async () => {
   if(!tournament.value) return;
-
-  // 1. Get Captains
   const captains = tournament.value.players.filter(p => p.isCaptain);
-
-  // 2. Randomize Draft Order (This determines who picks 1st, 2nd, etc.)
   const draftOrderCaptains = [...captains].sort(() => Math.random() - 0.5);
 
-  // 3. Randomize Groups (Create a balanced deck of A/B and shuffle it)
-  // This ensures exactly half get A and half get B, regardless of draft order
   let groupDeck: string[] = [];
   const isSmallTournament = captains.length === 6
   if (isSmallTournament) {
-    // Create 3 'A's and 3 'B's
     groupDeck = ['A', 'A', 'A', 'B', 'B', 'B'];
-    // Shuffle them so draft position doesn't determine group
     groupDeck.sort(() => Math.random() - 0.5);
   } else {
-    // Everyone is in Group A (Single Stage)
     groupDeck = Array(captains.length).fill('A');
   }
-  // Shuffle the "Group Cards"
   groupDeck.sort(() => Math.random() - 0.5);
 
-  // 4. Create Teams
   const teams: Team[] = draftOrderCaptains.map((cap, index) => ({
     id: crypto.randomUUID(),
     captainId: cap.id,
@@ -336,7 +365,6 @@ const startDraft = async () => {
     name: `Team ${cap.name}`,
     points: 0,
     finalsPoints: 0,
-    // Deal one card from the shuffled group deck
     group: groupDeck[index] as 'A' | 'B',
     color: TEAM_COLORS[index % TEAM_COLORS.length],
     inFinals: !isSmallTournament
@@ -404,8 +432,6 @@ const toggleBan = async (uma: string) => {
   if(!tournament.value) return;
 
   const currentlyBanned = isBanned(uma);
-
-  // If banned -> Remove. If not -> Add.
   const updateOp = currentlyBanned ? arrayRemove(uma) : arrayUnion(uma);
 
   await secureUpdate({
@@ -413,13 +439,6 @@ const toggleBan = async (uma: string) => {
   });
 };
 
-// const finishBanPhase = async () => {
-//   const updates: any = {
-//     status: 'active',
-//     stage: tournament.value!.teams.length === 6 ? 'groups' : 'finals'
-//   };
-//   await updateDoc(getTournamentRef(tournament.value!.id), updates)
-// }
 const finishBanPhase = async () => {
   if(!tournament.value) return;
 
@@ -433,7 +452,6 @@ const finishBanPhase = async () => {
 
   await secureUpdate(updates);
 
-  // UX Improvement: Auto-switch the local view for the admin immediately
   if (isSmallTournament) {
     currentView.value = 'finals';
   } else {
@@ -542,7 +560,6 @@ const updateRacePlacement = async (group: any, raceNumber: number, position: num
   raceData.placements = newPlacements;
   currentRaces[raceIndex] = raceData;
 
-  // Recalculate
   const updatedTeams = tournament.value.teams.map(t => ({
     ...t,
     points: 0,
@@ -695,7 +712,6 @@ const canAdvanceToFinals = computed(() => {
 const canEndTournament = computed(() => {
   if(!tournament.value) return false;
   if(tournament.value.status === 'completed') return false;
-  // if(tournament.value.teams.length < 6) return getRaceCount('A') >= 5;
   const finalsRaces = tournament.value.races.filter(r => r.stage === 'finals').length;
   return finalsRaces >= 5;
 });
@@ -747,31 +763,25 @@ const getRankColor = (idx: number) => {
 };
 
 const getPlayerColor = (playerId: string) => {
-  if (!tournament.value) return '#e2e8f0'; // Default slate-200
-
-  // Find the team this player is in (either as captain or member)
+  if (!tournament.value) return '#e2e8f0';
   const team = tournament.value.teams.find(t =>
       t.captainId === playerId || t.memberIds.includes(playerId)
   );
 
-  return team?.color || '#e2e8f0'; // Return team color or default
+  return team?.color || '#e2e8f0';
 };
 
-// Filtered list based on search
 const filteredUmas = computed(() => {
   const query = banSearch.value.toLowerCase();
   return getUmaList().filter(u => u.toLowerCase().includes(query));
 });
 
-// Helper to check status
 const isBanned = (uma: string) => {
   return tournament.value?.bans?.includes(uma) || false;
 };
 
 const isAdmin = computed(() => {
   if (!tournament.value) return false;
-  // If tournament has no password, treat as public/admin-enabled (or locked, your choice)
-  // if (!tournament.value.password) return true;
   if (isPublicTournament.value) return true;
   return localAdminPassword.value !== '';
 });
@@ -787,10 +797,11 @@ onMounted(() => {
   <div class="min-h-screen flex flex-col">
     <header class="border-b border-slate-700 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-        <div class="flex items-center gap-2 text-indigo-500">
+        <div class="flex items-center gap-2 text-indigo-500 cursor-pointer" @click="exitTournament">
           <i class="ph-fill ph-flag-checkered text-3xl"></i>
           <span class="text-2xl font-bold text-white heading tracking-widest">Raccoon Open</span>
         </div>
+
         <div v-if="tournament" class="flex items-center gap-4">
           <button @click="showAdminModal = true"
                   class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition-colors mr-2"
@@ -806,7 +817,7 @@ onMounted(() => {
               Link <i class="ph ph-share"></i>
             </button>
           </div>
-          <button @click="exitTournament" class="text-slate-400 hover:text-white">
+          <button @click="exitTournament" class="text-slate-400 hover:text-white" title="Go to Home">
             <i class="ph ph-sign-out text-xl"></i>
           </button>
         </div>
@@ -815,497 +826,661 @@ onMounted(() => {
 
     <main class="flex-grow p-4 md:p-6 max-w-7xl mx-auto w-full">
 
-      <div v-if="loading" class="flex justify-center items-center h-64">
-        <i class="ph ph-spinner animate-spin text-4xl text-indigo-500"></i>
-      </div>
+      <div v-if="!loading && !tournament" class="max-w-lg mx-auto mt-8 space-y-12">
 
-      <div v-else-if="!tournament" class="max-w-md mx-auto mt-10 space-y-8">
-        <div class="text-center space-y-2">
-          <h1 class="text-5xl font-bold text-white">Race Manager</h1>
-          <p class="text-slate-400">Organize Racc Open. Draft a Team, low-roll your career, mald a lot and race against the other teams.</p>
+        <div class="text-center space-y-4">
+          <h1 class="text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
+            Racc Open
+          </h1>
+          <p class="text-xl text-slate-400 max-w-2xl mx-auto">
+            Organize Racc Open. Draft a Team, low-roll your career, mald a lot and race against the other teams.
+          </p>
         </div>
 
-        <div class="glass-panel p-6 rounded-xl space-y-6">
-          <div>
-            <label class="block text-sm font-medium text-slate-300 mb-2">Create New Tournament</label>
-            <input v-model="newTournamentName" type="text" placeholder="e.g. Sunday Cup" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none mb-3">
-            <button @click="createTournament" :disabled="!newTournamentName" class="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors heading text-lg">
-              Start
-            </button>
-          </div>
+        <div class="glass-panel p-6 rounded-2xl grid  gap-8 items-center bg-slate-800/40 border border-slate-700/50 shadow-2xl">
+          <div class="space-y-4">
+            <h2 class="text-2xl font-bold text-white mb-4">Create New Tournament</h2>
+            <div class="space-y-3">
+              <input v-model="newTournamentName" type="text" placeholder="Tournament Name" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all">
+              <button @click="createTournament" :disabled="!newTournamentName" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg transition-all shadow-lg shadow-indigo-900/30 flex items-center justify-center gap-2">
+                <i class="ph-bold ph-plus-circle"></i> Start
+              </button>
+            </div>
 
-          <div class="relative">
-            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-700"></div></div>
-            <div class="relative flex justify-center text-sm"><span class="px-2 bg-slate-800 text-slate-500 rounded">Or join existing</span></div>
+            <div class="relative">
+              <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-700"></div></div>
+              <div class="relative flex justify-center text-sm"><span class="px-2 bg-slate-800 text-slate-500 rounded">Or join existing</span></div>
+            </div>
           </div>
+<!--          <div class="hidden md:flex flex-col items-center justify-center h-full">-->
+<!--&lt;!&ndash;            <div class="h-full w-px bg-slate-700"></div>&ndash;&gt;-->
+<!--          </div>-->
 
-          <div>
+          <div class="space-y-4">
+            <h2 class="text-2xl font-bold text-white mb-4">Join by ID</h2>
             <div class="flex gap-2">
-              <input v-model="joinId" type="text" placeholder="Paste Tournament ID" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-              <button @click="joinTournament" :disabled="!joinId" class="bg-slate-700 hover:bg-slate-600 text-white px-6 rounded-lg font-bold transition-colors">
+              <input v-model="joinId" type="text" placeholder="Enter Tournament ID" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all font-mono">
+              <button @click="joinTournament" :disabled="!joinId" class="bg-slate-700 hover:bg-slate-600 text-white px-8 rounded-lg font-bold transition-colors">
                 Join
               </button>
             </div>
           </div>
         </div>
-      </div>
 
-      <div v-else-if="tournament.status === 'registration'" class="space-y-6">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h2 class="text-3xl font-bold text-white">{{ tournament.name }}</h2>
-            <p class="text-slate-400">Phase: <span class="text-indigo-400 font-semibold">Registration</span></p>
+        <div>
+          <div class="flex items-center gap-3 mb-6">
+            <div class="h-8 w-2 bg-indigo-500 rounded-full"></div>
+            <h2 class="text-2xl font-bold text-white">Ongoing Events</h2>
           </div>
-          <div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700">
-            <div class="text-sm text-slate-400">Total Players</div>
-            <div class="text-2xl font-bold text-white font-mono">{{ tournament.players.length }} <span class="text-sm font-normal text-slate-500">/ 18 max</span></div>
+
+          <div v-if="homeListLoading" class="text-center py-12">
+            <i class="ph ph-spinner animate-spin text-4xl text-indigo-500"></i>
+          </div>
+
+          <div v-else-if="activeTournamentsList.length === 0" class="text-center py-12 text-slate-500 border border-dashed border-slate-800 rounded-xl">
+            No active tournaments found. Start one above!
+          </div>
+
+          <div v-else class="grid lg:grid-cols-2 gap-4">
+            <div v-for="t in activeTournamentsList" :key="t.id"
+                 @click="selectTournamentFromHome(t.id)"
+                 class="group relative bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-indigo-500/50 rounded-xl p-6 cursor-pointer transition-all duration-300 hover:-translate-y-1 shadow-lg hover:shadow-indigo-500/10 flex flex-col h-full">
+
+              <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-1.5 text-xs text-slate-500 font-mono">
+                  <i class="ph-bold ph-calendar-blank"></i>
+                  {{ new Date(t.createdAt).toLocaleDateString() }}
+                </div>
+
+                <div :class="`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${getStatusColor(t.status)}`">
+                  {{ t.status }}
+                </div>
+              </div>
+
+              <h3 class="text-xl font-bold text-white mb-auto group-hover:text-indigo-400 transition-colors line-clamp-2">
+                {{ t.name }}
+              </h3>
+
+              <div class="flex flex-col gap-1 text-sm text-slate-400 mt-6 pt-4 border-t border-slate-700/50">
+                <div class="flex items-center gap-2">
+                  <i class="ph-fill ph-users"></i> {{ t.players?.length || 0 }} Players
+                </div>
+                <div class="flex items-center gap-2">
+                  <i class="ph-fill ph-trophy"></i> {{ t.stage === 'groups' ? 'Group Stage' : 'Finals' }}
+                </div>
+                <div class="flex items-center gap-2 mt-1 text-xs text-slate-600">
+                  ID: <span class="font-mono text-slate-500">{{ t.id }}</span>
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
 
-        <div class="grid md:grid-cols-3 gap-6">
-          <div class="md:col-span-1 glass-panel p-6 rounded-xl h-fit sticky top-20">
-            <h3 class="text-xl font-bold mb-4 text-white">Add Participant</h3>
-            <div class="space-y-4">
-              <div class="relative">
-                <input v-model="newPlayerName"
-                       :disabled="!isAdmin"
-                       @keyup.enter="addPlayer"
-                       type="text"
-                       placeholder="Player Name"
-                       class="w-full bg-slate-900 border border-slate-700 rounded p-3 pl-4 pr-10 text-white focus:outline-none focus:border-indigo-500 transition-colors">
-                <button @click="addPlayer" :disabled="!newPlayerName || !isAdmin" class="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-400 hover:text-white disabled:opacity-30 disabled:hover:text-indigo-400 transition-colors">
-                  <i class="ph-bold ph-plus text-xl"></i>
-                </button>
+        <div class="border-t border-slate-800 pt-8 pb-12">
+          <button
+              @click="showHistory = !showHistory"
+              class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mx-auto px-4 py-2 hover:bg-slate-800 rounded-lg"
+          >
+            <span>{{ showHistory ? 'Hide' : 'Show' }} Past Tournaments</span>
+            <i class="ph-bold ph-caret-down transition-transform duration-300" :class="{ 'rotate-180': showHistory }"></i>
+          </button>
+
+          <div v-if="showHistory" class="mt-6 grid md:grid-cols-2 gap-3 animate-fade-in-down">
+            <div v-for="t in pastTournamentsList" :key="t.id"
+                 @click="selectTournamentFromHome(t.id)"
+                 class="flex items-center justify-between bg-slate-900/50 hover:bg-slate-800 border border-slate-800 hover:border-slate-600 rounded-lg p-4 cursor-pointer transition-colors">
+              <div>
+                <h4 class="font-bold text-slate-300">{{ t.name }}</h4>
+                <p class="text-xs text-slate-500 mt-1">
+                  {{ new Date(t.createdAt).toLocaleDateString() }}
+                </p>
               </div>
-
-              <p class="text-xs text-slate-500 leading-relaxed">
-                Enter names one by one. Click on a player in the list to promote them to <span class="text-amber-500 font-bold"><i class="ph-fill ph-crown"></i> Captain</span>.
-              </p>
+              <span class="text-[10px] uppercase font-bold bg-slate-800 text-slate-500 px-2 py-1 rounded border border-slate-700">
+                Completed
+              </span>
             </div>
-
-            <div class="mt-8 pt-6 border-t border-slate-700">
-              <h4 class="text-sm font-bold text-slate-400 uppercase mb-2">Requirements</h4>
-              <ul class="text-xs space-y-2 text-slate-500">
-                <li class="flex items-center gap-2">
-                  <i class="ph-fill" :class="validTeamCount ? 'ph-check-circle text-green-500' : 'ph-x-circle text-red-500'"></i>
-                  3 to 6 Captains
-                </li>
-                <li class="flex items-center gap-2">
-                  <i class="ph-fill" :class="validTotalPlayers ? 'ph-check-circle text-green-500' : 'ph-x-circle text-red-500'"></i>
-                  Players = Captains × 3
-                </li>
-              </ul>
-              <button @click="startDraft" :disabled="!canStartDraft || !isAdmin" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-20 disabled:cursor-not-allowed text-white py-3 rounded font-bold uppercase tracking-wider transition-colors shadow-lg shadow-emerald-900/20">
-                Start Draft
-              </button>
+            <div v-if="pastTournamentsList.length === 0" class="text-center text-slate-600 col-span-2 py-4">
+              No completed tournaments yet.
             </div>
           </div>
+        </div>
 
-          <div class="md:col-span-2 space-y-4">
-            <div v-if="tournament.players.length === 0" class="text-center py-12 text-slate-600 border-2 border-dashed border-slate-800 rounded-xl">
-              No players added yet.
+      </div>
+
+      <div v-else-if="loading" class="flex justify-center items-center h-96">
+        <i class="ph ph-spinner animate-spin text-5xl text-indigo-500"></i>
+      </div>
+
+      <div v-else-if="tournament" class="space-y-6 animate-fade-in">
+
+        <div v-if="tournament.status === 'registration'" class="space-y-6">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h2 class="text-3xl font-bold text-white">{{ tournament.name }}</h2>
+              <p class="text-slate-400">Phase: <span class="text-indigo-400 font-semibold">Registration</span></p>
             </div>
-            <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div v-for="player in tournament.players" :key="player.id"
-                   @click="toggleCaptain(player.id)"
-                   class="relative p-3 rounded-lg flex items-center justify-between group cursor-pointer border transition-all select-none"
-                   :class="player.isCaptain
-                        ? 'bg-amber-900/20 border-amber-500/50 hover:bg-amber-900/30'
-                        : 'bg-slate-800 border-slate-700/50 hover:border-indigo-500/50 hover:bg-slate-750'">
-
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-transform group-active:scale-95 shadow-sm"
-                       :class="player.isCaptain ? 'bg-amber-500 text-slate-900 ring-2 ring-amber-500/20' : 'bg-slate-700 text-slate-400'">
-                    <i v-if="player.isCaptain" class="ph-fill ph-crown text-lg"></i>
-                    <span v-else>{{ player.name.charAt(0) }}</span>
-                  </div>
-
-                  <div class="flex flex-col">
-                    <span class="font-medium" :class="player.isCaptain ? 'text-amber-100' : 'text-slate-200'">{{ player.name }}</span>
-                    <span class="text-[10px] uppercase font-bold tracking-wider"
-                          :class="player.isCaptain ? 'text-amber-500' : 'text-slate-600'">
-                                {{ player.isCaptain ? 'Captain' : 'Player' }}
-                            </span>
-                  </div>
+            <div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700">
+              <div class="text-sm text-slate-400">Total Players</div>
+              <div class="text-2xl font-bold text-white font-mono">{{ tournament.players.length }} <span class="text-sm font-normal text-slate-500">/ 18 max</span></div>
+            </div>
+          </div>
+          <div class="grid md:grid-cols-3 gap-6">
+            <div class="md:col-span-1 glass-panel p-6 rounded-xl h-fit sticky top-20">
+              <h3 class="text-xl font-bold mb-4 text-white">Add Participant</h3>
+              <div class="space-y-4">
+                <div class="relative">
+                  <input v-model="newPlayerName"
+                         :disabled="!isAdmin"
+                         @keyup.enter="addPlayer"
+                         type="text"
+                         placeholder="Player Name"
+                         class="w-full bg-slate-900 border border-slate-700 rounded p-3 pl-4 pr-10 text-white focus:outline-none focus:border-indigo-500 transition-colors">
+                  <button @click="addPlayer" :disabled="!newPlayerName || !isAdmin" class="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-400 hover:text-white disabled:opacity-30 disabled:hover:text-indigo-400 transition-colors">
+                    <i class="ph-bold ph-plus text-xl"></i>
+                  </button>
                 </div>
+                <p class="text-xs text-slate-500 leading-relaxed">
+                  Enter names one by one. Click on a player in the list to promote them to <span class="text-amber-500 font-bold"><i class="ph-fill ph-crown"></i> Captain</span>.
+                </p>
+              </div>
+              <div class="mt-8 pt-6 border-t border-slate-700">
+                <h4 class="text-sm font-bold text-slate-400 uppercase mb-2">Requirements</h4>
+                <ul class="text-xs space-y-2 text-slate-500">
+                  <li class="flex items-center gap-2">
+                    <i class="ph-fill" :class="validTeamCount ? 'ph-check-circle text-green-500' : 'ph-x-circle text-red-500'"></i>
+                    3 to 6 Captains
+                  </li>
+                  <li class="flex items-center gap-2">
+                    <i class="ph-fill" :class="validTotalPlayers ? 'ph-check-circle text-green-500' : 'ph-x-circle text-red-500'"></i>
+                    Players = Captains × 3
+                  </li>
+                </ul>
+                <button @click="startDraft" :disabled="!canStartDraft || !isAdmin" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-20 disabled:cursor-not-allowed text-white py-3 rounded font-bold uppercase tracking-wider transition-colors shadow-lg shadow-emerald-900/20">Start Draft</button>
+              </div>
+            </div>
+            <div class="md:col-span-2 space-y-4">
+              <div v-if="tournament.players.length === 0" class="text-center py-12 text-slate-600 border-2 border-dashed border-slate-800 rounded-xl">No players added yet.</div>
+              <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div v-for="player in tournament.players" :key="player.id"
+                     @click="toggleCaptain(player.id)"
+                     class="relative p-3 rounded-lg flex items-center justify-between group cursor-pointer border transition-all select-none"
+                     :class="player.isCaptain
+                      ? 'bg-amber-900/20 border-amber-500/50 hover:bg-amber-900/30'
+                       : 'bg-slate-800 border-slate-700/50 hover:border-indigo-500/50 hover:bg-slate-750'">
 
-                <button @click.stop="removePlayer(player.id)"
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-transform group-active:scale-95 shadow-sm"
+                         :class="player.isCaptain ? 'bg-amber-500 text-slate-900 ring-2 ring-amber-500/20' : 'bg-slate-700 text-slate-400'">
+                      <i v-if="player.isCaptain" class="ph-fill ph-crown text-lg"></i>
+                      <span v-else>{{ player.name.charAt(0) }}</span>
+                    </div>
+                    <div class="flex flex-col">
+                      <span class="font-medium" :class="player.isCaptain ? 'text-amber-100' : 'text-slate-200'">{{ player.name }}</span>
+                      <span class="text-[10px] uppercase font-bold tracking-wider"
+                            :class="player.isCaptain ? 'text-amber-500' : 'text-slate-600'">
+                          {{ player.isCaptain ? 'Captain' : 'Player' }}
+                      </span>
+                    </div>
+                  </div>
+                  <button @click.stop="removePlayer(player.id)"
+                          :disabled="!isAdmin" class="w-8 h-8 flex items-center justify-center rounded text-slate-600 hover:bg-red-500/10 hover:text-red-400 transition-colors">
+                    <i class="ph-bold ph-trash"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="tournament.status === 'draft'" class="space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-3xl font-bold text-white">Team Draft</h2>
+              <p class="text-slate-400">Captains are picking their team</p>
+            </div>
+            <div class="text-right">
+              <div class="text-sm text-slate-400">Remaining Pool</div>
+              <div class="text-2xl font-mono font-bold">{{ availablePlayers.length }}</div>
+            </div>
+          </div>
+          <div class="bg-slate-800 p-4 rounded-xl border border-indigo-500/30 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg shadow-indigo-900/10">
+            <div class="flex items-center gap-3">
+              <span class="text-slate-400 uppercase text-xs font-bold tracking-wider">Current Pick:</span>
+              <div class="flex items-center gap-2">
+                <span class="text-amber-400 font-bold text-xl heading">{{ currentDrafter?.name }}</span>
+                <span class="text-slate-500 text-sm">({{ currentDrafter?.teamName }})</span>
+              </div>
+            </div>
+            <div class="flex gap-1">
+              <div v-for="(_, idx) in draftPreview" :key="idx"
+                   class="w-3 h-3 rounded-full transition-all"
+                   :class="idx === 0 ? 'bg-amber-500 scale-125' : 'bg-slate-700'">
+              </div>
+            </div>
+          </div>
+          <div class="grid md:grid-cols-12 gap-6">
+            <div class="md:col-span-8">
+              <h3 class="text-lg font-bold mb-3 text-slate-300">Available Players</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                <button v-for="player in availablePlayers" :key="player.id"
+                        @click="draftPlayer(player)"
                         :disabled="!isAdmin"
-                        class="w-8 h-8 flex items-center justify-center rounded text-slate-600 hover:bg-red-500/10 hover:text-red-400 transition-colors">
-                  <i class="ph-bold ph-trash"></i>
+                        class="bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 p-4 rounded-lg transition-all text-left group relative overflow-hidden">
+                  <span class="relative z-10 font-medium group-hover:text-white">{{ player.name }}</span>
+                  <div class="absolute bottom-0 right-0 p-2 text-slate-700 group-hover:text-indigo-400 opacity-20">
+                    <i class="ph-fill ph-steering-wheel text-4xl"></i>
+                  </div>
                 </button>
+              </div>
+            </div>
+
+            <div class="md:col-span-4 space-y-4">
+              <h3 class="text-lg font-bold mb-3 text-slate-300">Squads</h3>
+              <div v-for="team in tournament.teams" :key="team.id"
+                   class="bg-slate-900 border rounded-lg p-4 transition-colors"
+                   :class="currentDrafter?.id === team.captainId ? 'border-amber-500 ring-1 ring-amber-500/50' : 'border-slate-800'">
+                <div class="flex justify-between items-center mb-2">
+                  <span class="font-bold text-white" :style="{ color: team.color }">{{ team.name }}</span>
+                  <i v-if="currentDrafter?.id === team.captainId" class="ph-fill ph-pencil-simple text-amber-500 animate-pulse"></i>
+                </div>
+                <div class="space-y-2">
+                  <div class="flex items-center gap-2 text-sm text-amber-400">
+                    <i class="ph-fill ph-crown"></i> {{ getPlayerName(team.captainId) }}
+                  </div>
+                  <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ml-2">
+                    <i class="ph-fill ph-user"></i> {{ getPlayerName(memberId) }}
+                  </div>
+                  <div v-for="n in (2 - team.memberIds.length)" :key="n" class="flex items-center gap-2 text-sm text-slate-700 ml-2 border-dashed border border-slate-800 p-1 rounded">
+                    <span class="text-xs">Empty Slot</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div v-else-if="tournament.status === 'draft'" class="space-y-6">
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-3xl font-bold text-white">Team Draft</h2>
-            <p class="text-slate-400">Captains are picking their team</p>
-          </div>
-          <div class="text-right">
-            <div class="text-sm text-slate-400">Remaining Pool</div>
-            <div class="text-2xl font-mono font-bold">{{ availablePlayers.length }}</div>
-          </div>
-        </div>
-
-        <div class="bg-slate-800 p-4 rounded-xl border border-indigo-500/30 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg shadow-indigo-900/10">
-          <div class="flex items-center gap-3">
-            <span class="text-slate-400 uppercase text-xs font-bold tracking-wider">Current Pick:</span>
-            <div class="flex items-center gap-2">
-              <span class="text-amber-400 font-bold text-xl heading">{{ currentDrafter?.name }}</span>
-              <span class="text-slate-500 text-sm">({{ currentDrafter?.teamName }})</span>
+        <div v-else-if="tournament.status === 'ban'" class="space-y-6">
+          <div class="sticky top-20 z-30 bg-slate-900/90 backdrop-blur-md p-4 rounded-xl border border-slate-700 shadow-xl flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+              <h2 class="text-3xl font-bold text-white flex items-center gap-3">
+                <i class="ph-fill ph-prohibit text-red-500"></i>
+                Ban Phase
+              </h2>
+              <p class="text-slate-400 text-sm">Select characters to exclude from the tournament.</p>
             </div>
-          </div>
-          <div class="flex gap-1">
-            <div v-for="(_, idx) in draftPreview" :key="idx"
-                 class="w-3 h-3 rounded-full transition-all"
-                 :class="idx === 0 ? 'bg-amber-500 scale-125' : 'bg-slate-700'">
-            </div>
-          </div>
-        </div>
 
-        <div class="grid md:grid-cols-12 gap-6">
-          <div class="md:col-span-8">
-            <h3 class="text-lg font-bold mb-3 text-slate-300">Available Players</h3>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              <button v-for="player in availablePlayers" :key="player.id"
-                      @click="draftPlayer(player)"
-                      :disabled="!isAdmin"
-                      class="bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 p-4 rounded-lg transition-all text-left group relative overflow-hidden">
-                <span class="relative z-10 font-medium group-hover:text-white">{{ player.name }}</span>
-                <div class="absolute bottom-0 right-0 p-2 text-slate-700 group-hover:text-indigo-400 opacity-20">
-                  <i class="ph-fill ph-steering-wheel text-4xl"></i>
+            <div class="flex items-center gap-4 w-full sm:w-auto">
+              <div class="text-right hidden sm:block">
+                <div class="text-2xl font-mono font-bold text-red-400">
+                  {{ tournament.bans?.length || 0 }}
                 </div>
+                <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Banned</div>
+              </div>
+
+              <button @click="finishBanPhase"
+                      :disabled="!isAdmin"
+                      class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg font-bold shadow-lg shadow-indigo-900/20 transition-all flex items-center justify-center gap-2">
+                <span>Start Tournament</span>
+                <i class="ph-bold ph-arrow-right"></i>
               </button>
             </div>
           </div>
 
-          <div class="md:col-span-4 space-y-4">
-            <h3 class="text-lg font-bold mb-3 text-slate-300">Squads</h3>
-            <div v-for="team in tournament.teams" :key="team.id"
-                 class="bg-slate-900 border rounded-lg p-4 transition-colors"
-                 :class="currentDrafter?.id === team.captainId ? 'border-amber-500 ring-1 ring-amber-500/50' : 'border-slate-800'">
-              <div class="flex justify-between items-center mb-2">
-                <span class="font-bold text-white" :style="{ color: team.color }">{{ team.name }}</span>
-                <i v-if="currentDrafter?.id === team.captainId" class="ph-fill ph-pencil-simple text-amber-500 animate-pulse"></i>
-              </div>
-              <div class="space-y-2">
-                <div class="flex items-center gap-2 text-sm text-amber-400">
-                  <i class="ph-fill ph-crown"></i> {{ getPlayerName(team.captainId) }}
-                </div>
-                <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ml-2">
-                  <i class="ph-fill ph-user"></i> {{ getPlayerName(memberId) }}
-                </div>
-                <div v-for="n in (2 - team.memberIds.length)" :key="n" class="flex items-center gap-2 text-sm text-slate-700 ml-2 border-dashed border border-slate-800 p-1 rounded">
-                  <span class="text-xs">Empty Slot</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div v-else-if="tournament.status === 'ban'" class="space-y-6">
-        <div class="sticky top-20 z-30 bg-slate-900/90 backdrop-blur-md p-4 rounded-xl border border-slate-700 shadow-xl flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div>
-            <h2 class="text-3xl font-bold text-white flex items-center gap-3">
-              <i class="ph-fill ph-prohibit text-red-500"></i>
-              Ban Phase
-            </h2>
-            <p class="text-slate-400 text-sm">Select characters to exclude from the tournament.</p>
+          <div class="relative">
+            <i class="ph-bold ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-xl"></i>
+            <input v-model="banSearch"
+                   type="text"
+                   placeholder="Search Umas..."
+                   class="w-full bg-slate-800 border border-slate-700 rounded-xl py-4 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-sm">
           </div>
 
-          <div class="flex items-center gap-4 w-full sm:w-auto">
-            <div class="text-right hidden sm:block">
-              <div class="text-2xl font-mono font-bold text-red-400">
-                {{ tournament.bans?.length || 0 }}
-              </div>
-              <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Banned</div>
-            </div>
-
-            <button @click="finishBanPhase"
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <button v-for="uma in filteredUmas" :key="uma"
+                    @click="toggleBan(uma)"
                     :disabled="!isAdmin"
-                    class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg font-bold shadow-lg shadow-indigo-900/20 transition-all flex items-center justify-center gap-2">
-              <span>Start Tournament</span>
-              <i class="ph-bold ph-arrow-right"></i>
-            </button>
-          </div>
-        </div>
-
-        <div class="relative">
-          <i class="ph-bold ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-xl"></i>
-          <input v-model="banSearch"
-                 type="text"
-                 placeholder="Search Umas..."
-                 class="w-full bg-slate-800 border border-slate-700 rounded-xl py-4 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-sm">
-        </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          <button v-for="uma in filteredUmas" :key="uma"
-                  @click="toggleBan(uma)"
-                  :disabled="!isAdmin"
-                  class="relative group p-4 rounded-lg border-2 text-left transition-all duration-200 overflow-hidden"
-                  :class="isBanned(uma)
+                    class="relative group p-4 rounded-lg border-2 text-left transition-all duration-200 overflow-hidden"
+                    :class="isBanned(uma)
                     ? 'bg-red-900/20 border-red-500/50'
                     : 'bg-slate-800 border-slate-700 hover:border-indigo-400 hover:bg-slate-750'">
 
-            <div v-if="isBanned(uma)" class="absolute inset-0 opacity-10 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8cGF0aCBkPSJNLTEgMUwyIC0xTTEgOUw5IDFNOSA5TDEgMSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+')]"></div>
+              <div v-if="isBanned(uma)" class="absolute inset-0 opacity-10 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8cGF0aCBkPSJNLTEgMUwyIC0xTTEgOUw5IDFNOSA5TDEgMSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+')]"></div>
 
-            <div class="flex justify-between items-start relative z-10">
+              <div class="flex justify-between items-start relative z-10">
                 <span class="font-medium text-sm pr-2"
                       :class="isBanned(uma) ? 'text-red-300 line-through decoration-red-500/50' : 'text-slate-200 group-hover:text-white'">
                     {{ uma }}
                 </span>
 
-              <div class="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors"
-                   :class="isBanned(uma) ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-500 group-hover:bg-indigo-500 group-hover:text-white'">
-                <i class="ph-bold" :class="isBanned(uma) ? 'ph-x' : 'ph-check'"></i>
-              </div>
-            </div>
-          </button>
-        </div>
-
-        <div v-if="filteredUmas.length === 0" class="text-center py-12 text-slate-500">
-          No Umas found matching "{{ banSearch }}"
-        </div>
-      </div>
-
-      <div v-else-if="tournament.status === 'active' || tournament.status === 'completed'" class="space-y-6">
-        <div v-if="tournament.bans && tournament.bans.length > 0" class="mb-8">
-          <div class="bg-red-900/10 border border-red-500/20 rounded-xl overflow-hidden transition-all duration-300"
-               :class="showBans ? 'shadow-lg shadow-red-900/10' : ''">
-
-            <button @click="showBans = !showBans"
-                    class="w-full px-4 py-3 flex items-center justify-between hover:bg-red-500/5 transition-colors group">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20 group-hover:bg-red-500/20 transition-colors">
-                  <i class="ph-bold ph-prohibit text-lg"></i>
-                </div>
-                <div class="text-left">
-                  <span class="block text-red-200 font-bold uppercase tracking-wider text-sm">Banned List</span>
-                  <span class="text-xs text-red-400/70">{{ tournament.bans.length }} characters restricted</span>
+                <div class="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors"
+                     :class="isBanned(uma) ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-500 group-hover:bg-indigo-500 group-hover:text-white'">
+                  <i class="ph-bold" :class="isBanned(uma) ? 'ph-x' : 'ph-check'"></i>
                 </div>
               </div>
-              <i class="ph-bold ph-caret-down text-red-400 transition-transform duration-300"
-                 :class="showBans ? 'rotate-180' : ''"></i>
             </button>
+          </div>
 
-            <div v-show="showBans" class="border-t border-red-500/10 bg-red-950/10 p-4">
-              <div class="flex flex-wrap gap-2">
-                <span v-for="uma in tournament.bans" :key="uma"
-                      class="px-3 py-1 bg-red-900/40 border border-red-500/30 rounded text-red-200 text-sm flex items-center gap-2">
-                    <i class="ph-fill ph-prohibit text-xs opacity-50"></i>
-                    {{ uma }}
-                </span>
-              </div>
-            </div>
+          <div v-if="filteredUmas.length === 0" class="text-center py-12 text-slate-500">
+            No Umas found matching "{{ banSearch }}"
           </div>
         </div>
 
-        <div v-if="tournament.teams.length === 6" class="flex justify-center mb-6">
-          <div class="bg-slate-800 p-1 rounded-lg flex gap-1">
-            <button @click="currentView = 'groups'"
-                    class="px-6 py-2 rounded-md font-bold transition-colors"
-                    :class="currentView === 'groups' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'">
-              Group Stage
-            </button>
-            <button @click="currentView = 'finals'"
-                    :disabled="!canShowFinals"
-                    class="px-6 py-2 rounded-md font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    :class="currentView === 'finals' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'">
-              Finals
-            </button>
-          </div>
-        </div>
+        <div v-else-if="tournament.status === 'active' || tournament.status === 'completed'" class="space-y-6">
+          <div v-if="tournament.bans && tournament.bans.length > 0" class="mb-8">
+            <div class="bg-red-900/10 border border-red-500/20 rounded-xl overflow-hidden transition-all duration-300"
+                 :class="showBans ? 'shadow-lg shadow-red-900/10' : ''">
 
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h2 class="text-3xl font-bold text-white">
-              <span v-if="tournament.teams.length < 6">Main Event</span>
-              <span v-else>{{ currentView === 'groups' ? 'Group Stage' : 'Grand Finals' }}</span>
-            </h2>
-            <p class="text-slate-400"
-               v-if="currentView === 'groups' && tournament.teams.length === 6">Top winner of each group + best runner-up advance.</p>
-          </div>
-
-          <div class="bg-slate-800 p-1 rounded-lg flex gap-1">
-            <button @click="showPlayerOrUmaName = true"
-                    class="px-6 py-2 rounded-md font-bold transition-colors"
-                    :class="showPlayerOrUmaName === true ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'">
-              Players
-            </button>
-            <button @click="showPlayerOrUmaName = false"
-                    class="px-6 py-2 rounded-md font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    :class="showPlayerOrUmaName === false ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'">
-              Umas
-            </button>
-          </div>
-          <button @click="showUmaModal = true"
-                  :disabled="!isAdmin"
-                  class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg shadow-indigo-900/20">
-            <i class="ph-bold ph-gear"></i> Edit Umas
-          </button>
-        </div>
-
-        <div class="grid md:grid-cols-2 gap-8">
-
-          <div v-if="shouldShowGroup('A')">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-xl font-bold text-indigo-400 heading tracking-wide">{{ tournament?.teams.length === 6 ? 'Group A' : 'Standings' }}</h3>
-              <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('A') }} / 5 Races</span>
-            </div>
-            <div class="space-y-3">
-              <div v-for="(team, idx) in sortedTeamsA"
-                   :key="team.id"
-                   class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
-                   :class="getRankColor(idx)">
-                <div>
-                  <div>
-                    <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                    <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>
+              <button @click="showBans = !showBans"
+                      class="w-full px-4 py-3 flex items-center justify-between hover:bg-red-500/5 transition-colors group">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20 group-hover:bg-red-500/20 transition-colors">
+                    <i class="ph-bold ph-prohibit text-lg"></i>
                   </div>
-                  <div class="text-xs text-slate-400 flex gap-2">
-                    <span :style="{ color: team.color }"
-                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}</span>
+                  <div class="text-left">
+                    <span class="block text-red-200 font-bold uppercase tracking-wider text-sm">Banned List</span>
+                    <span class="text-xs text-red-400/70">{{ tournament.bans.length }} characters restricted</span>
                   </div>
                 </div>
-                <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
+                <i class="ph-bold ph-caret-down text-red-400 transition-transform duration-300"
+                   :class="showBans ? 'rotate-180' : ''"></i>
+              </button>
+
+              <div v-show="showBans" class="border-t border-red-500/10 bg-red-950/10 p-4">
+                <div class="flex flex-wrap gap-2">
+                  <span v-for="uma in tournament.bans" :key="uma"
+                        class="px-3 py-1 bg-red-900/40 border border-red-500/30 rounded text-red-200 text-sm flex items-center gap-2">
+                      <i class="ph-fill ph-prohibit text-xs opacity-50"></i>
+                      {{ uma }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div v-if="shouldShowGroup('B')">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-xl font-bold text-rose-400 heading tracking-wide">Group B</h3>
-              <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('B') }} / 5 Races</span>
-            </div>
-            <div class="space-y-3">
-              <div v-for="(team, idx) in sortedTeamsB"
-                   :key="team.id"
-                   class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
-                   :class="getRankColor(idx)">
-                <div>
-                  <div>
-                    <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                    <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>
-                  </div>
-                  <div class="text-xs text-slate-400 flex gap-2">
-                    <span :style="{ color: team.color }"
-                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}</span>
-                  </div>
-                </div>
-                <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="currentView === 'finals'" class="col-span-2 max-w-2xl mx-auto w-full">
-            <div class="text-center mb-6">
-              <i class="ph-fill ph-trophy text-amber-500 text-5xl mb-2"></i>
-            </div>
-            <div class="space-y-4">
-              <div v-for="(team, idx) in sortedFinalsTeams"
-                   :key="team.id"
-                   class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
-                   :class="getRankColor(idx)">
-<!--                <div class="absolute -left-4 w-8 h-8 rounded-full bg-slate-900 border-2 border-slate-700 flex items-center justify-center font-bold font-mono text-slate-300">-->
-<!--                  {{ idx + 1 }}-->
-<!--                </div>-->
-                <div>
-                  <div>
-                    <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                    <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>
-                  </div>
-                  <div class="text-sm text-slate-400 flex gap-2 mt-1">
-                    <span :style="{ color: team.color }"
-                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}</span>
-                  </div>
-                </div>
-                <div class="text-4xl font-mono font-bold text-indigo-400">{{ team.finalsPoints || 0 }}</div>
-              </div>
-            </div>
-
-            <div v-if="tournament.status === 'completed'" class="mt-8 flex flex-col text-center items-center p-6 bg-indigo-900/20 border border-indigo-500/30 rounded-xl">
-              <h3 class="text-2xl font-bold text-indigo-300 mb-2">Tournament Complete</h3>
-              <p class="text-slate-300">Winner: <span class="font-bold text-white">{{ sortedFinalsTeams[0]?.name }}</span></p>
-              <button
-                  @click="copyResults"
-                  class="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold py-2 px-4 rounded flex items-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                  <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-                </svg>
-                Export for Discord
+          <div v-if="tournament.teams.length === 6" class="flex justify-center mb-6">
+            <div class="bg-slate-800 p-1 rounded-lg flex gap-1">
+              <button @click="currentView = 'groups'"
+                      class="px-6 py-2 rounded-md font-bold transition-colors"
+                      :class="currentView === 'groups' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'">
+                Group Stage
+              </button>
+              <button @click="currentView = 'finals'"
+                      :disabled="!canShowFinals"
+                      class="px-6 py-2 rounded-md font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      :class="currentView === 'finals' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'">
+                Finals
               </button>
             </div>
           </div>
-        </div>
 
-        <div v-if="canAdvanceToFinals" class="flex justify-center mt-8">
-          <button @click="advanceToFinals"
-                  :disabled="!isAdmin"
-                  class="bg-amber-500 hover:bg-amber-600 text-slate-900 text-lg font-bold py-3 px-8 rounded-lg shadow-lg shadow-amber-900/20 animate-pulse">
-            Initialize Finals Stage
-          </button>
-        </div>
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h2 class="text-3xl font-bold text-white">
+                <span v-if="tournament.teams.length < 6">Main Event</span>
+                <span v-else>{{ currentView === 'groups' ? 'Group Stage' : 'Grand Finals' }}</span>
+              </h2>
+              <p class="text-slate-400"
+                 v-if="currentView === 'groups' && tournament.teams.length === 6">Top winner of each group + best runner-up advance.</p>
+            </div>
 
-        <div v-if="canEndTournament" class="flex justify-center mt-8">
-          <button @click="endTournament"
-                  :disabled="!isAdmin"
-                  class="bg-slate-700 hover:bg-green-600 text-white text-lg font-bold py-3 px-8 rounded-lg transition-colors">
-            Complete Tournament
-          </button>
-        </div>
+            <div class="bg-slate-800 p-1 rounded-lg flex gap-1">
+              <button @click="showPlayerOrUmaName = true"
+                      class="px-6 py-2 rounded-md font-bold transition-colors"
+                      :class="showPlayerOrUmaName === true ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'">
+                Players
+              </button>
+              <button @click="showPlayerOrUmaName = false"
+                      class="px-6 py-2 rounded-md font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      :class="showPlayerOrUmaName === false ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'">
+                Umas
+              </button>
+            </div>
+            <button @click="showUmaModal = true"
+                    :disabled="!isAdmin"
+                    class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg shadow-indigo-900/20">
+              <i class="ph-bold ph-gear"></i> Edit Umas
+            </button>
+          </div>
 
-        <div class="space-y-8">
+          <div class="grid md:grid-cols-2 gap-8">
 
-          <div v-if="shouldShowGroup('A')">
-            <div class="flex items-center gap-4 mb-4">
-              <h3 class="text-2xl font-bold text-white tracking-wide">
+            <div v-if="shouldShowGroup('A')">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-indigo-400 heading tracking-wide">{{ tournament?.teams.length === 6 ? 'Group A' : 'Standings' }}</h3>
+                <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('A') }} / 5 Races</span>
+              </div>
+              <div class="space-y-3">
+                <div v-for="(team, idx) in sortedTeamsA"
+                     :key="team.id"
+                     class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
+                     :class="getRankColor(idx)">
+                  <div>
+                    <div>
+                      <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
+                      <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>
+                    </div>
+                    <div class="text-xs text-slate-400 flex gap-2">
+                    <span :style="{ color: team.color }"
+                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}</span>
+                    </div>
+                  </div>
+                  <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="shouldShowGroup('B')">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-rose-400 heading tracking-wide">Group B</h3>
+                <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('B') }} / 5 Races</span>
+              </div>
+              <div class="space-y-3">
+                <div v-for="(team, idx) in sortedTeamsB"
+                     :key="team.id"
+                     class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
+                     :class="getRankColor(idx)">
+                  <div>
+                    <div>
+                      <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
+                      <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>
+                    </div>
+                    <div class="text-xs text-slate-400 flex gap-2">
+                      <span :style="{ color: team.color }"
+                            v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                            :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">
+                        {{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="currentView === 'finals'" class="col-span-2 max-w-2xl mx-auto w-full">
+              <div class="text-center mb-6">
+                <i class="ph-fill ph-trophy text-amber-500 text-5xl mb-2"></i>
+              </div>
+              <div class="space-y-4">
+                <div v-for="(team, idx) in sortedFinalsTeams"
+                     :key="team.id"
+                     class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
+                     :class="getRankColor(idx)">
+                  <!--                <div class="absolute -left-4 w-8 h-8 rounded-full bg-slate-900 border-2 border-slate-700 flex items-center justify-center font-bold font-mono text-slate-300">-->
+                  <!--                  {{ idx + 1 }}-->
+                  <!--                </div>-->
+                  <div>
+                    <div>
+                      <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
+                      <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>
+                    </div>
+                    <div class="text-sm text-slate-400 flex gap-2 mt-1">
+                    <span :style="{ color: team.color }"
+                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}</span>
+                    </div>
+                  </div>
+                  <div class="text-4xl font-mono font-bold text-indigo-400">{{ team.finalsPoints || 0 }}</div>
+                </div>
+              </div>
+
+              <div v-if="tournament.status === 'completed'" class="mt-8 flex flex-col text-center items-center p-6 bg-indigo-900/20 border border-indigo-500/30 rounded-xl">
+                <h3 class="text-2xl font-bold text-indigo-300 mb-2">Tournament Complete</h3>
+                <p class="text-slate-300">Winner: <span class="font-bold text-white">{{ sortedFinalsTeams[0]?.name }}</span></p>
+                <button
+                    @click="copyResults"
+                    class="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold py-2 px-4 rounded flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                    <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                  </svg>
+                  Export for Discord
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="canAdvanceToFinals" class="flex justify-center mt-8">
+            <button @click="advanceToFinals"
+                    :disabled="!isAdmin"
+                    class="bg-amber-500 hover:bg-amber-600 text-slate-900 text-lg font-bold py-3 px-8 rounded-lg shadow-lg shadow-amber-900/20 animate-pulse">
+              Initialize Finals Stage
+            </button>
+          </div>
+
+          <div v-if="canEndTournament" class="flex justify-center mt-8">
+            <button @click="endTournament"
+                    :disabled="!isAdmin"
+                    class="bg-slate-700 hover:bg-green-600 text-white text-lg font-bold py-3 px-8 rounded-lg transition-colors">
+              Complete Tournament
+            </button>
+          </div>
+
+          <div class="space-y-8">
+
+            <div v-if="shouldShowGroup('A')">
+              <div class="flex items-center gap-4 mb-4">
+                <h3 class="text-2xl font-bold text-white tracking-wide">
                             <span class="text-indigo-400">
                                 {{ tournament?.teams.length === 6 ? 'Group A' : 'Race' }}
                             </span> Results
-              </h3>
-              <div v-if="saving" class="text-xs font-mono text-emerald-400 animate-pulse">
-                <i class="ph-bold ph-floppy-disk"></i> SAVING...
+                </h3>
+                <div v-if="saving" class="text-xs font-mono text-emerald-400 animate-pulse">
+                  <i class="ph-bold ph-floppy-disk"></i> SAVING...
+                </div>
+              </div>
+
+              <div class="overflow-x-auto pb-4">
+                <div class="flex gap-4 min-w-max">
+                  <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
+                    <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center">
+                      <span class="font-bold text-indigo-400">Race {{ raceNum }}</span>
+                      <span class="text-xs text-slate-500">{{ getRaceTimestamp('A', raceNum) }}</span>
+                    </div>
+                    <div class="p-2 space-y-1 flex-1">
+                      <div v-for="pos in (activeStagePlayers('A').length)" :key="pos" class="flex items-center gap-2">
+                        <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold"
+                             :class="getPositionStyle(pos)">
+                          {{ pos }}
+                        </div>
+                        <select
+                            :disabled="!isAdmin || tournament.stage !== 'groups'"
+                            :value="getPlayerAtPosition('A', raceNum, pos)"
+                            @change="updateRacePlacement('A', raceNum, pos, ($event.target as HTMLSelectElement).value)"
+                            :style="{ color: getPlayerColor(getPlayerAtPosition('A', raceNum, pos)) }"
+                            class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
+                          <option value="">- Select -</option>
+                          <option v-for="player in activeStagePlayers('A')"
+                                  :key="player.id"
+                                  :value="player.id"
+                                  :style="{ color: getPlayerColor(player.id) }">
+                            {{ player.name }} {{ player.uma ? `(${player.uma})` : '' }}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div class="overflow-x-auto pb-4">
-              <div class="flex gap-4 min-w-max">
-                <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
-                  <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center">
-                    <span class="font-bold text-indigo-400">Race {{ raceNum }}</span>
-                    <span class="text-xs text-slate-500">{{ getRaceTimestamp('A', raceNum) }}</span>
-                  </div>
-                  <div class="p-2 space-y-1 flex-1">
-                    <div v-for="pos in (activeStagePlayers('A').length)" :key="pos" class="flex items-center gap-2">
-                      <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold"
-                           :class="getPositionStyle(pos)">
-                        {{ pos }}
+            <div v-if="shouldShowGroup('B')">
+              <div class="flex items-center gap-4 mb-4 border-t border-slate-700 pt-8">
+                <h3 class="text-2xl font-bold text-white tracking-wide">
+                  <span class="text-rose-400">Group B</span> Results
+                </h3>
+              </div>
+
+              <div class="overflow-x-auto pb-4">
+                <div class="flex gap-4 min-w-max">
+                  <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
+                    <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center">
+                      <span class="font-bold text-rose-400">Race {{ raceNum }}</span>
+                      <span class="text-xs text-slate-500">{{ getRaceTimestamp('B', raceNum) }}</span>
+                    </div>
+                    <div class="p-2 space-y-1 flex-1">
+                      <div v-for="pos in (activeStagePlayers('B').length)" :key="pos" class="flex items-center gap-2">
+                        <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold"
+                             :class="getPositionStyle(pos)">
+                          {{ pos }}
+                        </div>
+                        <select
+                            :disabled="!isAdmin || tournament.stage !== 'groups'"
+                            :value="getPlayerAtPosition('B', raceNum, pos)"
+                            @change="updateRacePlacement('B', raceNum, pos, ($event.target as HTMLSelectElement).value)"
+                            :style="{ color: getPlayerColor(getPlayerAtPosition('B', raceNum, pos)) }"
+                            class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
+                          <option value="">- Select -</option>
+                          <option v-for="player in activeStagePlayers('B')"
+                                  :key="player.id"
+                                  :value="player.id"
+                                  :style="{ color: getPlayerColor(player.id) }">
+                            {{ player.name }} {{ player.uma ? `(${player.uma})` : '' }}
+                          </option>
+                        </select>
                       </div>
-                      <select
-                          :disabled="!isAdmin || tournament.stage !== 'groups'"
-                          :value="getPlayerAtPosition('A', raceNum, pos)"
-                          @change="updateRacePlacement('A', raceNum, pos, ($event.target as HTMLSelectElement).value)"
-                          :style="{ color: getPlayerColor(getPlayerAtPosition('A', raceNum, pos)) }"
-                          class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
-                        <option value="">- Select -</option>
-                        <option v-for="player in activeStagePlayers('A')"
-                                :key="player.id"
-                                :value="player.id"
-                                :style="{ color: getPlayerColor(player.id) }">
-                          {{ player.name }} {{ player.uma ? `(${player.uma})` : '' }}
-                        </option>
-                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="currentView === 'finals'">
+              <div class="flex items-center gap-4 mb-4">
+                <h3 class="text-2xl font-bold text-white tracking-wide">
+                  <span class="text-amber-500">Finals</span> Results
+                </h3>
+              </div>
+
+              <div class="overflow-x-auto pb-4">
+                <div class="flex gap-4 min-w-max">
+                  <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
+                    <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center">
+                      <span class="font-bold text-amber-500">Race {{ raceNum }}</span>
+                      <span class="text-xs text-slate-500">{{ getRaceTimestamp('Finals', raceNum) }}</span>
+                    </div>
+                    <div class="p-2 space-y-1 flex-1">
+                      <div v-for="pos in (activeStagePlayers('Finals').length)" :key="pos" class="flex items-center gap-2">
+                        <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold"
+                             :class="getPositionStyle(pos)">
+                          {{ pos }}
+                        </div>
+                        <select
+                            :disabled="!isAdmin || tournament.stage !== 'finals'"
+                            :value="getPlayerAtPosition('Finals', raceNum, pos)"
+                            @change="updateRacePlacement('Finals', raceNum, pos, ($event.target as HTMLSelectElement).value)"
+                            :style="{ color: getPlayerColor(getPlayerAtPosition('Finals', raceNum, pos)) }"
+                            class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all">
+                          <option value="">- Select -</option>
+                          <option v-for="player in activeStagePlayers('Finals')"
+                                  :key="player.id"
+                                  :value="player.id"
+                                  :style="{ color: getPlayerColor(player.id) }">
+                            {{ player.name }} {{ player.uma ? `(${player.uma})` : '' }}
+                          </option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1313,167 +1488,85 @@ onMounted(() => {
             </div>
           </div>
 
-          <div v-if="shouldShowGroup('B')">
-            <div class="flex items-center gap-4 mb-4 border-t border-slate-700 pt-8">
-              <h3 class="text-2xl font-bold text-white tracking-wide">
-                <span class="text-rose-400">Group B</span> Results
-              </h3>
-            </div>
+          <div class="mt-12 pt-8 border-t border-slate-700">
+            <h3 class="text-2xl font-bold text-white mb-6">Player Statistics</h3>
 
-            <div class="overflow-x-auto pb-4">
-              <div class="flex gap-4 min-w-max">
-                <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
-                  <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center">
-                    <span class="font-bold text-rose-400">Race {{ raceNum }}</span>
-                    <span class="text-xs text-slate-500">{{ getRaceTimestamp('B', raceNum) }}</span>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+
+              <div v-for="player in sortedPlayers" :key="player.id"
+                   class="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-indigo-500/50 transition-all flex flex-col h-full">
+
+                <div class="flex justify-between items-start mb-4 pb-3 border-b border-slate-700/50">
+                  <div>
+                    <div class="font-bold text-white text-lg leading-tight"
+                         :style="{ color: getPlayerColor(player.id) }">{{ player.name }}</div>
+                    <div class="text-xs text-slate-500 mt-1" v-if="player.uma">{{ player.uma }}</div>
                   </div>
-                  <div class="p-2 space-y-1 flex-1">
-                    <div v-for="pos in (activeStagePlayers('B').length)" :key="pos" class="flex items-center gap-2">
-                      <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold"
-                           :class="getPositionStyle(pos)">
-                        {{ pos }}
+                  <div class="text-right">
+                    <div class="text-2xl font-mono font-bold text-indigo-400">
+                      {{ getTotalPoints(player.id) }}
+                    </div>
+                    <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Total Pts</div>
+                  </div>
+                </div>
+
+                <div class="flex-1">
+                  <div class="grid grid-cols-5 gap-2">
+                    <div v-for="(result, idx) in getRaceResultsForPlayer(player.id)" :key="idx" class="flex flex-col items-center gap-1">
+
+                      <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm"
+                           :class="getPositionStyle(result.position, result.stage)">
+                        {{ result.position || '-' }}
                       </div>
-                      <select
-                          :disabled="!isAdmin || tournament.stage !== 'groups'"
-                          :value="getPlayerAtPosition('B', raceNum, pos)"
-                          @change="updateRacePlacement('B', raceNum, pos, ($event.target as HTMLSelectElement).value)"
-                          :style="{ color: getPlayerColor(getPlayerAtPosition('B', raceNum, pos)) }"
-                          class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
-                        <option value="">- Select -</option>
-                        <option v-for="player in activeStagePlayers('B')"
-                                :key="player.id"
-                                :value="player.id"
-                                :style="{ color: getPlayerColor(player.id) }">
-                          {{ player.name }} {{ player.uma ? `(${player.uma})` : '' }}
-                        </option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          <div v-if="currentView === 'finals'">
-            <div class="flex items-center gap-4 mb-4">
-              <h3 class="text-2xl font-bold text-white tracking-wide">
-                <span class="text-amber-500">Finals</span> Results
-              </h3>
-            </div>
-
-            <div class="overflow-x-auto pb-4">
-              <div class="flex gap-4 min-w-max">
-                <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
-                  <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center">
-                    <span class="font-bold text-amber-500">Race {{ raceNum }}</span>
-                    <span class="text-xs text-slate-500">{{ getRaceTimestamp('Finals', raceNum) }}</span>
-                  </div>
-                  <div class="p-2 space-y-1 flex-1">
-                    <div v-for="pos in (activeStagePlayers('Finals').length)" :key="pos" class="flex items-center gap-2">
-                      <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold"
-                           :class="getPositionStyle(pos)">
-                        {{ pos }}
-                      </div>
-                      <select
-                          :disabled="!isAdmin || tournament.stage !== 'finals'"
-                          :value="getPlayerAtPosition('Finals', raceNum, pos)"
-                          @change="updateRacePlacement('Finals', raceNum, pos, ($event.target as HTMLSelectElement).value)"
-                          :style="{ color: getPlayerColor(getPlayerAtPosition('Finals', raceNum, pos)) }"
-                          class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all">
-                        <option value="">- Select -</option>
-                        <option v-for="player in activeStagePlayers('Finals')"
-                                :key="player.id"
-                                :value="player.id"
-                                :style="{ color: getPlayerColor(player.id) }">
-                          {{ player.name }} {{ player.uma ? `(${player.uma})` : '' }}
-                        </option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-12 pt-8 border-t border-slate-700">
-          <h3 class="text-2xl font-bold text-white mb-6">Player Statistics</h3>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-
-            <div v-for="player in sortedPlayers" :key="player.id"
-                 class="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-indigo-500/50 transition-all flex flex-col h-full">
-
-              <div class="flex justify-between items-start mb-4 pb-3 border-b border-slate-700/50">
-                <div>
-                  <div class="font-bold text-white text-lg leading-tight"
-                       :style="{ color: getPlayerColor(player.id) }">{{ player.name }}</div>
-                  <div class="text-xs text-slate-500 mt-1" v-if="player.uma">{{ player.uma }}</div>
-                </div>
-                <div class="text-right">
-                  <div class="text-2xl font-mono font-bold text-indigo-400">
-                    {{ getTotalPoints(player.id) }}
-                  </div>
-                  <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Total Pts</div>
-                </div>
-              </div>
-
-              <div class="flex-1">
-                <div class="grid grid-cols-5 gap-2">
-                  <div v-for="(result, idx) in getRaceResultsForPlayer(player.id)" :key="idx" class="flex flex-col items-center gap-1">
-
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm"
-                         :class="getPositionStyle(result.position, result.stage)">
-                      {{ result.position || '-' }}
-                    </div>
-
-                    <span class="text-[10px] font-mono text-slate-400">
+                      <span class="text-[10px] font-mono text-slate-400">
                       {{ result.points > 0 ? '+' + result.points : '0' }}
+                    </span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-12 pt-8 border-t border-slate-700">
+            <h3 class="text-2xl font-bold text-white mb-6">Race History Log</h3>
+
+            <div v-if="sortedRaces.length === 0" class="text-center py-8 text-slate-500 italic bg-slate-800/50 rounded-lg">
+              No races recorded yet.
+            </div>
+
+            <div class="space-y-4">
+              <div v-for="race in sortedRaces" :key="race.id" class="bg-slate-800 rounded-lg p-5 border border-slate-700 hover:border-indigo-500/30 transition-colors">
+                <div class="flex justify-between items-start mb-4">
+                  <div class="flex items-center gap-3">
+                    <span class="px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wider shadow-sm"
+                          :class="race.stage === 'finals' ? 'bg-amber-900/50 text-amber-200 border border-amber-700/50' : 'bg-indigo-900/50 text-indigo-200 border border-indigo-700/50'">
+                        {{ race.stage === 'finals' ? 'Grand Finals' : (tournament?.teams.length === 6 ? 'Group ' + race.group : 'Main Event') }}
+                    </span>
+                    <span class="text-slate-400 text-sm flex items-center gap-1">
+                      <i class="ph-bold ph-clock"></i>
+                      {{ new Date(race.timestamp).toLocaleString() }}
                     </span>
                   </div>
                 </div>
-              </div>
 
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-12 pt-8 border-t border-slate-700">
-          <h3 class="text-2xl font-bold text-white mb-6">Race History Log</h3>
-
-          <div v-if="sortedRaces.length === 0" class="text-center py-8 text-slate-500 italic bg-slate-800/50 rounded-lg">
-            No races recorded yet.
-          </div>
-
-          <div class="space-y-4">
-            <div v-for="race in sortedRaces" :key="race.id" class="bg-slate-800 rounded-lg p-5 border border-slate-700 hover:border-indigo-500/30 transition-colors">
-              <div class="flex justify-between items-start mb-4">
-                <div class="flex items-center gap-3">
-                                <span class="px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wider shadow-sm"
-                                      :class="race.stage === 'finals' ? 'bg-amber-900/50 text-amber-200 border border-amber-700/50' : 'bg-indigo-900/50 text-indigo-200 border border-indigo-700/50'">
-                                    {{ race.stage === 'finals' ? 'Grand Finals' : (tournament?.teams.length === 6 ? 'Group ' + race.group : 'Main Event') }}
-                                </span>
-                  <span class="text-slate-400 text-sm flex items-center gap-1">
-                                    <i class="ph-bold ph-clock"></i>
-                                    {{ new Date(race.timestamp).toLocaleString() }}
-                                </span>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                <div v-for="result in getRaceResults(race)" :key="result.playerId"
-                     class="text-sm rounded px-2 py-1.5 flex items-center gap-2 border"
-                     :class="result.position === 1 ? 'bg-amber-500/10 border-amber-500/50 text-amber-100' : 'bg-slate-900 border-slate-700 text-slate-300'">
-                  <span class="font-mono w-5 font-bold" :class="result.position === 1 ? 'text-amber-400' : 'text-slate-500'">{{ result.position }}</span>
-                  <span class="truncate" :style="{ color: getPlayerColor(result.playerId) }">{{ result.name }} - {{ result.uma }}</span>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                  <div v-for="result in getRaceResults(race)" :key="result.playerId"
+                       class="text-sm rounded px-2 py-1.5 flex items-center gap-2 border"
+                       :class="result.position === 1 ? 'bg-amber-500/10 border-amber-500/50 text-amber-100' : 'bg-slate-900 border-slate-700 text-slate-300'">
+                    <span class="font-mono w-5 font-bold" :class="result.position === 1 ? 'text-amber-400' : 'text-slate-500'">{{ result.position }}</span>
+                    <span class="truncate" :style="{ color: getPlayerColor(result.playerId) }">{{ result.name }} - {{ result.uma }}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+
         </div>
 
       </div>
-
     </main>
 
     <div v-if="showUmaModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
