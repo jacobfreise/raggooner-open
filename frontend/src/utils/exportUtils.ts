@@ -62,6 +62,7 @@ export const generateDiscordReport = (t: Tournament): string => {
 
         lines.push(`**🚫 Bans:** ${banString}`);
     }
+    lines.push(`Tournament ID: ${t.id}`);
 
     return lines.join('\n');
 };
