@@ -20,7 +20,8 @@ const TEAM_COLORS = [
   '#8c2424', '#60a5fa', '#4ade80', '#facc15', '#c084fc', '#ff7fc1', '#06868f', '#fb923c',
 ];
 
-const UMAS = ['Manhattan Cafe', 'Kawakami Princess', 'Halloween Rice Shower', 'Halloween Super Creek',
+const UMAS = ['Festival Symboli Rudolf', 'Festival Gold City', 'Manhattan Cafe', 'Kawakami Princess',
+  'Halloween Rice Shower', 'Halloween Super Creek',
   'Agnes Digital', 'Hishi Akebono', 'Full Armor Matikanefukukitaru', 'Eishin Flash', 'Meisho Doto', 'Summer Special Week',
   'Summer Maruzensky', 'Gold City', 'Fuji Kiseki', 'Fantasy Grass Wonder', 'Fantasy El Condor Pasa', 'Hishi Amazon',
   'Seiun Sky', 'Wedding Air Groove', 'Wedding Mayano Top Gun', 'Narita Brian', 'Smart Falcon', 'Narita Taishin',
