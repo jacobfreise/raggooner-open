@@ -292,8 +292,8 @@ const addPlayer = async () => {
     players: arrayUnion(player)
   };
 
-  await secureUpdate(updates)
   newPlayerName.value = '';
+  await secureUpdate(updates)
 };
 
 const toggleCaptain = async (playerId: string) => {
@@ -1135,29 +1135,56 @@ onMounted(() => {
                    class="w-full bg-slate-800 border border-slate-700 rounded-xl py-4 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-sm">
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            <button v-for="uma in filteredUmas" :key="uma"
-                    @click="toggleBan(uma)"
-                    :disabled="!isAdmin"
-                    class="relative group p-4 rounded-lg border-2 text-left transition-all duration-200 overflow-hidden"
-                    :class="isBanned(uma)
-                    ? 'bg-red-900/20 border-red-500/50'
-                    : 'bg-slate-800 border-slate-700 hover:border-indigo-400 hover:bg-slate-750'">
+          <div class="grid md:grid-cols-12 gap-6">
+            <div class="md:col-span-8">
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <button v-for="uma in filteredUmas" :key="uma"
+                        @click="toggleBan(uma)"
+                        :disabled="!isAdmin"
+                        class="relative group p-4 rounded-lg border-2 text-left transition-all duration-200 overflow-hidden"
+                        :class="isBanned(uma)
+                        ? 'bg-red-900/20 border-red-500/50'
+                        : 'bg-slate-800 border-slate-700 hover:border-indigo-400 hover:bg-slate-750'">
 
-              <div v-if="isBanned(uma)" class="absolute inset-0 opacity-10 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8cGF0aCBkPSJNLTEgMUwyIC0xTTEgOUw5IDFNOSA5TDEgMSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+')]"></div>
+                  <div v-if="isBanned(uma)" class="absolute inset-0 opacity-10 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8cGF0aCBkPSJNLTEgMUwyIC0xTTEgOUw5IDFNOSA5TDEgMSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+')]"></div>
 
-              <div class="flex justify-between items-start relative z-10">
-                <span class="font-medium text-sm pr-2"
-                      :class="isBanned(uma) ? 'text-red-300 line-through decoration-red-500/50' : 'text-slate-200 group-hover:text-white'">
-                    {{ uma }}
-                </span>
+                  <div class="flex justify-between items-start relative z-10">
+                    <span class="font-medium text-sm pr-2"
+                          :class="isBanned(uma) ? 'text-red-300 line-through decoration-red-500/50' : 'text-slate-200 group-hover:text-white'">
+                        {{ uma }}
+                    </span>
 
-                <div class="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors"
-                     :class="isBanned(uma) ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-500 group-hover:bg-indigo-500 group-hover:text-white'">
-                  <i class="ph-bold" :class="isBanned(uma) ? 'ph-x' : 'ph-check'"></i>
+                    <div class="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors"
+                         :class="isBanned(uma) ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-500 group-hover:bg-indigo-500 group-hover:text-white'">
+                      <i class="ph-bold" :class="isBanned(uma) ? 'ph-x' : 'ph-check'"></i>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div class="md:col-span-4 space-y-4">
+              <h3 class="text-lg font-bold mb-3 text-slate-300">Squads</h3>
+              <div v-for="team in tournament.teams" :key="team.id"
+                   class="bg-slate-900 border rounded-lg p-4 transition-colors"
+                   :class="currentDrafter?.id === team.captainId ? 'border-amber-500 ring-1 ring-amber-500/50' : 'border-slate-800'">
+                <div class="flex justify-between items-center mb-2">
+                  <span class="font-bold text-white" :style="{ color: team.color }">{{ team.name }}</span>
+                  <i v-if="currentDrafter?.id === team.captainId" class="ph-fill ph-pencil-simple text-amber-500 animate-pulse"></i>
+                </div>
+                <div class="space-y-2">
+                  <div class="flex items-center gap-2 text-sm text-amber-400">
+                    <i class="ph-fill ph-crown"></i> {{ getPlayerName(team.captainId) }}
+                  </div>
+                  <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ml-2">
+                    <i class="ph-fill ph-user"></i> {{ getPlayerName(memberId) }}
+                  </div>
+                  <div v-for="n in (2 - team.memberIds.length)" :key="n" class="flex items-center gap-2 text-sm text-slate-700 ml-2 border-dashed border border-slate-800 p-1 rounded">
+                    <span class="text-xs">Empty Slot</span>
+                  </div>
                 </div>
               </div>
-            </button>
+            </div>
           </div>
 
           <div v-if="filteredUmas.length === 0" class="text-center py-12 text-slate-500">
