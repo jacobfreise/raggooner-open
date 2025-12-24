@@ -5,6 +5,7 @@ import { doc, collection, query, orderBy, getDocs, onSnapshot, setDoc, updateDoc
 import { auth, db } from './firebase';
 import type { Tournament, Player, Team, Race, Wildcard } from './types';
 import { generateDiscordReport } from './utils/exportUtils';
+import {run} from "vue-tsc";
 
 export type FirestoreUpdate<T> = {
   [K in keyof T]?: T[K] | FieldValue;
@@ -841,12 +842,17 @@ const advanceToFinals = async () => {
     const runnerUpA = groupA[1];
     const runnerUpB = groupB[1];
 
-    let wildCard;
-    if(runnerUpA!.points > runnerUpB!.points) wildCard = runnerUpA;
-    else if(runnerUpB!.points > runnerUpA!.points) wildCard = runnerUpB;
-    else wildCard = Math.random() > 0.5 ? runnerUpA : runnerUpB; // Coin flip tiebreaker
+    if (teamCount === 8) {
+      finalistsIds = [winnerA!.id, winnerB!.id, runnerUpA!.id, runnerUpB!.id];
+    }
+    else {
+      let wildCard;
+      if (runnerUpA!.points > runnerUpB!.points) wildCard = runnerUpA;
+      else if (runnerUpB!.points > runnerUpA!.points) wildCard = runnerUpB;
+      else wildCard = Math.random() > 0.5 ? runnerUpA : runnerUpB; // Coin flip tiebreaker
 
-    finalistsIds = [winnerA!.id, winnerB!.id, wildCard!.id];
+      finalistsIds = [winnerA!.id, winnerB!.id, wildCard!.id];
+    }
   }
 
   const updatedTeams = tournament.value.teams.map(t => ({
