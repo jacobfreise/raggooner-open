@@ -1,4 +1,4 @@
-import type { Tournament, Team, Player, Race } from '../types'; // Adjust path if needed
+import type {Tournament, Team, Player, Race, Wildcard} from '../types'; // Adjust path if needed
 
 // 🛠️ CONFIG: Adjust this to match your game's scoring rules
 const POINTS_SYSTEM: Record<number, number> = {
@@ -19,7 +19,7 @@ export const generateDiscordReport = (t: Tournament): string => {
     // ==========================================
     // 1. GROUP STAGE (A & B)
     // ==========================================
-    const groupNames = ['A', 'B'] as const;
+    const groupNames = ['A', 'B', 'C'] as const;
 
     groupNames.forEach(groupName => {
         // Filter Races for this Group
@@ -30,9 +30,22 @@ export const generateDiscordReport = (t: Tournament): string => {
         // Filter Teams for this Group
         const groupTeams = t.teams.filter(team => team.group === groupName);
 
+        // Check for wildcards in this group
+        const groupWildcards = t.wildcards?.filter(w => w.group === groupName) || [];
+
+        // Only generate this section if data exists (Teams OR Wildcards + Races)
+        const hasParticipants = groupTeams.length > 0 || groupWildcards.length > 0;
+
         // Only generate this section if data exists
-        if (groupRaces.length > 0 && groupTeams.length > 0) {
-            lines.push(buildStageSection(`Group ${groupName}`, groupTeams, groupRaces, playerMap));
+        if (groupRaces.length > 0 && hasParticipants) {
+            lines.push(buildStageSection(
+                `Group ${groupName}`,
+                groupName, // Pass the ID ('A', 'B', etc)
+                groupTeams,
+                groupRaces,
+                t.wildcards || [], // Pass all wildcards
+                playerMap
+            ));
             lines.push('');
         }
     });
@@ -46,8 +59,20 @@ export const generateDiscordReport = (t: Tournament): string => {
 
     const finalsTeams = t.teams.filter(team => team.inFinals);
 
-    if (finalsRaces.length > 0 && finalsTeams.length > 0) {
-        lines.push(buildStageSection('Finals', finalsTeams, finalsRaces, playerMap));
+    // Check for wildcards in finals
+    const finalsWildcards = t.wildcards?.filter(w => w.group === 'Finals') || [];
+
+    const hasFinalsParticipants = finalsTeams.length > 0 || finalsWildcards.length > 0;
+
+    if (finalsRaces.length > 0 && hasFinalsParticipants) {
+        lines.push(buildStageSection(
+            'Finals',
+            'Finals', // Pass ID
+            finalsTeams,
+            finalsRaces,
+            t.wildcards || [],
+            playerMap
+        ));
         lines.push('');
     }
 
@@ -74,8 +99,10 @@ export const generateDiscordReport = (t: Tournament): string => {
  */
 const buildStageSection = (
     title: string,
+    groupIdentifier: string,
     teams: Team[],
     races: Race[],
+    wildcards: Wildcard[],
     playerMap: Map<string, Player>
 ): string => {
     const sectionLines: string[] = [];
@@ -125,10 +152,33 @@ const buildStageSection = (
         sectionLines.push(`> Umas - ${umasText}`);
     });
 
+    // 4. Generate Wildcard Text (NEW)
+    const activeWildcards = wildcards.filter(w => w.group === groupIdentifier);
+
+    if (activeWildcards.length > 0) {
+        sectionLines.push(''); // Spacing
+        sectionLines.push(`**👻 Wildcards:**`);
+
+        // Map to objects with score for sorting
+        const sortedWildcards = activeWildcards.map(w => {
+            const p = playerMap.get(w.playerId);
+            const score = scopedPlayerScores[w.playerId] || 0;
+            return {
+                name: p?.name || 'Unknown',
+                uma: p?.uma || 'Unknown',
+                score: score
+            };
+        }).sort((a, b) => b.score - a.score); // Sort High to Low
+
+        sortedWildcards.forEach(w => {
+            sectionLines.push(`${w.name} (${w.score}) - ${w.uma}`);
+        });
+    }
+
     sectionLines.push('');
 
-    // 4. Generate Race Winners Text
-    sectionLines.push(`**Race Winners:**`);
+    // 5. Generate Race Winners Text
+    sectionLines.push(`**🏁 Race Winners:**`);
     races.forEach((race, index) => {
         // Find the player ID who has placement: 1
         const winnerId = Object.keys(race.placements).find(pid => race.placements[pid] === 1);
