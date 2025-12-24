@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { doc, collection, query, orderBy, getDocs, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, FieldValue } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import type { Tournament, Player, Team, Race } from './types';
+import type { Tournament, Player, Team, Race, Wildcard } from './types';
 import { generateDiscordReport } from './utils/exportUtils';
 
 export type FirestoreUpdate<T> = {
@@ -17,7 +17,18 @@ const POINTS_SYSTEM: Record<number, number> = {
 };
 
 const TEAM_COLORS = [
-  '#8c2424', '#60a5fa', '#4ade80', '#facc15', '#c084fc', '#ff7fc1', '#06868f', '#fb923c',
+  '#ef4444', // Red
+  '#60a5fa', // Blue
+  '#4ade80', // Green
+  '#facc15', // Yellow
+  '#c084fc', // Purple
+  '#ff7fc1', // Pink
+  '#2dd4bf', // Teal
+  '#fb923c', // Orange
+  '#a3e635', // Lime
+  '#818cf8', // Indigo
+  '#22d3ee', // Cyan
+  '#f43f5e', // Rose
 ];
 
 const UMAS = ['Tosan Jordan', 'Festival Symboli Rudolf',
@@ -54,6 +65,9 @@ const newPlayerName = ref('');
 const currentView = ref<'groups' | 'finals'>('groups');
 const banSearch = ref('');
 const showBans = ref(false);
+const showWildcardModal = ref(false);
+const newWildcardName = ref('');
+const wildcardTargetGroup = ref<'A' | 'B' | 'C' | 'Finals' | ''>('');
 
 // --- NEW STATE FOR HOME PAGE ---
 const homeListLoading = ref(false);
@@ -296,6 +310,42 @@ const addPlayer = async () => {
   await secureUpdate(updates)
 };
 
+const openWildcardModal = (group: 'A' | 'B' | 'C' | 'Finals') => {
+  if (!isAdmin.value) return;
+  wildcardTargetGroup.value = group;
+  showWildcardModal.value = true;
+};
+
+const addWildcard = async () => {
+  if (!tournament.value || !newWildcardName.value || !wildcardTargetGroup.value) return;
+
+  // 1. Create the Player
+  const newPlayer: Player = {
+    id: crypto.randomUUID(),
+    name: newWildcardName.value,
+    isCaptain: false, // Wildcards are never captains
+    uma: ''
+  };
+
+  // 2. Create the Wildcard Entry
+  const newWildcard: Wildcard = {
+    playerId: newPlayer.id,
+    group: wildcardTargetGroup.value as any
+  };
+
+  // 3. Update Firestore
+  const updates = {
+    players: arrayUnion(newPlayer),
+    wildcards: arrayUnion(newWildcard)
+  };
+
+  await secureUpdate(updates);
+
+  // Reset
+  newWildcardName.value = '';
+  showWildcardModal.value = false;
+};
+
 const toggleCaptain = async (playerId: string) => {
   if(!tournament.value) return;
   if(!isAdmin.value) return;
@@ -332,7 +382,7 @@ const submitUmas = async () => {
 const validTeamCount = computed(() => {
   if(!tournament.value) return false;
   const caps = tournament.value.players.filter(p => p.isCaptain).length;
-  return caps >= 3 && caps <= 6;
+  return caps >= 3 && caps <= 9 && caps != 7;
 });
 
 const validTotalPlayers = computed(() => {
@@ -350,13 +400,24 @@ const startDraft = async () => {
   const draftOrderCaptains = [...captains].sort(() => Math.random() - 0.5);
 
   let groupDeck: string[] = [];
-  const isSmallTournament = captains.length === 6
-  if (isSmallTournament) {
+  const numTeams = captains.length;
+
+  // --- LOGIC UPDATE HERE ---
+  if (numTeams === 9) {
+    // 3 Groups of 3
+    groupDeck = ['A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'];
+  } else if (numTeams === 8) {
+    // 2 Groups of 4
+    groupDeck = ['A', 'A', 'A', 'A', 'B', 'B', 'B', 'B'];
+  } else if (numTeams === 6) {
+    // 2 Groups of 3
     groupDeck = ['A', 'A', 'A', 'B', 'B', 'B'];
-    groupDeck.sort(() => Math.random() - 0.5);
   } else {
-    groupDeck = Array(captains.length).fill('A');
+    // Small tournament (Main Event)
+    groupDeck = Array(numTeams).fill('A');
   }
+
+  // Shuffle groups
   groupDeck.sort(() => Math.random() - 0.5);
 
   const teams: Team[] = draftOrderCaptains.map((cap, index) => ({
@@ -366,9 +427,9 @@ const startDraft = async () => {
     name: `Team ${cap.name}`,
     points: 0,
     finalsPoints: 0,
-    group: groupDeck[index] as 'A' | 'B',
+    group: groupDeck[index] as 'A' | 'B' | 'C',
     color: TEAM_COLORS[index % TEAM_COLORS.length],
-    inFinals: !isSmallTournament
+    inFinals: numTeams < 6
   }));
 
   const draftOrder: string[] = [];
@@ -468,19 +529,29 @@ const getPlayerNameOrUma = (id: string) => showPlayerOrUmaName.value ? getPlayer
 
 const shouldShowGroup = (group: string) => {
   if(currentView.value === 'finals') return false;
-  if(tournament.value && tournament.value.teams.length < 6) return group === 'A';
-  return true;
+  if(!tournament.value) return false;
+
+  const teamCount = tournament.value.teams.length;
+
+  // Single Group (Main Event)
+  if(teamCount < 6) return group === 'A';
+
+  // 3 Groups (9 Teams)
+  if(teamCount === 9) return ['A', 'B', 'C'].includes(group);
+
+  // 2 Groups (6 or 8 Teams)
+  return ['A', 'B'].includes(group);
 };
 
 // Race Logic
-const activeStagePlayers = (targetGroup: 'A' | 'B' | 'Finals') : Player[] => {
+const activeStagePlayers = (targetGroup: 'A' | 'B' | 'C' | 'Finals') : Player[] => {
   if (!tournament.value) return [];
 
   let targetTeams: Team[] = [];
   if (currentView.value === 'finals' || targetGroup === 'Finals') {
     targetTeams = tournament.value.teams.filter(t => t.inFinals).sort((a,b) => b.finalsPoints - a.finalsPoints);
   } else if (targetGroup) {
-    if(tournament.value.teams.length === 6) {
+    if(tournament.value.teams.length >= 6) {
       targetTeams = tournament.value.teams.filter(t => t.group === targetGroup).sort((a,b) => b.points - a.points);
     } else {
       targetTeams = tournament.value.teams.sort((a,b) => b.points - a.points);
@@ -492,6 +563,16 @@ const activeStagePlayers = (targetGroup: 'A' | 'B' | 'Finals') : Player[] => {
     players.push({ id: t.captainId, name: getPlayerName(t.captainId), isCaptain: true, uma: getPlayerUma(t.captainId) });
     t.memberIds.forEach(mid => players.push({ id: mid, name: getPlayerName(mid), isCaptain: false, uma: getPlayerUma(mid) }));
   });
+
+  // B. NEW: Get Wildcards for this Group
+  const groupWildcards = (tournament.value.wildcards || [])
+      .filter(w => w.group === targetGroup)
+      .map(w => tournament.value!.players.find(p => p.id === w.playerId))
+      .filter((p): p is Player => !!p); // Type guard to remove undefined
+
+  // Add wildcards to the list
+  players.push(...groupWildcards);
+
   return players;
 };
 
@@ -600,7 +681,7 @@ const updateRacePlacement = async (group: any, raceNumber: number, position: num
 // Stats & View Logic
 const getRaceCount = (group: string) => {
   if(!tournament.value) return 0;
-  return tournament.value.races.filter(r => r.stage === 'groups' && r.group === group).length;
+  return tournament.value.races.filter(r => r.stage === currentView.value && r.group === group).length;
 };
 
 const sortedRaces = computed(() => {
@@ -697,17 +778,35 @@ const sortedTeamsB = computed(() => {
   return teams.sort((a,b) => b.points - a.points);
 });
 
+const sortedTeamsC = computed(() => {
+  if(!tournament.value) return [];
+  const teams = tournament.value.teams.filter(t => t.group === 'C');
+  return teams.sort((a,b) => b.points - a.points);
+});
+
 const sortedFinalsTeams = computed<Team[]>(() => {
   if(!tournament.value) return [];
   return tournament.value.teams.filter(t => t.inFinals).sort((a,b) => b.finalsPoints - a.finalsPoints);
 });
 
 const canAdvanceToFinals = computed(() => {
-  if(!tournament.value || tournament.value.teams.length !== 6) return false;
+  if(!tournament.value) return false;
   if(tournament.value.stage === 'finals') return false;
+
   const countA = getRaceCount('A');
   const countB = getRaceCount('B');
-  return countA >= 5 && countB >= 5;
+  const countC = getRaceCount('C');
+  const teamCount = tournament.value.teams.length;
+
+  if (teamCount === 9) {
+    // Needs 5 races in A, B, and C
+    return countA >= 5 && countB >= 5 && countC >= 5;
+  } else if (teamCount >= 6) {
+    // Needs 5 races in A and B
+    return countA >= 5 && countB >= 5;
+  }
+
+  return false;
 });
 
 const canEndTournament = computed(() => {
@@ -719,20 +818,36 @@ const canEndTournament = computed(() => {
 
 const advanceToFinals = async () => {
   if(!tournament.value) return;
-  const groupA = [...sortedTeamsA.value];
-  const groupB = [...sortedTeamsB.value];
 
-  const winnerA = groupA[0];
-  const winnerB = groupB[0];
-  const runnerUpA = groupA[1];
-  const runnerUpB = groupB[1];
+  const teamCount = tournament.value.teams.length;
+  let finalistsIds: string[] = [];
 
-  let wildCard;
-  if(runnerUpA!.points > runnerUpB!.points) wildCard = runnerUpA;
-  else if(runnerUpB!.points > runnerUpA!.points) wildCard = runnerUpB;
-  else wildCard = Math.random() > 0.5 ? runnerUpA : runnerUpB;
+  // Scenario 1: 9 Teams (3 Groups) -> Top 1 from A, B, C advance
+  if (teamCount === 9) {
+    const winnerA = sortedTeamsA.value[0];
+    const winnerB = sortedTeamsB.value[0];
+    const winnerC = sortedTeamsC.value[0];
+    finalistsIds = [winnerA!.id, winnerB!.id, winnerC!.id];
+  }
+  // Scenario 2: 6 or 8 Teams (2 Groups) -> Top 1 A, Top 1 B, + Best Runner Up
+  else {
+    const groupA = [...sortedTeamsA.value];
+    const groupB = [...sortedTeamsB.value];
 
-  const finalistsIds = [winnerA!.id, winnerB!.id, wildCard!.id];
+    const winnerA = groupA[0];
+    const winnerB = groupB[0];
+
+    // Determine Wildcard from runner-ups
+    const runnerUpA = groupA[1];
+    const runnerUpB = groupB[1];
+
+    let wildCard;
+    if(runnerUpA!.points > runnerUpB!.points) wildCard = runnerUpA;
+    else if(runnerUpB!.points > runnerUpA!.points) wildCard = runnerUpB;
+    else wildCard = Math.random() > 0.5 ? runnerUpA : runnerUpB; // Coin flip tiebreaker
+
+    finalistsIds = [winnerA!.id, winnerB!.id, wildCard!.id];
+  }
 
   const updatedTeams = tournament.value.teams.map(t => ({
     ...t,
@@ -765,11 +880,34 @@ const getRankColor = (idx: number) => {
 
 const getPlayerColor = (playerId: string) => {
   if (!tournament.value) return '#e2e8f0';
+
+  // Check Team
   const team = tournament.value.teams.find(t =>
       t.captainId === playerId || t.memberIds.includes(playerId)
   );
+  if (team) return team.color;
 
-  return team?.color || '#e2e8f0';
+  // Check Wildcard (Optional: Give them a distinct color like Slate-400 or White)
+  const isWildcard = tournament.value.wildcards?.some(w => w.playerId === playerId);
+  if (isWildcard) return '#94a3b8'; // Slate 400
+
+  return '#e2e8f0';
+};
+
+const getGroupWildcards = (group: string) => {
+  if (!tournament.value?.wildcards) return [];
+
+  const entries = tournament.value.wildcards.filter(w => w.group === group);
+
+  return entries.map(w => {
+    const points = getRoundPoints(w.playerId); // Re-use existing points calculator
+    return {
+      id: w.playerId,
+      name: getPlayerName(w.playerId),
+      uma: getPlayerUma(w.playerId),
+      points: points
+    };
+  }).sort((a, b) => b.points - a.points); // Sort by points desc
 };
 
 const filteredUmas = computed(() => {
@@ -963,7 +1101,7 @@ onMounted(() => {
             </div>
             <div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700">
               <div class="text-sm text-slate-400">Total Players</div>
-              <div class="text-2xl font-bold text-white font-mono">{{ tournament.players.length }} <span class="text-sm font-normal text-slate-500">/ 18 max</span></div>
+              <div class="text-2xl font-bold text-white font-mono">{{ tournament.players.length }} <span class="text-sm font-normal text-slate-500">/ 27 max</span></div>
             </div>
           </div>
           <div class="grid md:grid-cols-3 gap-6">
@@ -990,7 +1128,7 @@ onMounted(() => {
                 <ul class="text-xs space-y-2 text-slate-500">
                   <li class="flex items-center gap-2">
                     <i class="ph-fill" :class="validTeamCount ? 'ph-check-circle text-green-500' : 'ph-x-circle text-red-500'"></i>
-                    3 to 6 Captains
+                    3 to 9 Captains
                   </li>
                   <li class="flex items-center gap-2">
                     <i class="ph-fill" :class="validTotalPlayers ? 'ph-check-circle text-green-500' : 'ph-x-circle text-red-500'"></i>
@@ -1224,7 +1362,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <div v-if="tournament.teams.length === 6" class="flex justify-center mb-6">
+          <div v-if="tournament.teams.length >= 6" class="flex justify-center mb-6">
             <div class="bg-slate-800 p-1 rounded-lg flex gap-1">
               <button @click="currentView = 'groups'"
                       class="px-6 py-2 rounded-md font-bold transition-colors"
@@ -1240,17 +1378,19 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
+          <div class="flex flex-col gap-4 md:grid md:grid-cols-3 md:items-center">
+            <div class="text-center md:text-left md:justify-self-start">
               <h2 class="text-3xl font-bold text-white">
                 <span v-if="tournament.teams.length < 6">Main Event</span>
                 <span v-else>{{ currentView === 'groups' ? 'Group Stage' : 'Grand Finals' }}</span>
               </h2>
-              <p class="text-slate-400"
-                 v-if="currentView === 'groups' && tournament.teams.length === 6">Top winner of each group + best runner-up advance.</p>
+              <p class="text-slate-400" v-if="currentView === 'groups'">
+                <span v-if="tournament.teams.length === 9">Winner of each group advances (A, B, C)</span>
+                <span v-else-if="tournament.teams.length >= 6">Winner of A & B + best runner-up advance</span>
+              </p>
             </div>
 
-            <div class="bg-slate-800 p-1 rounded-lg flex gap-1">
+            <div class="bg-slate-800 p-1 rounded-lg flex gap-1 mx-auto md:mx-0 md:justify-self-center">
               <button @click="showPlayerOrUmaName = true"
                       class="px-6 py-2 rounded-md font-bold transition-colors"
                       :class="showPlayerOrUmaName === true ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'">
@@ -1262,20 +1402,30 @@ onMounted(() => {
                 Umas
               </button>
             </div>
-            <button @click="showUmaModal = true"
-                    :disabled="!isAdmin"
-                    class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg shadow-indigo-900/20">
-              <i class="ph-bold ph-gear"></i> Edit Umas
-            </button>
+            <div class="mx-auto md:mx-0 md:justify-self-end">
+              <button @click="showUmaModal = true"
+                      :disabled="!isAdmin"
+                      class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg shadow-indigo-900/20">
+                <i class="ph-bold ph-gear"></i> Edit Umas
+              </button>
+            </div>
           </div>
 
-          <div class="grid md:grid-cols-2 gap-8">
+          <div :class="tournament?.teams.length === 9 && currentView === 'groups' ? 'grid md:grid-cols-3 gap-8' : 'grid md:grid-cols-2 gap-8'">
 
             <div v-if="shouldShowGroup('A')">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-bold text-indigo-400 heading tracking-wide">{{ tournament?.teams.length === 6 ? 'Group A' : 'Standings' }}</h3>
+              <div class="flex items-center justify-between mb-4 group">
+                <div class="flex items-center gap-3">
+                  <h3 @click="openWildcardModal('A')"
+                      class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"
+                      :class="isAdmin ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">
+                    {{ tournament?.teams.length >= 6 ? 'Group A' : 'Standings' }}
+                    <i v-if="isAdmin" class="ph-bold ph-plus-circle inline-block text-sm opacity-0 group-hover:opacity-100 transition-opacity ml-1"></i>
+                  </h3>
+                </div>
                 <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('A') }} / 5 Races</span>
               </div>
+
               <div class="space-y-3">
                 <div v-for="(team, idx) in sortedTeamsA"
                      :key="team.id"
@@ -1294,12 +1444,64 @@ onMounted(() => {
                   </div>
                   <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
                 </div>
+
+                <div v-if="getGroupWildcards('A').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
+                  <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <i class="ph-bold ph-ghost"></i> Wildcards
+                  </div>
+
+                  <div v-for="wc in getGroupWildcards('A')" :key="wc.id"
+                       class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors">
+                    <div>
+                      <div>
+                        <span class="font-bold text-slate-300">{{ wc.name }}</span>
+                        <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>
+                      </div>
+                    </div>
+                    <div class="text-xl font-mono font-bold text-slate-400">
+                      {{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span>
+                    </div>
+                  </div>
+                </div>
               </div>
+
+
+
+<!--              <div class="flex items-center justify-between mb-4">-->
+<!--                <h3 class="text-xl font-bold text-indigo-400 heading tracking-wide">{{ tournament?.teams.length >= 6 ? 'Group A' : 'Standings' }}</h3>-->
+<!--                <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('A') }} / 5 Races</span>-->
+<!--              </div>-->
+<!--              <div class="space-y-3">-->
+<!--                <div v-for="(team, idx) in sortedTeamsA"-->
+<!--                     :key="team.id"-->
+<!--                     class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"-->
+<!--                     :class="getRankColor(idx)">-->
+<!--                  <div>-->
+<!--                    <div>-->
+<!--                      <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>-->
+<!--                      <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>-->
+<!--                    </div>-->
+<!--                    <div class="text-xs text-slate-400 flex gap-2">-->
+<!--                    <span :style="{ color: team.color }"-->
+<!--                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"-->
+<!--                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}</span>-->
+<!--                    </div>-->
+<!--                  </div>-->
+<!--                  <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>-->
+<!--                </div>-->
+<!--              </div>-->
             </div>
 
             <div v-if="shouldShowGroup('B')">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-bold text-rose-400 heading tracking-wide">Group B</h3>
+              <div class="flex items-center justify-between mb-4 group">
+                <div class="flex items-center gap-3">
+                  <h3 @click="openWildcardModal('B')"
+                      class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"
+                      :class="isAdmin ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">
+                    {{ 'Group B' }}
+                    <i v-if="isAdmin" class="ph-bold ph-plus-circle inline-block text-sm opacity-0 group-hover:opacity-100 transition-opacity ml-1"></i>
+                  </h3>
+                </div>
                 <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('B') }} / 5 Races</span>
               </div>
               <div class="space-y-3">
@@ -1322,12 +1524,94 @@ onMounted(() => {
                   </div>
                   <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
                 </div>
+                <div v-if="getGroupWildcards('B').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
+                  <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <i class="ph-bold ph-ghost"></i> Wildcards
+                  </div>
+
+                  <div v-for="wc in getGroupWildcards('B')" :key="wc.id"
+                       class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors">
+                    <div>
+                      <div>
+                        <span class="font-bold text-slate-300">{{ wc.name }}</span>
+                        <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>
+                      </div>
+                    </div>
+                    <div class="text-xl font-mono font-bold text-slate-400">
+                      {{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="shouldShowGroup('C')">
+              <div class="flex items-center justify-between mb-4 group">
+                <div class="flex items-center gap-3">
+                  <h3 @click="openWildcardModal('C')"
+                      class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"
+                      :class="isAdmin ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">
+                    {{ 'Group C' }}
+                    <i v-if="isAdmin" class="ph-bold ph-plus-circle inline-block text-sm opacity-0 group-hover:opacity-100 transition-opacity ml-1"></i>
+                  </h3>
+                </div>
+                <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('C') }} / 5 Races</span>
+              </div>
+              <div class="space-y-3">
+                <div v-for="(team, idx) in sortedTeamsC"
+                     :key="team.id"
+                     class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
+                     :class="getRankColor(idx)">
+                  <div>
+                    <div>
+                      <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
+                      <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>
+                    </div>
+                    <div class="text-xs text-slate-400 flex gap-2">
+                      <span :style="{ color: team.color }"
+                            v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                            :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">
+                        {{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
+                </div>
+                <div v-if="getGroupWildcards('C').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
+                  <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <i class="ph-bold ph-ghost"></i> Wildcards
+                  </div>
+
+                  <div v-for="wc in getGroupWildcards('C')" :key="wc.id"
+                       class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors">
+                    <div>
+                      <div>
+                        <span class="font-bold text-slate-300">{{ wc.name }}</span>
+                        <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>
+                      </div>
+                    </div>
+                    <div class="text-xl font-mono font-bold text-slate-400">
+                      {{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
             <div v-if="currentView === 'finals'" class="col-span-2 max-w-2xl mx-auto w-full">
               <div class="text-center mb-6">
                 <i class="ph-fill ph-trophy text-amber-500 text-5xl mb-2"></i>
+                <div class="flex items-center justify-between mb-4 group">
+                  <div class="flex items-center gap-3">
+                    <h3 @click="openWildcardModal('Finals')"
+                        class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"
+                        :class="isAdmin ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">
+                      {{ 'Finals' }}
+                      <i v-if="isAdmin" class="ph-bold ph-plus-circle inline-block text-sm opacity-0 group-hover:opacity-100 transition-opacity ml-1"></i>
+                    </h3>
+                  </div>
+                  <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('Finals') }} / 5 Races</span>
+                </div>
               </div>
               <div class="space-y-4">
                 <div v-for="(team, idx) in sortedFinalsTeams"
@@ -1349,6 +1633,18 @@ onMounted(() => {
                     </div>
                   </div>
                   <div class="text-4xl font-mono font-bold text-indigo-400">{{ team.finalsPoints || 0 }}</div>
+                </div>
+                <div v-for="wc in getGroupWildcards('Finals')" :key="wc.id"
+                     class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors">
+                  <div>
+                    <div>
+                      <span class="font-bold text-slate-300">{{ wc.name }}</span>
+                      <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>
+                    </div>
+                  </div>
+                  <div class="text-xl font-mono font-bold text-slate-400">
+                    {{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span>
+                  </div>
                 </div>
               </div>
 
@@ -1391,7 +1687,7 @@ onMounted(() => {
               <div class="flex items-center gap-4 mb-4">
                 <h3 class="text-2xl font-bold text-white tracking-wide">
                             <span class="text-indigo-400">
-                                {{ tournament?.teams.length === 6 ? 'Group A' : 'Race' }}
+                                {{ tournament?.teams.length >= 6 ? 'Group A' : 'Race' }}
                             </span> Results
                 </h3>
                 <div v-if="saving" class="text-xs font-mono text-emerald-400 animate-pulse">
@@ -1461,6 +1757,47 @@ onMounted(() => {
                             class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
                           <option value="">- Select -</option>
                           <option v-for="player in activeStagePlayers('B')"
+                                  :key="player.id"
+                                  :value="player.id"
+                                  :style="{ color: getPlayerColor(player.id) }">
+                            {{ player.name }} {{ player.uma ? `(${player.uma})` : '' }}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="shouldShowGroup('C')">
+              <div class="flex items-center gap-4 mb-4 border-t border-slate-700 pt-8">
+                <h3 class="text-2xl font-bold text-white tracking-wide">
+                  <span class="text-emerald-400">Group C</span> Results
+                </h3>
+              </div>
+
+              <div class="overflow-x-auto pb-4">
+                <div class="flex gap-4 min-w-max">
+                  <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
+                    <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center">
+                      <span class="font-bold text-emerald-400">Race {{ raceNum }}</span>
+                      <span class="text-xs text-slate-500">{{ getRaceTimestamp('C', raceNum) }}</span>
+                    </div>
+                    <div class="p-2 space-y-1 flex-1">
+                      <div v-for="pos in (activeStagePlayers('C').length)" :key="pos" class="flex items-center gap-2">
+                        <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold"
+                             :class="getPositionStyle(pos)">
+                          {{ pos }}
+                        </div>
+                        <select
+                            :disabled="!isAdmin || tournament.stage !== 'groups'"
+                            :value="getPlayerAtPosition('C', raceNum, pos)"
+                            @change="updateRacePlacement('C', raceNum, pos, ($event.target as HTMLSelectElement).value)"
+                            :style="{ color: getPlayerColor(getPlayerAtPosition('C', raceNum, pos)) }"
+                            class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all">
+                          <option value="">- Select -</option>
+                          <option v-for="player in activeStagePlayers('C')"
                                   :key="player.id"
                                   :value="player.id"
                                   :style="{ color: getPlayerColor(player.id) }">
@@ -1571,7 +1908,7 @@ onMounted(() => {
                   <div class="flex items-center gap-3">
                     <span class="px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wider shadow-sm"
                           :class="race.stage === 'finals' ? 'bg-amber-900/50 text-amber-200 border border-amber-700/50' : 'bg-indigo-900/50 text-indigo-200 border border-indigo-700/50'">
-                        {{ race.stage === 'finals' ? 'Grand Finals' : (tournament?.teams.length === 6 ? 'Group ' + race.group : 'Main Event') }}
+                        {{ race.stage === 'finals' ? 'Grand Finals' : (tournament?.teams.length >= 6 ? 'Group ' + race.group : 'Main Event') }}
                     </span>
                     <span class="text-slate-400 text-sm flex items-center gap-1">
                       <i class="ph-bold ph-clock"></i>
@@ -1666,6 +2003,37 @@ onMounted(() => {
           </button>
         </div>
 
+      </div>
+    </div>
+
+    <div v-if="showWildcardModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-sm w-full p-6 shadow-2xl">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-bold text-white flex items-center gap-2">
+            <i class="ph-fill ph-ghost text-indigo-400"></i>
+            Add Wildcard
+          </h3>
+          <button @click="showWildcardModal = false" class="text-slate-500 hover:text-white"><i class="ph-bold ph-x"></i></button>
+        </div>
+
+        <p class="text-sm text-slate-400 mb-4">
+          Adding a wildcard player to <span class="text-white font-bold">{{ wildcardTargetGroup === 'Finals' ? 'The Finals' : 'Group ' + wildcardTargetGroup }}</span>.
+          They will not belong to a team but can participate in races.
+        </p>
+
+        <div class="space-y-4">
+          <input v-model="newWildcardName"
+                 @keyup.enter="addWildcard"
+                 type="text"
+                 placeholder="Player Name"
+                 class="w-full bg-slate-800 border border-slate-700 rounded p-3 text-white focus:outline-none focus:border-indigo-500 transition-colors">
+
+          <button @click="addWildcard"
+                  :disabled="!newWildcardName"
+                  class="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2">
+            Add Player
+          </button>
+        </div>
       </div>
     </div>
   </div>

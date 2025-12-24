@@ -5,6 +5,11 @@ export interface Player {
     uma: string;
 }
 
+export interface Wildcard {
+    playerId: string;
+    group: 'A' | 'B' | 'C' | 'Finals';
+}
+
 export interface Team {
     id: string;
     captainId: string;
@@ -12,7 +17,7 @@ export interface Team {
     name: string;
     points: number;
     finalsPoints: number;
-    group: 'A' | 'B';
+    group: 'A' | 'B' | 'C';
     inFinals?: boolean;
     color?: string;
 }
@@ -20,7 +25,7 @@ export interface Team {
 export interface Race {
     id: string;
     stage: 'groups' | 'finals';
-    group: 'A' | 'B';
+    group: 'A' | 'B' | 'C';
     raceNumber: number;
     timestamp: string;
     placements: Record<string, number>; // playerId: position
@@ -33,6 +38,7 @@ export interface Tournament {
     status: 'registration' | 'draft' | 'active' | 'ban' | 'completed';
     stage: 'groups' | 'finals';
     players: Player[];
+    wildcards?: Wildcard[];
     teams: Team[];
     races: Race[];
     bans?: string[];
