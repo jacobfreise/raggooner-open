@@ -5,7 +5,6 @@ import { doc, collection, query, orderBy, getDocs, onSnapshot, setDoc, updateDoc
 import { auth, db } from './firebase';
 import type { Tournament, Player, Team, Race, Wildcard } from './types';
 import { generateDiscordReport } from './utils/exportUtils';
-import {run} from "vue-tsc";
 
 export type FirestoreUpdate<T> = {
   [K in keyof T]?: T[K] | FieldValue;
