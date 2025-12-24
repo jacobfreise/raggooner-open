@@ -1464,32 +1464,6 @@ onMounted(() => {
                   </div>
                 </div>
               </div>
-
-
-
-<!--              <div class="flex items-center justify-between mb-4">-->
-<!--                <h3 class="text-xl font-bold text-indigo-400 heading tracking-wide">{{ tournament?.teams.length >= 6 ? 'Group A' : 'Standings' }}</h3>-->
-<!--                <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('A') }} / 5 Races</span>-->
-<!--              </div>-->
-<!--              <div class="space-y-3">-->
-<!--                <div v-for="(team, idx) in sortedTeamsA"-->
-<!--                     :key="team.id"-->
-<!--                     class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"-->
-<!--                     :class="getRankColor(idx)">-->
-<!--                  <div>-->
-<!--                    <div>-->
-<!--                      <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>-->
-<!--                      <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>-->
-<!--                    </div>-->
-<!--                    <div class="text-xs text-slate-400 flex gap-2">-->
-<!--                    <span :style="{ color: team.color }"-->
-<!--                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"-->
-<!--                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}</span>-->
-<!--                    </div>-->
-<!--                  </div>-->
-<!--                  <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>-->
-<!--                </div>-->
-<!--              </div>-->
             </div>
 
             <div v-if="shouldShowGroup('B')">
@@ -1634,16 +1608,22 @@ onMounted(() => {
                   </div>
                   <div class="text-4xl font-mono font-bold text-indigo-400">{{ team.finalsPoints || 0 }}</div>
                 </div>
-                <div v-for="wc in getGroupWildcards('Finals')" :key="wc.id"
-                     class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors">
-                  <div>
-                    <div>
-                      <span class="font-bold text-slate-300">{{ wc.name }}</span>
-                      <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>
-                    </div>
+                <div v-if="getGroupWildcards('Finals').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
+                  <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <i class="ph-bold ph-ghost"></i> Wildcards
                   </div>
-                  <div class="text-xl font-mono font-bold text-slate-400">
-                    {{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span>
+
+                  <div v-for="wc in getGroupWildcards('Finals')" :key="wc.id"
+                       class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors">
+                    <div>
+                      <div>
+                        <span class="font-bold text-slate-300">{{ wc.name }}</span>
+                        <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>
+                      </div>
+                    </div>
+                    <div class="text-xl font-mono font-bold text-slate-400">
+                      {{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span>
+                    </div>
                   </div>
                 </div>
               </div>
