@@ -770,19 +770,19 @@ const sortedPlayers = computed(() => {
 const sortedTeamsA = computed(() => {
   if(!tournament.value) return [];
   const teams = tournament.value.teams.filter(t => tournament.value!.teams.length < 6 || t.group === 'A');
-  return teams.sort((a,b) => b.points - a.points);
+  return teams.sort((a, b) => compareTeams(a, b, true)); // Use new helper
 });
 
 const sortedTeamsB = computed(() => {
   if(!tournament.value) return [];
   const teams = tournament.value.teams.filter(t => t.group === 'B');
-  return teams.sort((a,b) => b.points - a.points);
+  return teams.sort((a, b) => compareTeams(a, b, true)); // Use new helper
 });
 
 const sortedTeamsC = computed(() => {
   if(!tournament.value) return [];
   const teams = tournament.value.teams.filter(t => t.group === 'C');
-  return teams.sort((a,b) => b.points - a.points);
+  return teams.sort((a, b) => compareTeams(a, b, true)); // Use new helper
 });
 
 const sortedFinalsTeams = computed<Team[]>(() => {
@@ -820,44 +820,33 @@ const canEndTournament = computed(() => {
 const advanceToFinals = async () => {
   if(!tournament.value) return;
 
-  const teamCount = tournament.value.teams.length;
-  let finalistsIds: string[] = [];
+  // 1. Get the pre-calculated winners from the computed property
+  const qualifiedSet = advancingTeamIds.value;
+  let finalIds = Array.from(qualifiedSet);
 
-  // Scenario 1: 9 Teams (3 Groups) -> Top 1 from A, B, C advance
-  if (teamCount === 9) {
-    const winnerA = sortedTeamsA.value[0];
-    const winnerB = sortedTeamsB.value[0];
-    const winnerC = sortedTeamsC.value[0];
-    finalistsIds = [winnerA!.id, winnerB!.id, winnerC!.id];
-  }
-  // Scenario 2: 6 or 8 Teams (2 Groups) -> Top 1 A, Top 1 B, + Best Runner Up
-  else {
-    const groupA = [...sortedTeamsA.value];
-    const groupB = [...sortedTeamsB.value];
+  // 2. Handle the "Perfect Tie" Edge Case
+  // If we have > 3 finalists, it means the runners-up were tied and both got selected.
+  // We must resolve this before saving to DB.
+  if (finalIds.length > 3 && tournament.value.teams.length !== 8) {
+    const runnerA = sortedTeamsA.value[1];
+    const runnerB = sortedTeamsB.value[1];
 
-    const winnerA = groupA[0];
-    const winnerB = groupB[0];
+    // Check if both involved runners are in the list
+    if (runnerA && runnerB && qualifiedSet.has(runnerA.id) && qualifiedSet.has(runnerB.id)) {
+      // FLIP THE COIN
+      const loser = Math.random() > 0.5 ? runnerA : runnerB;
 
-    // Determine Wildcard from runner-ups
-    const runnerUpA = groupA[1];
-    const runnerUpB = groupB[1];
+      // Remove the loser
+      finalIds = finalIds.filter(id => id !== loser.id);
 
-    if (teamCount === 8) {
-      finalistsIds = [winnerA!.id, winnerB!.id, runnerUpA!.id, runnerUpB!.id];
-    }
-    else {
-      let wildCard;
-      if (runnerUpA!.points > runnerUpB!.points) wildCard = runnerUpA;
-      else if (runnerUpB!.points > runnerUpA!.points) wildCard = runnerUpB;
-      else wildCard = Math.random() > 0.5 ? runnerUpA : runnerUpB; // Coin flip tiebreaker
-
-      finalistsIds = [winnerA!.id, winnerB!.id, wildCard!.id];
+      alert(`⚠️ Perfect Tie Detected!\nA coin flip has eliminated: ${loser.name}`);
     }
   }
 
+  // 3. Update Database
   const updatedTeams = tournament.value.teams.map(t => ({
     ...t,
-    inFinals: finalistsIds.includes(t.id),
+    inFinals: finalIds.includes(t.id),
     finalsPoints: 0
   }));
 
@@ -932,6 +921,119 @@ const isAdmin = computed(() => {
 });
 
 const canShowFinals = computed(() => tournament.value && tournament.value.stage === 'finals');
+
+// --- Tie Breaker Helpers ---
+
+// 1. Get placement counts for a specific team (e.g. {1: 3, 2: 1, 3: 0})
+const getTeamPlacements = (team: Team) => {
+  const counts: Record<number, number> = {};
+  if(!tournament.value) return counts;
+
+  // Get all members (Captain + Members)
+  const roster = [team.captainId, ...team.memberIds];
+
+  // Look at ONLY the races for this team's group
+  const relevantRaces = tournament.value.races.filter(r =>
+      r.stage === 'groups' && r.group === team.group
+  );
+
+  relevantRaces.forEach(race => {
+    roster.forEach(pid => {
+      const pos = race.placements[pid];
+      if(pos) {
+        counts[pos] = (counts[pos] || 0) + 1;
+      }
+    });
+  });
+
+  return counts;
+};
+
+// 2. Compare two teams (Returns positive if A is better, negative if B is better)
+// Update the signature to accept a 3rd argument
+const compareTeams = (a: Team, b: Team, useIdFallback = true) => {
+  // Priority 1: Points
+  if (b.points !== a.points) {
+    return b.points - a.points;
+  }
+
+  // Priority 2: Countback (Most 1sts, then 2nds, etc.)
+  const placementsA = getTeamPlacements(a);
+  const placementsB = getTeamPlacements(b);
+
+  for (let i = 1; i <= 18; i++) {
+    const countA = placementsA[i] || 0;
+    const countB = placementsB[i] || 0;
+    if (countB !== countA) {
+      return countB - countA;
+    }
+  }
+
+  // Priority 3: Fallback (Only if requested)
+  if (useIdFallback) {
+    return a.id.localeCompare(b.id);
+  }
+
+  return 0; // It is a perfect statistical tie
+};
+
+// Add this to your computed properties section
+
+const advancingTeamIds = computed(() => {
+  if (!tournament.value) return new Set<string>();
+  const ids = new Set<string>();
+
+  const teamCount = tournament.value.teams.length;
+
+  // SCENARIO 1: 9 Teams (3 Groups) -> Top 1 from A, B, C
+  if (teamCount === 9) {
+    if (sortedTeamsA.value[0]) ids.add(sortedTeamsA.value[0].id);
+    if (sortedTeamsB.value[0]) ids.add(sortedTeamsB.value[0].id);
+    if (sortedTeamsC.value[0]) ids.add(sortedTeamsC.value[0].id);
+  }
+  else if (teamCount === 8) {
+    if (sortedTeamsA.value[0]) ids.add(sortedTeamsA.value[0].id);
+    if (sortedTeamsA.value[1]) ids.add(sortedTeamsA.value[1].id);
+    if (sortedTeamsB.value[0]) ids.add(sortedTeamsB.value[0].id);
+    if (sortedTeamsB.value[1]) ids.add(sortedTeamsB.value[1].id);
+  }
+  // SCENARIO 2: 6 Teams (2 Groups) -> Top 1 A, Top 1 B + Best Runner Up
+  else {
+    // 1. Automatic Qualifiers (Group Winners)
+    if (sortedTeamsA.value[0]) ids.add(sortedTeamsA.value[0].id);
+    if (sortedTeamsB.value[0]) ids.add(sortedTeamsB.value[0].id);
+
+    // 2. Wildcard Spot (Best Runner Up)
+    const runnerA = sortedTeamsA.value[1];
+    const runnerB = sortedTeamsB.value[1];
+
+    if (runnerA && runnerB) {
+      // Use your tie-breaker logic to compare them
+      // Returns negative if runnerA is "better" (sorted higher)
+      const comparison = compareTeams(runnerA, runnerB, false);
+
+      if (comparison < 0) {
+        ids.add(runnerA.id);
+      } else if (comparison > 0) {
+        ids.add(runnerB.id);
+      } else {
+        // If perfectly tied, highlight BOTH to indicate the tie
+        ids.add(runnerA.id);
+        ids.add(runnerB.id);
+      }
+    } else if (runnerA) {
+      // If only Group A has a runner up so far
+      ids.add(runnerA.id);
+    } else if (runnerB) {
+      ids.add(runnerB.id);
+    }
+  }
+
+  return ids;
+});
+
+// Helper for the template to keep code clean
+const isAdvancing = (teamId: string) => advancingTeamIds.value.has(teamId);
 
 onMounted(() => {
   init();
@@ -1435,8 +1537,15 @@ onMounted(() => {
               <div class="space-y-3">
                 <div v-for="(team, idx) in sortedTeamsA"
                      :key="team.id"
-                     class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
-                     :class="getRankColor(idx)">
+                     class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative overflow-hidden"
+                     :class="[
+                       getRankColor(idx),
+                       isAdvancing(team.id) ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10' : 'opacity-80'
+                     ]">
+
+                  <div v-if="isAdvancing(team.id)" class="absolute -right-2 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">
+                    Q
+                  </div>
                   <div>
                     <div>
                       <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
@@ -1487,8 +1596,15 @@ onMounted(() => {
               <div class="space-y-3">
                 <div v-for="(team, idx) in sortedTeamsB"
                      :key="team.id"
-                     class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
-                     :class="getRankColor(idx)">
+                     class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative overflow-hidden"
+                     :class="[
+                       getRankColor(idx),
+                       isAdvancing(team.id) ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10' : 'opacity-80'
+                     ]">
+
+                  <div v-if="isAdvancing(team.id)" class="absolute -right-2 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">
+                    Q
+                  </div>
                   <div>
                     <div>
                       <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
@@ -1540,8 +1656,15 @@ onMounted(() => {
               <div class="space-y-3">
                 <div v-for="(team, idx) in sortedTeamsC"
                      :key="team.id"
-                     class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
-                     :class="getRankColor(idx)">
+                     class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative overflow-hidden"
+                     :class="[
+                       getRankColor(idx),
+                       isAdvancing(team.id) ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10' : 'opacity-80'
+                     ]">
+
+                  <div v-if="isAdvancing(team.id)" class="absolute -right-2 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">
+                    Q
+                  </div>
                   <div>
                     <div>
                       <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
