@@ -816,48 +816,6 @@ const canEndTournament = computed(() => {
   return finalsRaces >= 5;
 });
 
-const advanceToFinals = async () => {
-  if(!tournament.value) return;
-
-  // 1. Get the pre-calculated winners from the computed property
-  const qualifiedSet = advancingTeamIds.value;
-  let finalIds = Array.from(qualifiedSet);
-
-  // 2. Handle the "Perfect Tie" Edge Case
-  // If we have > 3 finalists, it means the runners-up were tied and both got selected.
-  // We must resolve this before saving to DB.
-  if (finalIds.length > 3 && tournament.value.teams.length !== 8) {
-    const runnerA = sortedTeamsA.value[1];
-    const runnerB = sortedTeamsB.value[1];
-
-    // Check if both involved runners are in the list
-    if (runnerA && runnerB && qualifiedSet.has(runnerA.id) && qualifiedSet.has(runnerB.id)) {
-      // FLIP THE COIN
-      const loser = Math.random() > 0.5 ? runnerA : runnerB;
-
-      // Remove the loser
-      finalIds = finalIds.filter(id => id !== loser.id);
-
-      alert(`⚠️ Perfect Tie Detected!\nA coin flip has eliminated: ${loser.name}`);
-    }
-  }
-
-  // 3. Update Database
-  const updatedTeams = tournament.value.teams.map(t => ({
-    ...t,
-    inFinals: finalIds.includes(t.id),
-    finalsPoints: 0
-  }));
-
-  await secureUpdate({
-    teams: updatedTeams,
-    stage: 'finals'
-  });
-
-  currentView.value = 'finals';
-  hasInitialViewLoaded.value = true;
-};
-
 const endTournament = async () => {
   if(!tournament.value) return;
   await secureUpdate({
@@ -976,8 +934,6 @@ const compareTeams = (a: Team, b: Team, useIdFallback = true) => {
   return 0; // It is a perfect statistical tie
 };
 
-// Add this to your computed properties section
-
 const advancingTeamIds = computed(() => {
   if (!tournament.value) return new Set<string>();
   const ids = new Set<string>();
@@ -989,12 +945,37 @@ const advancingTeamIds = computed(() => {
     if (sortedTeamsA.value[0]) ids.add(sortedTeamsA.value[0].id);
     if (sortedTeamsB.value[0]) ids.add(sortedTeamsB.value[0].id);
     if (sortedTeamsC.value[0]) ids.add(sortedTeamsC.value[0].id);
+    let i = 1;
+    while (i < sortedTeamsA.value.length && compareTeams(sortedTeamsA.value[0]!, sortedTeamsA.value[i]!, false) === 0) {
+      ids.add(sortedTeamsA.value[i]!.id);
+      i++;
+    }
+    i = 1;
+    while (i < sortedTeamsB.value.length && compareTeams(sortedTeamsB.value[0]!, sortedTeamsB.value[i]!, false) === 0) {
+      ids.add(sortedTeamsB.value[i]!.id);
+      i++;
+    }
+    i = 1;
+    while (i < sortedTeamsC.value.length && compareTeams(sortedTeamsC.value[0]!, sortedTeamsC.value[i]!, false) === 0) {
+      ids.add(sortedTeamsC.value[i]!.id);
+      i++;
+    }
   }
   else if (teamCount === 8) {
     if (sortedTeamsA.value[0]) ids.add(sortedTeamsA.value[0].id);
     if (sortedTeamsA.value[1]) ids.add(sortedTeamsA.value[1].id);
     if (sortedTeamsB.value[0]) ids.add(sortedTeamsB.value[0].id);
     if (sortedTeamsB.value[1]) ids.add(sortedTeamsB.value[1].id);
+    let i = 2;
+    while (i < sortedTeamsA.value.length && compareTeams(sortedTeamsA.value[1]!, sortedTeamsA.value[i]!, false) === 0) {
+      ids.add(sortedTeamsA.value[i]!.id);
+      i++;
+    }
+    i = 2;
+    while (i < sortedTeamsB.value.length && compareTeams(sortedTeamsB.value[1]!, sortedTeamsB.value[i]!, false) === 0) {
+      ids.add(sortedTeamsB.value[i]!.id);
+      i++;
+    }
   }
   // SCENARIO 2: 6 Teams (2 Groups) -> Top 1 A, Top 1 B + Best Runner Up
   else {
@@ -1005,6 +986,8 @@ const advancingTeamIds = computed(() => {
     // 2. Wildcard Spot (Best Runner Up)
     const runnerA = sortedTeamsA.value[1];
     const runnerB = sortedTeamsB.value[1];
+    const lastA = sortedTeamsA.value[2];
+    const lastB = sortedTeamsB.value[2];
 
     if (runnerA && runnerB) {
       // Use your tie-breaker logic to compare them
@@ -1020,6 +1003,22 @@ const advancingTeamIds = computed(() => {
         ids.add(runnerA.id);
         ids.add(runnerB.id);
       }
+      if (lastA) {
+        const comparisonLast = compareTeams(runnerA, lastA, false);
+
+        if (comparisonLast === 0 && ids.has(runnerA.id)) {
+          // If perfectly tied, highlight BOTH to indicate the tie
+          ids.add(lastA.id);
+        }
+      }
+      if (lastB) {
+        const comparisonLast = compareTeams(runnerB, lastB, false);
+
+        if (comparisonLast === 0 && ids.has(runnerB.id)) {
+          // If perfectly tied, highlight BOTH to indicate the tie
+          ids.add(lastB.id);
+        }
+      }
     } else if (runnerA) {
       // If only Group A has a runner up so far
       ids.add(runnerA.id);
@@ -1030,6 +1029,201 @@ const advancingTeamIds = computed(() => {
 
   return ids;
 });
+
+//----- Tie Breaker Handling
+// --- NEW STATE: Tie Breakers & Coin Flip ---
+const showTieBreakerModal = ref(false);
+const showCoinFlip = ref(false);
+const coinFlipResult = ref<'heads' | 'tails' | null>(null);
+const tiedTeams = ref<Team[]>([]);
+const guaranteedIds = ref<string[]>([]); // Teams that are definitely safely in
+const tiebreakersNeeded = ref(0);
+
+// --- HELPER: Identify who is tied ---
+const getTiedCandidates = (): { tied: Team[], safe: string[], needed: number } => {
+  if (!tournament.value) return { tied: [], safe: [], needed: 0 };
+
+  let needed = 0;
+
+  const teamCount = tournament.value.teams.length;
+  const safe: string[] = [];
+  const tied: Team[] = [];
+
+  // SCENARIO 1: 9 Teams (3 Groups) -> Tie is usually within a specific group for 1st place
+  if (teamCount === 9) {
+    // Check A
+    if (compareTeams(sortedTeamsA.value[0]!, sortedTeamsA.value[1]!, false) === 0) {
+      needed++;
+      tied.push(sortedTeamsA.value[0]!, sortedTeamsA.value[1]!);
+      if (compareTeams(sortedTeamsA.value[0]!, sortedTeamsA.value[2]!, false) === 0) {
+        tied.push(sortedTeamsA.value[2]!)
+      }
+    } else safe.push(sortedTeamsA.value[0]!.id);
+
+    // Check B
+    if (compareTeams(sortedTeamsB.value[0]!, sortedTeamsB.value[1]!, false) === 0) {
+      needed++;
+      tied.push(sortedTeamsB.value[0]!, sortedTeamsB.value[1]!);
+      if (compareTeams(sortedTeamsB.value[0]!, sortedTeamsB.value[2]!, false) === 0) {
+        tied.push(sortedTeamsB.value[2]!)
+      }
+    } else safe.push(sortedTeamsB.value[0]!.id);
+
+    // Check C
+    if (compareTeams(sortedTeamsC.value[0]!, sortedTeamsC.value[1]!, false) === 0) {
+      needed++;
+      tied.push(sortedTeamsC.value[0]!, sortedTeamsC.value[1]!);
+      if (compareTeams(sortedTeamsC.value[0]!, sortedTeamsC.value[2]!, false) === 0) {
+        tied.push(sortedTeamsC.value[2]!)
+      }
+    } else safe.push(sortedTeamsC.value[0]!.id);
+  }
+
+  else if (teamCount === 8) {
+    //check group A
+    let left: number = 0;
+    let right: number = 1;
+    let safeA: number = 0;
+    let tieA: Team[] = [];
+    while (safeA < 2 && right < sortedTeamsA.value.length) {
+      if (compareTeams(sortedTeamsA.value[left]!, sortedTeamsA.value[right]!, false) === 0) {
+        tieA.push(sortedTeamsA.value[right]!);
+        if (!tieA.includes(sortedTeamsA.value[left]!)) tieA.push(sortedTeamsA.value[left]!)
+      } else {
+        safe.push(sortedTeamsA.value[left]!.id);
+        left++;
+        safeA++;
+      }
+      right++;
+    }
+
+    //check group B
+    left = 0;
+    right = 1;
+    let safeB: number = 0;
+    let tieB: Team[] = [];
+    while (safeB < 2 && right < sortedTeamsB.value.length) {
+      if (compareTeams(sortedTeamsB.value[left]!, sortedTeamsB.value[right]!, false) === 0) {
+        tieB.push(sortedTeamsB.value[right]!);
+        if (!tieB.includes(sortedTeamsB.value[left]!)) tieB.push(sortedTeamsB.value[left]!)
+      } else {
+        safe.push(sortedTeamsB.value[left]!.id);
+        left++;
+        safeB++;
+      }
+      right++;
+    }
+
+    tied.push(...tieA);
+    tied.push(...tieB);
+    needed = 4 - safeA - safeB;
+  }
+  // SCENARIO 3: 6 Teams (2 Groups) -> Tie is usually for the "Best Runner Up" spot
+  else {
+    // Winners are safe (unless they are tied internally, but let's assume Groups resolved correctly for now)
+    safe.push(sortedTeamsA.value[0]!.id);
+    safe.push(sortedTeamsB.value[0]!.id);
+
+    const runnerA = sortedTeamsA.value[1];
+    const runnerB = sortedTeamsB.value[1];
+
+    if (runnerA && runnerB) {
+      const comparison = compareTeams(runnerA, runnerB, false);
+      if (comparison === 0) {
+        tied.push(runnerA, runnerB);
+        needed = 1;
+        //check both teams for multiple tied runner-ups
+      }
+      if (comparison <= 0) {
+        let multipleTied = false;
+        //check group A for multiple tied runner-ups
+        for (let i = 2; i < sortedTeamsA.value.length; i++) {
+          if (compareTeams(runnerA, sortedTeamsA.value[i]!, false) === 0) {
+            multipleTied = true;
+            tied.push(sortedTeamsA.value[i]!);
+          }
+        }
+        if (comparison < 0 && multipleTied) {
+          tied.push(runnerA);
+          needed = 1;
+        } else if (comparison < 0) {
+          safe.push(runnerA.id);
+        }
+      }
+      if (comparison >= 0) {
+        let multipleTied = false;
+        //check group B for multiple tied runner-ups
+        for (let i = 2; i < sortedTeamsB.value.length; i++) {
+          if (compareTeams(runnerB, sortedTeamsB.value[i]!, false) === 0) {
+            multipleTied = true;
+            tied.push(sortedTeamsB.value[i]!);
+          }
+        }
+        if (comparison > 0 && multipleTied) {
+          tied.push(runnerB);
+          needed = 1;
+        } else if (comparison > 0) {
+          safe.push(runnerB.id);
+        }
+      }
+    }
+  }
+
+  return { tied, safe, needed };
+};
+
+// --- MODIFIED ACTION: Advance to Finals ---
+const advanceToFinals = async () => {
+  if(!tournament.value) return;
+
+  const { tied, safe, needed } = getTiedCandidates();
+
+  // If we found a conflict (teams tied for a qualifying spot)
+  if (tied.length > 0) {
+    tiebreakersNeeded.value = needed;
+    tiedTeams.value = tied;
+    guaranteedIds.value = safe;
+    showTieBreakerModal.value = true;
+    return;
+  }
+
+  // No conflict? Proceed normally
+  await finalizeFinals(safe);
+};
+
+// --- ACTION: Finalize (Write to DB) ---
+const finalizeFinals = async (finalIds: string[]) => {
+  if (!tournament.value) return;
+
+  const updatedTeams = tournament.value.teams.map(t => ({
+    ...t,
+    inFinals: finalIds.includes(t.id),
+    finalsPoints: 0
+  }));
+
+  await secureUpdate({ teams: updatedTeams, stage: 'finals' });
+
+  // Reset UI
+  showTieBreakerModal.value = false;
+  showCoinFlip.value = false;
+  currentView.value = 'finals';
+  hasInitialViewLoaded.value = true;
+};
+
+// --- RESOLUTION OPTION 1: Manual Selection ---
+const resolveManually = async (winner: Team) => {
+  if (!guaranteedIds.value.includes(winner.id)) {
+    guaranteedIds.value.push(winner.id)
+    tiebreakersNeeded.value--;
+    if (tiebreakersNeeded.value === 0) {
+      const finalIds = [...guaranteedIds.value];
+      await finalizeFinals(finalIds);
+    }
+  } else {
+    guaranteedIds.value.splice(guaranteedIds.value.indexOf(winner.id), 1);
+    tiebreakersNeeded.value++;
+  }
+};
 
 // Helper for the template to keep code clean
 const isAdvancing = (teamId: string) => advancingTeamIds.value.has(teamId);
@@ -2141,6 +2335,71 @@ onMounted(() => {
                   class="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2">
             Add Player
           </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showTieBreakerModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full p-6 shadow-2xl relative">
+        <div class="text-center mb-6">
+          <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/10 text-amber-500 mb-4 ring-1 ring-amber-500/50">
+            <i class="ph-fill ph-scales text-3xl"></i>
+          </div>
+          <h3 class="text-2xl font-bold text-white">Tie Breaker Required</h3>
+          <p class="text-slate-400 mt-2">
+            A perfect statistical tie was detected between:
+          </p>
+        </div>
+
+        <div class="flex justify-center gap-4 mb-8">
+          <div v-for="(team, idx) in tiedTeams" :key="team.id"
+               class="bg-slate-800 border border-slate-700 p-4 rounded-lg text-center min-w-[120px]">
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Candidate {{ idx + 1 }}</div>
+            <div class="font-bold text-white text-lg" :style="{ color: team.color }">{{ team.name }}</div>
+            <div class="text-xs text-slate-400">{{ team.points }} pts</div>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <div class="relative">
+            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
+            <div class="relative flex justify-center text-xs uppercase"><span class="px-2 bg-slate-900 text-slate-600">Select Winner Manually</span></div>
+            <div class="relative flex justify-center text-xs uppercase"><span class="px-2 bg-slate-900 text-slate-600">{{ tiebreakersNeeded }} Teams needed</span></div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <button v-for="team in tiedTeams" :key="team.id"
+                    @click="resolveManually(team)"
+                    class="py-3 rounded-lg font-bold transition-all relative overflow-hidden"
+                    :class="guaranteedIds.includes(team.id)
+                      ? 'bg-slate-800 border-emerald-500 text-emerald-400 ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+                      : 'bg-indigo-600/10 border border-indigo-500/30 hover:border-indigo-500 text-indigo-300 hover:bg-indigo-600/20'">
+              Advance {{ team.name }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showCoinFlip" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md">
+
+      <h2 class="text-3xl font-bold text-white mb-12 animate-pulse">Flipping for the spot...</h2>
+
+      <div class="coin-container w-48 h-48 relative preserve-3d"
+           :class="coinFlipResult === 'heads' ? 'animate-flip-heads' : 'animate-flip-tails'">
+
+        <div class="absolute inset-0 rounded-full bg-amber-500 border-4 border-amber-300 shadow-[0_0_50px_rgba(245,158,11,0.5)] flex flex-col items-center justify-center backface-hidden z-20">
+          <div class="text-amber-900 font-black text-6xl mb-2">1</div>
+          <div class="text-amber-900 font-bold text-sm px-4 text-center leading-tight">
+            {{ tiedTeams[0]?.name }}
+          </div>
+        </div>
+
+        <div class="absolute inset-0 rounded-full bg-slate-300 border-4 border-white shadow-[0_0_50px_rgba(255,255,255,0.3)] flex flex-col items-center justify-center backface-hidden rotate-y-180 z-10">
+          <div class="text-slate-800 font-black text-6xl mb-2">2</div>
+          <div class="text-slate-800 font-bold text-sm px-4 text-center leading-tight">
+            {{ tiedTeams[1]?.name }}
+          </div>
         </div>
       </div>
     </div>
