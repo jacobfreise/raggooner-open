@@ -31,8 +31,8 @@ const TEAM_COLORS = [
   '#f43f5e', // Rose
 ];
 
-const UMAS = ['Tosan Jordan', 'Festival Symboli Rudolf',
-  'Festival Gold City', 'Manhattan Cafe', 'Kawakami Princess', 'Halloween Rice Shower',
+const UMAS = ['Mejiro Dober', 'Tosan Jordan',
+  'Festival Symboli Rudolf', 'Festival Gold City', 'Manhattan Cafe', 'Kawakami Princess', 'Halloween Rice Shower',
   'Halloween Super Creek', 'Agnes Digital', 'Hishi Akebono', 'Full Armor Matikanefukukitaru', 'Eishin Flash',
   'Meisho Doto', 'Summer Special Week', 'Summer Maruzensky', 'Gold City', 'Fuji Kiseki', 'Fantasy Grass Wonder',
   'Fantasy El Condor Pasa', 'Hishi Amazon', 'Seiun Sky', 'Wedding Air Groove', 'Wedding Mayano Top Gun', 'Narita Brian',
@@ -2345,7 +2345,16 @@ onMounted(() => {
           <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/10 text-amber-500 mb-4 ring-1 ring-amber-500/50">
             <i class="ph-fill ph-scales text-3xl"></i>
           </div>
-          <h3 class="text-2xl font-bold text-white">Tie Breaker Required</h3>
+          <div class="relative flex justify-center items-center mb-4">
+
+            <h3 class="text-2xl font-bold text-white">Tie Breaker Required</h3>
+
+            <button @click="showTieBreakerModal = false"
+                    class="absolute right-0 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-2">
+              <i class="ph-bold ph-x text-xl"></i>
+            </button>
+
+          </div>
           <p class="text-slate-400 mt-2">
             A perfect statistical tie was detected between:
           </p>
@@ -2364,7 +2373,7 @@ onMounted(() => {
           <div class="relative">
             <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
             <div class="relative flex justify-center text-xs uppercase"><span class="px-2 bg-slate-900 text-slate-600">Select Winner Manually</span></div>
-            <div class="relative flex justify-center text-xs uppercase"><span class="px-2 bg-slate-900 text-slate-600">{{ tiebreakersNeeded }} Teams needed</span></div>
+            <div class="relative flex justify-center text-xs uppercase"><span class="px-2 bg-slate-900 text-slate-600">{{ tiebreakersNeeded }} {{ tiebreakersNeeded > 1 ? 'Teams' : 'Team' }} needed</span></div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
