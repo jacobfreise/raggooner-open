@@ -1,24 +1,43 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-      // Match your specific path structure
-    match /artifacts/{appId}/public/data/tournaments/{tournamentId} {
+    match /artifacts/{appId}/public/data {
 
-      // 1. Anyone can read
-      allow read: if true;
+      // 1. PUBLIC TOURNAMENTS
+      match /tournaments/{tournamentId} {
+        allow read: if true;
+        allow create: if true;
 
-      // 2. Anyone can create a NEW tournament
-      allow create: if true;
+        // UPDATE RULE:
+        // Allow update IF:
+        // 1. The user has a valid Admin Slip (For New/Secured tournaments)
+        // OR
+        // 2. The document is NOT secured (For Legacy Public tournaments)
+        allow update: if
+          (exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/admins/$(tournamentId + '_' + request.auth.uid)))
+          ||
+          (!('isSecured' in resource.data) || resource.data.isSecured == false);
+      }
 
-      // 3. Update Rule:
-      // You can only update if the 'password' field in your incoming data
-      // matches the 'password' field currently in the database.
-      // (Also allows updates if the doc has no password, for backward compatibility)
-      allow update: if
-          (request.resource.data.password == resource.data.password) ||
-            !('password' in resource.data) || resource.data.password == '';
+      // 2. SECRETS (Password Vault)
+      match /secrets/{tournamentId} {
+        allow read: if false;
+        allow create: if true; // Allowed because it happens in the batch
+      }
+
+      // 3. ADMIN SLIPS (The Login Session)
+      match /admins/{docId} {
+        allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+
+        // CREATE:
+        // We use getAfter() here so we can see the secret being created in the SAME batch.
+        allow create: if request.auth != null
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.password == getAfter(
+               /databases/$(database)/documents/artifacts/$(appId)/public/data/secrets/$(request.resource.data.tournamentId)
+             ).data.password;
+      }
     }
   }
 }
