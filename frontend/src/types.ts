@@ -47,4 +47,5 @@ export interface Tournament {
         order: string[];
         currentIdx: number;
     };
+    isSecured?: boolean;
 }

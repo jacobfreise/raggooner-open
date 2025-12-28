@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
-import { doc, collection, query, orderBy, getDocs, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, FieldValue } from 'firebase/firestore';
+import { doc, collection, query, orderBy, getDocs, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, FieldValue, writeBatch } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import type { Tournament, Player, Team, Race, Wildcard } from './types';
 import { generateDiscordReport } from './utils/exportUtils';
@@ -155,15 +155,15 @@ const selectTournamentFromHome = (id: string) => {
 const secureUpdate = async (data: FirestoreUpdate<Tournament>) => {
   if (!tournament.value) return;
 
-  const pwdToSend = data.password || localAdminPassword.value;
-
-  const secureData = {
-    ...data,
-    password: pwdToSend
-  };
+  // const pwdToSend = data.password || localAdminPassword.value;
+  //
+  // const secureData = {
+  //   ...data,
+  //   password: pwdToSend
+  // };
 
   try {
-    await updateDoc(getTournamentRef(tournament.value.id), secureData);
+    await updateDoc(getTournamentRef(tournament.value.id), data);
   } catch (e: any) {
     console.error("Update failed", e);
     if(e.code === 'permission-denied') {
@@ -177,11 +177,43 @@ const secureUpdate = async (data: FirestoreUpdate<Tournament>) => {
 };
 
 // --- Action: Check Password ---
-const loginAsAdmin = () => {
-  localAdminPassword.value = adminPasswordInput.value.toUpperCase();
-  localStorage.setItem(`admin_pwd_${tournament.value!.id}`, adminPasswordInput.value);
-  showAdminModal.value = false;
-  adminPasswordInput.value = '';
+// const loginAsAdmin = () => {
+//   localAdminPassword.value = adminPasswordInput.value.toUpperCase();
+//   localStorage.setItem(`admin_pwd_${tournament.value!.id}`, adminPasswordInput.value);
+//   showAdminModal.value = false;
+//   adminPasswordInput.value = '';
+// };
+
+const loginAsAdmin = async () => {
+  if (!tournament.value) return;
+  if (!auth.currentUser) await signInAnonymously(auth);
+
+  const pwd = adminPasswordInput.value.toUpperCase();
+  const userId = auth.currentUser!.uid;
+  const tId = tournament.value.id;
+
+  try {
+    const adminRef = doc(db, 'artifacts', appId, 'public', 'data', 'admins', `${tId}_${userId}`);
+
+    // Try to create the "Permission Slip"
+    // If the password is WRONG, Firestore Rules will reject this write.
+    await setDoc(adminRef, {
+      tournamentId: tId,
+      userId: userId,
+      password: pwd
+    });
+
+    // If we get here, the password was correct!
+    localAdminPassword.value = pwd;
+    localStorage.setItem(`admin_pwd_${tId}`, pwd);
+    showAdminModal.value = false;
+    adminPasswordInput.value = '';
+    alert("Access Granted!");
+
+  } catch (e: any) {
+    console.error("Login failed", e);
+    alert("Incorrect Password");
+  }
 };
 
 const subscribeToTournament = (id: string) => {
@@ -190,10 +222,8 @@ const subscribeToTournament = (id: string) => {
     if (docSnap.exists()) {
       const data = docSnap.data() as Tournament;
 
-      if (!data.password || data.password === '') {
-        isPublicTournament.value = true;
-      }
-      delete data.password;
+      isPublicTournament.value = !(data.isSecured || (data.password && data.password !== ''));
+      if (data.password) delete data.password;
 
       tournament.value = data;
 
@@ -214,28 +244,81 @@ const subscribeToTournament = (id: string) => {
 };
 
 // Actions
+// const createTournament = async () => {
+//   const id = Math.random().toString(36).substring(2, 8).toUpperCase();
+//   const password = Math.random().toString(36).substring(2, 6).toUpperCase();
+//
+//   const newDoc: Tournament = {
+//     id,
+//     name: newTournamentName.value,
+//     password: password,
+//     status: 'registration',
+//     stage: 'groups',
+//     players: [],
+//     teams: [],
+//     races: [],
+//     createdAt: new Date().toISOString()
+//   };
+//
+//   tournament.value = newDoc;
+//   localAdminPassword.value = password;
+//   localStorage.setItem(`admin_pwd_${id}`, password);
+//
+//   await setDoc(getTournamentRef(id), newDoc);
+//   sessionStorage.setItem('active_tid', id);
+//   subscribeToTournament(id);
+//   window.history.pushState({}, '', `?tid=${id}`);
+// };
+
 const createTournament = async () => {
+  if (!auth.currentUser) await signInAnonymously(auth);
+
   const id = Math.random().toString(36).substring(2, 8).toUpperCase();
   const password = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const userId = auth.currentUser!.uid;
 
-  const newDoc: Tournament = {
+  // 1. References
+  const batch = writeBatch(db);
+
+  // Ref for Public Data
+  const tournamentRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', id);
+  // Ref for Secret Password
+  const secretRef = doc(db, 'artifacts', appId, 'public', 'data', 'secrets', id);
+  // Ref for Admin Slip (Automatically granting creator access)
+  const adminRef = doc(db, 'artifacts', appId, 'public', 'data', 'admins', `${id}_${userId}`);
+
+  // 2. Data
+  const newTourney: Tournament = {
     id,
     name: newTournamentName.value,
-    password: password,
     status: 'registration',
     stage: 'groups',
     players: [],
     teams: [],
     races: [],
-    createdAt: new Date().toISOString()
+    isSecured: true,
+    createdAt: new Date().toISOString(),
   };
 
-  tournament.value = newDoc;
+  // 3. Queue Operations
+  batch.set(tournamentRef, newTourney);
+  batch.set(secretRef, { password: password }); // Secret stored privately
+  batch.set(adminRef, {
+    tournamentId: id,
+    userId: userId,
+    password: password // Required for the validation rule, but stored in 'admins' collection
+  });
+
+  // 4. Commit
+  await batch.commit();
+
+  // 5. Local State
+  tournament.value = newTourney;
   localAdminPassword.value = password;
+
+  // Save to local storage so they don't lose it on refresh
   localStorage.setItem(`admin_pwd_${id}`, password);
 
-  await setDoc(getTournamentRef(id), newDoc);
-  sessionStorage.setItem('active_tid', id);
   subscribeToTournament(id);
   window.history.pushState({}, '', `?tid=${id}`);
 };
