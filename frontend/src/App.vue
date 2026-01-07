@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { doc, collection, query, orderBy, getDocs, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, FieldValue, writeBatch } from 'firebase/firestore';
 import { auth, db } from './firebase';
@@ -1357,15 +1357,6 @@ const isAdvancing = (teamId: string) => advancingTeamIds.value.has(teamId);
 
 onMounted(() => {
   init();
-  const stopWatch = watch(() => tournament.value, (val) => {
-    if(val) {
-      val.races.forEach(r => {
-        // ... logic to check winner ...
-        // playedEggIds.value.add(r.id)
-      });
-      stopWatch(); // Stop watching after first load
-    }
-  })
 });
 </script>
 
