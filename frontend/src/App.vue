@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { doc, collection, query, orderBy, getDocs, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, FieldValue, writeBatch } from 'firebase/firestore';
 import { auth, db } from './firebase';
@@ -54,6 +54,7 @@ const adminPasswordInput = ref('');
 const localAdminPassword = ref('');
 const showAdminModal = ref(false);
 const isPublicTournament = ref(false);
+const HISHI_DURATION_MS = 8000;
 
 // State
 const tournament = ref<Tournament | null>(null);
@@ -242,33 +243,6 @@ const subscribeToTournament = (id: string) => {
     loading.value = false;
   });
 };
-
-// Actions
-// const createTournament = async () => {
-//   const id = Math.random().toString(36).substring(2, 8).toUpperCase();
-//   const password = Math.random().toString(36).substring(2, 6).toUpperCase();
-//
-//   const newDoc: Tournament = {
-//     id,
-//     name: newTournamentName.value,
-//     password: password,
-//     status: 'registration',
-//     stage: 'groups',
-//     players: [],
-//     teams: [],
-//     races: [],
-//     createdAt: new Date().toISOString()
-//   };
-//
-//   tournament.value = newDoc;
-//   localAdminPassword.value = password;
-//   localStorage.setItem(`admin_pwd_${id}`, password);
-//
-//   await setDoc(getTournamentRef(id), newDoc);
-//   sessionStorage.setItem('active_tid', id);
-//   subscribeToTournament(id);
-//   window.history.pushState({}, '', `?tid=${id}`);
-// };
 
 const createTournament = async () => {
   if (!auth.currentUser) await signInAnonymously(auth);
@@ -1308,16 +1282,96 @@ const resolveManually = async (winner: Team) => {
   }
 };
 
+//EASTER EGG SECTION
+// --- EASTER EGG STATE ---
+const showHishiOverlay = ref(false);
+const playedEggIds = ref(new Set<string>());
+const isFirstLoad = ref(true);
+
+// Audio File (Replace this URL with your local file, e.g., '/sounds/hishi_impact.mp3')
+// A heavy "Thud" or "Gong" works best.
+const hishiSound = new Audio('Bono.mp3');
+
+// --- EASTER EGG LOGIC ---
+const checkEasterEggs = () => {
+  if (!tournament.value) return;
+
+  tournament.value.races.forEach(race => {
+    // 1. Skip if we've already "seen" this race (whether on load or previous update)
+    if (playedEggIds.value.has(race.id)) return;
+
+    // 2. Mark it as seen immediately so we don't check it again
+    playedEggIds.value.add(race.id);
+
+    // 3. Check for Hishi Win
+    const winnerId = Object.keys(race.placements).find(pid => race.placements[pid] == 1);
+    if (winnerId) {
+      const winner = tournament.value!.players.find(p => p.id === winnerId);
+      if (winner && winner.uma === 'Hishi Akebono') {
+        triggerHishiEffect();
+      }
+    }
+  });
+};
+
+const triggerHishiEffect = () => {
+  // Play Audio
+  hishiSound.currentTime = 0;
+  hishiSound.volume = 0.8;
+  hishiSound.play().catch(e => console.warn("Audio blocked:", e));
+
+  // Start Visuals
+  showHishiOverlay.value = true;
+
+  // Stop Visuals after duration
+  setTimeout(() => {
+    showHishiOverlay.value = false;
+  }, HISHI_DURATION_MS);
+};
+
+// --- WATCHER ---
+// This runs whenever tournament data changes (either from admin input or firebase sync)
+watch(
+    () => tournament.value,
+    (newVal) => {
+      if (newVal) {
+        if (isFirstLoad.value) {
+          // 🛑 ON REFRESH: Just add all existing races to the 'seen' list silently.
+          // Do not trigger effects.
+          newVal.races.forEach(r => playedEggIds.value.add(r.id));
+          isFirstLoad.value = false;
+        } else {
+          // ✅ ON UPDATE: Actually check for new wins
+          checkEasterEggs();
+        }
+      }
+    },
+    { deep: true }
+);
+
+// Optional: Initialize "seen" races on load so we don't spam 5 sounds if she won 5 times in the past
+// Uncomment this block if you ONLY want it to play for NEW updates, not on page refresh.
+
 // Helper for the template to keep code clean
 const isAdvancing = (teamId: string) => advancingTeamIds.value.has(teamId);
 
 onMounted(() => {
   init();
+  const stopWatch = watch(() => tournament.value, (val) => {
+    if(val) {
+      val.races.forEach(r => {
+        // ... logic to check winner ...
+        // playedEggIds.value.add(r.id)
+      });
+      stopWatch(); // Stop watching after first load
+    }
+  })
 });
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col">
+  <div class="min-h-screen flex flex-col"
+       :class="{ 'hishi-quake': showHishiOverlay }">
     <header class="border-b border-slate-700 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         <div class="flex items-center gap-2 text-indigo-500 cursor-pointer" @click="exitTournament">
@@ -2496,4 +2550,55 @@ onMounted(() => {
       </div>
     </div>
   </div>
+  <div v-if="showHishiOverlay" class="hishi-overlay flex items-center justify-center">
+    <h1 class="text-9xl font-black text-red-500/50 uppercase tracking-widest animate-pulse rotate-12 select-none drop-shadow-2xl">
+      BONO!
+    </h1>
+  </div>
 </template>
+
+<style scoped>
+/* EASTER EGG STYLES */
+@keyframes sumo-shake {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-10px, -10px) rotate(-1deg); }
+  20% { transform: translate(10px, 10px) rotate(1deg); }
+  30% { transform: translate(-10px, 10px) rotate(0deg); }
+  40% { transform: translate(10px, -10px) rotate(1deg); }
+  50% { transform: translate(-10px, 0) rotate(-1deg); }
+  60% { transform: translate(10px, 0) rotate(0deg); }
+  70% { transform: translate(-5px, 5px) rotate(0.5deg); }
+  80% { transform: translate(5px, -5px) rotate(-0.5deg); }
+  90% { transform: translate(0, 0) rotate(0); }
+  100% { transform: translate(0, 0) rotate(0); }
+}
+
+@keyframes flash-pulse {
+  0%, 100% { background-color: rgba(220, 38, 38, 0); } /* Transparent */
+  50% { background-color: rgba(220, 38, 38, 0.4); } /* Strong Red flash */
+}
+
+@keyframes flash-red {
+  0% { background-color: transparent; }
+  10% { background-color: rgba(255, 100, 100, 0.2); }
+  100% { background-color: transparent; }
+}
+
+.hishi-quake {
+  /* Use overflow-hidden during shake to prevent scrollbars appearing */
+  overflow: hidden;
+  animation: sumo-shake 1.2s cubic-bezier(.36,.07,.19,.97) both;
+  /* Optional: repeat the shake a few times for a long sound */
+  /* animation-iteration-count: 3; */
+}
+
+.hishi-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  /* Run the pulse animation infinitely, 0.4s per pulse */
+  animation: flash-pulse 1s ease-in-out infinite;
+  backdrop-filter: contrast(1.2) sepia(0.2); /* Adds to the chaos */
+}
+</style>
