@@ -31,7 +31,7 @@ const TEAM_COLORS = [
   '#f43f5e', // Rose
 ];
 
-const UMAS = ['Mejiro Dober', 'Tosan Jordan',
+const UMAS = ['Christmas Oguri Cap', 'Christmas Biwa Hayahide', 'Mejiro Dober', 'Tosan Jordan',
   'Festival Symboli Rudolf', 'Festival Gold City', 'Manhattan Cafe', 'Kawakami Princess', 'Halloween Rice Shower',
   'Halloween Super Creek', 'Agnes Digital', 'Hishi Akebono', 'Full Armor Matikanefukukitaru', 'Eishin Flash',
   'Meisho Doto', 'Summer Special Week', 'Summer Maruzensky', 'Gold City', 'Fuji Kiseki', 'Fantasy Grass Wonder',
