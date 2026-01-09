@@ -14,7 +14,7 @@ service cloud.firestore {
         // 1. The user has a valid Admin Slip (For New/Secured tournaments)
         // OR
         // 2. The document is NOT secured (For Legacy Public tournaments)
-        allow update: if
+        allow update, delete: if
           (exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/admins/$(tournamentId + '_' + request.auth.uid)))
           ||
           (!('isSecured' in resource.data) || resource.data.isSecured == false);

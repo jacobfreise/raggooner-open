@@ -1,7 +1,19 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
-import { doc, collection, query, orderBy, getDocs, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, FieldValue, writeBatch } from 'firebase/firestore';
+import { doc,
+  collection,
+  query,
+  orderBy,
+  getDocs,
+  onSnapshot,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  arrayUnion,
+  arrayRemove,
+  FieldValue,
+  writeBatch } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import type { Tournament, Player, Team, Race, Wildcard } from './types';
 import { generateDiscordReport } from './utils/exportUtils';
@@ -69,6 +81,8 @@ const showBans = ref(false);
 const showWildcardModal = ref(false);
 const newWildcardName = ref('');
 const wildcardTargetGroup = ref<'A' | 'B' | 'C' | 'Finals' | ''>('');
+const isDeleting = ref(false);
+const currentUnsubscribe = ref<(() => void) | null>(null);
 
 // --- NEW STATE FOR HOME PAGE ---
 const homeListLoading = ref(false);
@@ -156,13 +170,6 @@ const selectTournamentFromHome = (id: string) => {
 const secureUpdate = async (data: FirestoreUpdate<Tournament>) => {
   if (!tournament.value) return;
 
-  // const pwdToSend = data.password || localAdminPassword.value;
-  //
-  // const secureData = {
-  //   ...data,
-  //   password: pwdToSend
-  // };
-
   try {
     await updateDoc(getTournamentRef(tournament.value.id), data);
   } catch (e: any) {
@@ -176,14 +183,6 @@ const secureUpdate = async (data: FirestoreUpdate<Tournament>) => {
     }
   }
 };
-
-// --- Action: Check Password ---
-// const loginAsAdmin = () => {
-//   localAdminPassword.value = adminPasswordInput.value.toUpperCase();
-//   localStorage.setItem(`admin_pwd_${tournament.value!.id}`, adminPasswordInput.value);
-//   showAdminModal.value = false;
-//   adminPasswordInput.value = '';
-// };
 
 const loginAsAdmin = async () => {
   if (!tournament.value) return;
@@ -218,8 +217,18 @@ const loginAsAdmin = async () => {
 };
 
 const subscribeToTournament = (id: string) => {
+  // 1. If we are already listening to a tournament, stop listening!
+  if (currentUnsubscribe.value) {
+    currentUnsubscribe.value();
+    currentUnsubscribe.value = null;
+  }
   loading.value = true;
-  onSnapshot(getTournamentRef(id), (docSnap) => {
+
+  const unsubscribe = onSnapshot(getTournamentRef(id), (docSnap) => {
+
+    // 1. If we are intentionally deleting, do NOTHING.
+    if (isDeleting.value) return;
+
     if (docSnap.exists()) {
       const data = docSnap.data() as Tournament;
 
@@ -242,6 +251,8 @@ const subscribeToTournament = (id: string) => {
     console.error("Sync error:", error);
     loading.value = false;
   });
+
+  currentUnsubscribe.value = unsubscribe;
 };
 
 const createTournament = async () => {
@@ -297,6 +308,49 @@ const createTournament = async () => {
   window.history.pushState({}, '', `?tid=${id}`);
 };
 
+const deleteTournament = async () => {
+  if (!tournament.value || !isAdmin.value) return;
+
+  // 1. Safety Check
+  const confirmed = confirm(
+      `DANGER: Are you sure you want to delete "${tournament.value.name}"?\n\nThis action cannot be undone.`
+  );
+
+  if (!confirmed) return;
+
+  isDeleting.value = true;
+  const tid = tournament.value.id;
+
+  try {
+    // 2. Delete from Firestore
+    await deleteDoc(getTournamentRef(tid));
+
+    // 3. Cleanup Local Storage / Session
+    sessionStorage.removeItem('active_tid');
+    localStorage.removeItem(`admin_pwd_${tid}`);
+    localAdminPassword.value = '';
+
+    // 4. Reset State
+    tournament.value = null;
+    showAdminModal.value = false;
+
+    // 5. Clean URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete('tid');
+    window.history.pushState({}, '', url);
+
+    // 6. Refresh Home List (so the deleted item disappears)
+    await fetchPublicTournaments();
+
+    alert("Tournament deleted successfully.");
+  } catch (e) {
+    console.error("Error deleting tournament:", e);
+    alert("Failed to delete tournament. Check console for permissions error.");
+  } finally {
+    isDeleting.value = false;
+  }
+};
+
 const joinTournament = () => {
   if(!joinId.value) return;
   if (localStorage.getItem(`admin_pwd_${joinId.value}`)) {
@@ -310,6 +364,12 @@ const joinTournament = () => {
 };
 
 const exitTournament = () => {
+  // Stop listening to Firestore
+  if (currentUnsubscribe.value) {
+    currentUnsubscribe.value();
+    currentUnsubscribe.value = null;
+  }
+
   sessionStorage.removeItem('active_tid');
   tournament.value = null;
   // Clear URL params
@@ -2409,11 +2469,9 @@ onMounted(() => {
 
         <div v-if="!isAdmin">
           <p class="text-sm text-slate-400 mb-4">Enter the tournament password to enable editing.</p>
-
           <input v-model="adminPasswordInput" type="password" placeholder="Password"
                  @keyup.enter="loginAsAdmin"
                  class="w-full bg-slate-800 border border-slate-700 rounded p-3 text-white mb-6 focus:outline-none focus:border-indigo-500 text-center font-mono text-lg tracking-widest uppercase">
-
           <button @click="loginAsAdmin" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-3 rounded-lg font-bold">
             Unlock Editing
           </button>
@@ -2428,9 +2486,19 @@ onMounted(() => {
             <p class="text-xs text-slate-500">Share this with co-commentators.</p>
           </div>
 
-          <button @click="copyPassword" class="w-full bg-slate-700 hover:bg-slate-600 text-white px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors">
+          <button @click="copyPassword" class="w-full bg-slate-700 hover:bg-slate-600 text-white px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors mb-6">
             <i class="ph-bold ph-copy"></i> Copy Password
           </button>
+
+          <div class="border-t border-slate-700 pt-6">
+            <h4 class="text-xs font-bold text-red-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <i class="ph-bold ph-warning"></i> Danger Zone
+            </h4>
+            <button @click="deleteTournament" class="w-full bg-red-900/10 hover:bg-red-900/30 border border-red-500/30 text-red-400 hover:text-red-300 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all">
+              <i class="ph-bold ph-trash"></i> Delete Tournament
+            </button>
+          </div>
+
         </div>
 
       </div>
