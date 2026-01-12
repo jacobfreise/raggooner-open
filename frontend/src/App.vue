@@ -1459,7 +1459,17 @@ watch(
 // Uncomment this block if you ONLY want it to play for NEW updates, not on page refresh.
 
 // Helper for the template to keep code clean
-const isAdvancing = (teamId: string) => advancingTeamIds.value.has(teamId);
+const isAdvancing = (teamId: string) => {
+  // 1. Basic check: Is the tournament loaded and is the team in the top list?
+  if (!tournament.value || !advancingTeamIds.value.has(teamId)) return false;
+
+  // 2. Point check: Find the team and ensure they have > 0 points
+  const team = tournament.value.teams.find(t => t.id === teamId);
+
+  // Use '?? 0' to handle undefined safely.
+  // If team is missing or points is undefined, it becomes 0.
+  return (team?.points ?? 0) > 0;
+};
 
 onMounted(() => {
   init();
