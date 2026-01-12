@@ -83,9 +83,6 @@ const newWildcardName = ref('');
 const wildcardTargetGroup = ref<'A' | 'B' | 'C' | 'Finals' | ''>('');
 const isDeleting = ref(false);
 const currentUnsubscribe = ref<(() => void) | null>(null);
-const playerRefs = ref<Record<string, HTMLElement>>({});
-const teamRefs = ref<Record<string, HTMLElement>>({});
-const isDrafting = ref(false);
 const animatingPlayerId = ref<string | null>(null);
 
 // --- NEW STATE FOR HOME PAGE ---
@@ -617,14 +614,14 @@ const undoLastPick = async () => {
   if (!tournament.value || !tournament.value.draft || !isAdmin.value) return;
 
   const t = tournament.value;
-  const currentIdx = t.draft.currentIdx;
+  const currentIdx = t.draft!.currentIdx;
 
   // Cannot undo if no picks have been made
   if (currentIdx <= 0) return;
 
   // 1. Calculate the index of the previous pick (the one we want to undo)
   const prevIdx = currentIdx - 1;
-  const teamId = t.draft.order[prevIdx];
+  const teamId = t.draft!.order[prevIdx];
 
   // 2. Find the team that made that pick
   const teamIndex = t.teams.findIndex(tm => tm.id === teamId);
@@ -646,10 +643,10 @@ const undoLastPick = async () => {
   };
 
   // 4. Update Firestore
-  const updates: FirestoreUpdate<Tournament> = {
+  const updates: Record<string, any> = {
     teams: updatedTeams,
-    'draft.currentIdx': prevIdx, // Move pointer back
-    status: 'draft' // Force status back to 'draft' (handles undoing the final pick)
+    'draft.currentIdx': prevIdx,
+    status: 'draft'
   };
 
   await secureUpdate(updates);
