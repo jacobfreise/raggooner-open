@@ -83,6 +83,10 @@ const newWildcardName = ref('');
 const wildcardTargetGroup = ref<'A' | 'B' | 'C' | 'Finals' | ''>('');
 const isDeleting = ref(false);
 const currentUnsubscribe = ref<(() => void) | null>(null);
+const playerRefs = ref<Record<string, HTMLElement>>({});
+const teamRefs = ref<Record<string, HTMLElement>>({});
+const isDrafting = ref(false);
+const animatingPlayerId = ref<string | null>(null);
 
 // --- NEW STATE FOR HOME PAGE ---
 const homeListLoading = ref(false);
@@ -584,7 +588,10 @@ const draftPreview = computed(() => {
 });
 
 const draftPlayer = async (player: Player) => {
-  if(!tournament.value || !tournament.value.draft) return;
+  // Check if we are already busy
+  if(!tournament.value || !tournament.value.draft || animatingPlayerId.value) return;
+
+  // ... (Database Update Logic remains the same) ...
   const t = tournament.value;
   const currentTeamId = t.draft?.order[t.draft?.currentIdx];
   const teamIndex = t.teams.findIndex(tm => tm.id === currentTeamId);
@@ -602,6 +609,48 @@ const draftPlayer = async (player: Player) => {
   if(nextIdx >= t.draft!.order!.length) {
     updates.status = 'ban';
   }
+
+  await secureUpdate(updates);
+};
+
+const undoLastPick = async () => {
+  if (!tournament.value || !tournament.value.draft || !isAdmin.value) return;
+
+  const t = tournament.value;
+  const currentIdx = t.draft.currentIdx;
+
+  // Cannot undo if no picks have been made
+  if (currentIdx <= 0) return;
+
+  // 1. Calculate the index of the previous pick (the one we want to undo)
+  const prevIdx = currentIdx - 1;
+  const teamId = t.draft.order[prevIdx];
+
+  // 2. Find the team that made that pick
+  const teamIndex = t.teams.findIndex(tm => tm.id === teamId);
+  const team = t.teams[teamIndex];
+
+  if (!team || team.memberIds.length === 0) {
+    console.error("Undo Error: Team not found or has no members to remove");
+    return;
+  }
+
+  // 3. Remove the last member added to that team
+  const updatedTeams = [...t.teams];
+  // Create a copy of the memberIds array with the last element removed
+  const newMemberIds = team.memberIds.slice(0, -1);
+
+  updatedTeams[teamIndex] = {
+    ...team,
+    memberIds: newMemberIds
+  };
+
+  // 4. Update Firestore
+  const updates: FirestoreUpdate<Tournament> = {
+    teams: updatedTeams,
+    'draft.currentIdx': prevIdx, // Move pointer back
+    status: 'draft' // Force status back to 'draft' (handles undoing the final pick)
+  };
 
   await secureUpdate(updates);
 };
@@ -1679,10 +1728,19 @@ onMounted(() => {
                 <span class="text-slate-500 text-sm">({{ currentDrafter?.teamName }})</span>
               </div>
             </div>
-            <div class="flex gap-1">
-              <div v-for="(_, idx) in draftPreview" :key="idx"
-                   class="w-3 h-3 rounded-full transition-all"
-                   :class="idx === 0 ? 'bg-amber-500 scale-125' : 'bg-slate-700'">
+
+            <div class="flex items-center gap-4">
+              <button @click="undoLastPick"
+                      :disabled="!isAdmin || (tournament.draft?.currentIdx || 0) === 0"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-slate-200 text-sm font-bold transition-colors border border-slate-600">
+                <i class="ph-bold ph-arrow-u-up-left"></i> Undo
+              </button>
+
+              <div class="flex gap-1">
+                <div v-for="(_, idx) in draftPreview" :key="idx"
+                     class="w-3 h-3 rounded-full transition-all"
+                     :class="idx === 0 ? 'bg-amber-500 scale-125' : 'bg-slate-700'">
+                </div>
               </div>
             </div>
           </div>
@@ -1738,6 +1796,14 @@ onMounted(() => {
             </div>
 
             <div class="flex items-center gap-4 w-full sm:w-auto">
+
+              <button v-if="isAdmin && (!tournament.bans || tournament.bans.length === 0)"
+                      @click="undoLastPick"
+                      class="text-slate-500 hover:text-white flex items-center gap-2 px-3 py-2 rounded hover:bg-slate-800 transition-colors mr-2">
+                <i class="ph-bold ph-arrow-u-up-left"></i>
+                <span class="hidden sm:inline">Back to Draft</span>
+              </button>
+
               <div class="text-right hidden sm:block">
                 <div class="text-2xl font-mono font-bold text-red-400">
                   {{ tournament.bans?.length || 0 }}
