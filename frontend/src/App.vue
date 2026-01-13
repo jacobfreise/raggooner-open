@@ -686,7 +686,7 @@ const spinRandomWheel = (winner: Player, wheelSet: Player[]) => {
     // However, since the modal was open, the user didn't click the button.
     // We can just call draftPlayer directly.
     await draftPlayer(winner);
-  }, 4500);
+  }, 5000);
 };
 
 // Helper for wheel colors
@@ -2787,11 +2787,10 @@ onMounted(() => {
           transform: `rotate(${randomWheelRotation}deg)`
         }">
           <div v-for="(player, idx) in randomCandidates" :key="player.id"
-               class="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-[50%] origin-bottom flex justify-center pt-4"
+               class="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-[50%] origin-bottom flex justify-center pt-8"
                :style="{ transform: `rotate(${(idx * (360/randomCandidates.length)) + (360/randomCandidates.length/2)}deg)` }">
 
-            <div class="text-white font-black text-xs uppercase drop-shadow-md px-1 py-2 rounded bg-black/20 backdrop-blur-sm truncate max-h-[120px]"
-                 style="writing-mode: vertical-rl;">
+            <div class="text-white font-black text-xs uppercase drop-shadow-md px-1 py-2 rounded bg-black/20 backdrop-blur-sm truncate max-h-[120px] whitespace-nowrap">
               {{ player.name }}
             </div>
           </div>
