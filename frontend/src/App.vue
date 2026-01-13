@@ -83,7 +83,6 @@ const newWildcardName = ref('');
 const wildcardTargetGroup = ref<'A' | 'B' | 'C' | 'Finals' | ''>('');
 const isDeleting = ref(false);
 const currentUnsubscribe = ref<(() => void) | null>(null);
-const animatingPlayerId = ref<string | null>(null);
 
 // --- NEW STATE FOR HOME PAGE ---
 const homeListLoading = ref(false);
@@ -586,7 +585,7 @@ const draftPreview = computed(() => {
 
 const draftPlayer = async (player: Player) => {
   // Check if we are already busy
-  if(!tournament.value || !tournament.value.draft || animatingPlayerId.value) return;
+  if(!tournament.value || !tournament.value.draft) return;
 
   // ... (Database Update Logic remains the same) ...
   const t = tournament.value;
@@ -609,6 +608,103 @@ const draftPlayer = async (player: Player) => {
 
   await secureUpdate(updates);
 };
+
+// --- RANDOM DRAFT STATE ---
+const showRandomModal = ref(false);
+const randomWheelRotation = ref(0);
+const randomCandidates = ref<Player[]>([]); // The slice of players shown on wheel
+const randomWinner = ref<Player | null>(null);
+
+// --- ACTION: Start Random Draft ---
+const startRandomDraft = () => {
+  // 1. Get all valid candidates
+  const candidates = availablePlayers.value;
+  if (candidates.length === 0) return;
+
+  // 2. Pick the Winner (Deterministic)
+  const winnerIndex = Math.floor(Math.random() * candidates.length);
+  const winner = candidates[winnerIndex];
+
+  // TypeScript Guard: Ensure winner is defined before proceeding
+  if (!winner) return;
+
+  randomWinner.value = winner;
+
+  // 3. Prepare the Wheel (Visuals)
+  let wheelSet: Player[] = [];
+
+  if (candidates.length > 12) {
+    // Filter out the winner first
+    const others = candidates.filter(p => p.id !== winner.id);
+    // Shuffle and take 11
+    const decoys = others.sort(() => 0.5 - Math.random()).slice(0, 11);
+
+    // Combine: decoys + winner
+    // We cast explicitly here because we just proved 'winner' exists above
+    wheelSet = [...decoys, winner].sort(() => 0.5 - Math.random());
+  } else {
+    wheelSet = [...candidates].sort(() => 0.5 - Math.random());
+  }
+
+  randomCandidates.value = wheelSet;
+  showRandomModal.value = true;
+  randomWheelRotation.value = 0; // Reset rotation
+
+  // 4. Start Spin
+  setTimeout(() => {
+    spinRandomWheel(winner, wheelSet);
+  }, 300);
+};
+
+const spinRandomWheel = (winner: Player, wheelSet: Player[]) => {
+  // 1. Find where the winner is on our specific wheel subset
+  const winnerIdx = wheelSet.findIndex(p => p.id === winner.id);
+  const sliceSize = 360 / wheelSet.length;
+
+  // 2. Calculate target rotation
+  // Target center of the winner's slice
+  const targetAngle = (winnerIdx * sliceSize) + (sliceSize / 2);
+
+  // 3. Spin Math (Add 5-8 full spins + alignment)
+  // We rotate backwards (negative) to spin clockwise visually?
+  // Actually, standard rotate() is clockwise. To bring index X to top (0deg),
+  // we need to rotate roughly (360 - angle).
+  const spins = 5 + Math.floor(Math.random() * 3);
+  const finalRotation = (spins * 360) + (360 - targetAngle);
+
+  randomWheelRotation.value = finalRotation;
+
+  // 4. End of Animation -> Draft the player
+  // CSS duration is set to 4s. We wait 4.5s to be safe.
+  setTimeout(async () => {
+    // Close modal
+    showRandomModal.value = false;
+
+    // Trigger the standard draft function with animation
+    // We pass the player object. The draftPlayer function handles the
+    // "ghost button" animation from the button list.
+    // However, since the modal was open, the user didn't click the button.
+    // We can just call draftPlayer directly.
+    await draftPlayer(winner);
+  }, 4500);
+};
+
+// Helper for wheel colors
+const getRandomWheelGradient = computed(() => {
+  const count = randomCandidates.value.length;
+  if (count === 0) return '';
+  const slice = 100 / count;
+
+  const colors = ['#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
+
+  const stops = randomCandidates.value.map((_, i) => {
+    const color = colors[i % colors.length];
+    return `${color} ${i * slice}% ${(i + 1) * slice}%`;
+  });
+
+  // ADDED "from 0deg" to lock orientation
+  return `conic-gradient(from 0deg, ${stops.join(', ')})`;
+});
 
 const undoLastPick = async () => {
   if (!tournament.value || !tournament.value.draft || !isAdmin.value) return;
@@ -1754,11 +1850,26 @@ onMounted(() => {
           <div class="grid md:grid-cols-12 gap-6">
             <div class="md:col-span-8">
               <h3 class="text-lg font-bold mb-3 text-slate-300">Available Players</h3>
-              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 auto-rows-fr">
+                <button @click="startRandomDraft"
+                        :disabled="!isAdmin"
+                        class="bg-gradient-to-br from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 p-4 rounded-lg shadow-lg border-2 border-amber-300 flex items-center justify-between group relative overflow-hidden transition-all transform hover:scale-[1.02]">
+
+                  <div class="relative z-10 text-left">
+                    <div class="font-black text-amber-900 text-lg uppercase tracking-wider">Random</div>
+                    <div class="text-amber-900/80 text-xs font-bold">I'm feeling lucky</div>
+                  </div>
+
+                  <div class="relative z-10 text-amber-900 p-2 bg-white/20 rounded-full">
+                    <i class="ph-bold ph-dice-five text-3xl group-hover:rotate-180 transition-transform duration-500"></i>
+                  </div>
+
+                  <div class="absolute inset-0 bg-white/20 -skew-x-12 -translate-x-full group-hover:animate-shine"></div>
+                </button>
                 <button v-for="player in availablePlayers" :key="player.id"
                         @click="draftPlayer(player)"
                         :disabled="!isAdmin"
-                        class="bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 p-4 rounded-lg transition-all text-left group relative overflow-hidden">
+                        class="h-full w-full bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 p-4 rounded-lg transition-all text-left group relative overflow-hidden flex flex-col justify-center">
                   <span class="relative z-10 font-medium group-hover:text-white">{{ player.name }}</span>
                   <div class="absolute bottom-0 right-0 p-2 text-slate-700 group-hover:text-indigo-400 opacity-20">
                     <i class="ph-fill ph-steering-wheel text-4xl"></i>
@@ -2659,6 +2770,43 @@ onMounted(() => {
       </div>
     </div>
 
+    <div v-if="showRandomModal" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md">
+
+      <h2 class="text-3xl font-bold text-white mb-8 animate-pulse text-center">
+        <span class="text-amber-400">Fate</span> is deciding...
+      </h2>
+
+      <div class="relative">
+        <div class="absolute -top-8 left-1/2 -translate-x-1/2 z-20 drop-shadow-xl filter">
+          <i class="ph-fill ph-caret-down text-6xl text-white"></i>
+        </div>
+
+        <div class="w-80 h-80 sm:w-96 sm:h-96 rounded-full border-8 border-slate-800 shadow-[0_0_60px_rgba(245,158,11,0.3)] relative overflow-hidden transition-transform duration-[4000ms] ease-[cubic-bezier(0.25,1,0.5,1)]"
+             :style="{
+          background: getRandomWheelGradient,
+          transform: `rotate(${randomWheelRotation}deg)`
+        }">
+          <div v-for="(player, idx) in randomCandidates" :key="player.id"
+               class="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-[50%] origin-bottom flex justify-center pt-4"
+               :style="{ transform: `rotate(${(idx * (360/randomCandidates.length)) + (360/randomCandidates.length/2)}deg)` }">
+
+            <div class="text-white font-black text-xs uppercase drop-shadow-md px-1 py-2 rounded bg-black/20 backdrop-blur-sm truncate max-h-[120px]"
+                 style="writing-mode: vertical-rl;">
+              {{ player.name }}
+            </div>
+          </div>
+        </div>
+
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-slate-800 rounded-full border-4 border-slate-600 z-10 shadow-lg flex items-center justify-center">
+          <div class="w-12 h-12 bg-amber-500 rounded-full animate-pulse"></div>
+        </div>
+      </div>
+
+      <p class="text-slate-500 mt-8 font-mono text-xs">
+        Choosing from {{ availablePlayers.length }} Players
+      </p>
+    </div>
+
     <div v-if="showCoinFlip" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md">
 
       <h2 class="text-3xl font-bold text-white mb-12 animate-pulse">Flipping for the spot...</h2>
@@ -2732,5 +2880,14 @@ onMounted(() => {
   /* Run the pulse animation infinitely, 0.4s per pulse */
   animation: flash-pulse 1s ease-in-out infinite;
   backdrop-filter: contrast(1.2) sepia(0.2); /* Adds to the chaos */
+}
+
+@keyframes shine {
+  0% { transform: translateX(-150%) skewX(-12deg); }
+  100% { transform: translateX(150%) skewX(-12deg); }
+}
+
+.animate-shine {
+  animation: shine 1s ease-in-out infinite;
 }
 </style>
