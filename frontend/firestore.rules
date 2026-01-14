@@ -7,7 +7,7 @@ service cloud.firestore {
       // 1. PUBLIC TOURNAMENTS
       match /tournaments/{tournamentId} {
         allow read: if true;
-        allow create: if false;
+        allow create: if true;
 
         // UPDATE RULE:
         // Allow update IF:
