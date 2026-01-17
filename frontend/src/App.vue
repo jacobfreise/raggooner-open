@@ -83,6 +83,9 @@ const newWildcardName = ref('');
 const wildcardTargetGroup = ref<'A' | 'B' | 'C' | 'Finals' | ''>('');
 const isDeleting = ref(false);
 const currentUnsubscribe = ref<(() => void) | null>(null);
+const editedName = ref('');
+const editedTiebreaker = ref(true);
+const isDangerZoneOpen = ref(false);
 
 // --- NEW STATE FOR HOME PAGE ---
 const homeListLoading = ref(false);
@@ -282,6 +285,7 @@ const createTournament = async () => {
     teams: [],
     races: [],
     isSecured: true,
+    usePlacementTiebreaker: true,
     createdAt: new Date().toISOString(),
   };
 
@@ -361,6 +365,18 @@ const joinTournament = () => {
   subscribeToTournament(joinId.value);
   window.history.pushState({}, '', `?tid=${joinId.value}`);
   joinId.value = '';
+};
+
+const togglePlacementTiebreaker = async () => {
+  if (!tournament.value) return;
+
+  // Toggle the local value
+  editedTiebreaker.value = !editedTiebreaker.value;
+
+  // Save to Firestore
+  await secureUpdate({
+    usePlacementTiebreaker: editedTiebreaker.value
+  });
 };
 
 const exitTournament = () => {
@@ -1173,15 +1189,19 @@ const compareTeams = (a: Team, b: Team, useIdFallback = true) => {
     return b.points - a.points;
   }
 
-  // Priority 2: Countback (Most 1sts, then 2nds, etc.)
-  const placementsA = getTeamPlacements(a);
-  const placementsB = getTeamPlacements(b);
+  const useTiebreaker = tournament.value?.usePlacementTiebreaker ?? true;
 
-  for (let i = 1; i <= 18; i++) {
-    const countA = placementsA[i] || 0;
-    const countB = placementsB[i] || 0;
-    if (countB !== countA) {
-      return countB - countA;
+  if (useTiebreaker) {
+    // Priority 2: Countback (Most 1sts, then 2nds, etc.)
+    const placementsA = getTeamPlacements(a);
+    const placementsB = getTeamPlacements(b);
+
+    for (let i = 1; i <= 18; i++) {
+      const countA = placementsA[i] || 0;
+      const countB = placementsB[i] || 0;
+      if (countB !== countA) {
+        return countB - countA;
+      }
     }
   }
 
@@ -1288,6 +1308,26 @@ const advancingTeamIds = computed(() => {
 
   return ids;
 });
+
+watch(showAdminModal, (isOpen) => {
+  if (isOpen && tournament.value) {
+    editedName.value = tournament.value.name;
+    editedTiebreaker.value = tournament.value.usePlacementTiebreaker ?? true;
+  }else {
+    isDangerZoneOpen.value = false;
+  }
+});
+
+// --- NEW ACTION: Update Name ---
+const updateTournamentName = async () => {
+  if (!tournament.value || !editedName.value) return;
+
+  await secureUpdate({
+    name: editedName.value
+  });
+
+  alert("Tournament name updated!");
+};
 
 //----- Tie Breaker Handling
 // --- NEW STATE: Tie Breakers & Coin Flip ---
@@ -1576,19 +1616,24 @@ onMounted(() => {
   <div class="min-h-screen flex flex-col"
        :class="{ 'hishi-quake': showHishiOverlay }">
     <header class="border-b border-slate-700 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
-      <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-        <div class="flex items-center gap-2 text-indigo-500 cursor-pointer" @click="exitTournament">
-          <i class="ph-fill ph-flag-checkered text-3xl"></i>
-          <span class="text-2xl font-bold text-white heading tracking-widest">Raccoon Open</span>
+      <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between relative"> <div class="flex items-center gap-2 text-indigo-500 cursor-pointer z-10" @click="exitTournament">
+        <i class="ph-fill ph-flag-checkered text-3xl"></i>
+        <span class="text-2xl font-bold text-white heading tracking-widest hidden sm:block">Raccoon Open</span>
+        <span class="text-2xl font-bold text-white heading tracking-widest sm:hidden">RO</span>
+      </div>
+
+        <div v-if="tournament" class="absolute left-1/2 -translate-x-1/2 font-bold text-slate-200 uppercase tracking-widest text-sm md:text-base hidden md:block whitespace-nowrap overflow-hidden text-ellipsis max-w-[300px] text-center">
+          {{ tournament.name }}
         </div>
 
-        <div v-if="tournament" class="flex items-center gap-4">
+        <div v-if="tournament" class="flex items-center gap-4 z-10">
           <button @click="showAdminModal = true"
                   class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition-colors mr-2"
                   :class="isAdmin ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400 hover:bg-emerald-900/50' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'">
             <i class="ph-bold" :class="isAdmin ? 'ph-lock-open' : 'ph-lock'"></i>
             {{ isAdmin ? 'Admin' : 'Viewer' }}
           </button>
+
           <div class="hidden md:flex flex-col items-end">
             <button @click="copyId" class="text-sm font-mono text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
               Tournament ID <i class="ph ph-copy"></i>
@@ -1597,6 +1642,7 @@ onMounted(() => {
               Link <i class="ph ph-share"></i>
             </button>
           </div>
+
           <button @click="exitTournament" class="text-slate-400 hover:text-white" title="Go to Home">
             <i class="ph ph-sign-out text-xl"></i>
           </button>
@@ -2674,13 +2720,82 @@ onMounted(() => {
             <i class="ph-bold ph-copy"></i> Copy Password
           </button>
 
-          <div class="border-t border-slate-700 pt-6">
-            <h4 class="text-xs font-bold text-red-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-              <i class="ph-bold ph-warning"></i> Danger Zone
+          <div class="border-t border-slate-700 pt-6 mb-6">
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <i class="ph-bold ph-sliders"></i> Settings
             </h4>
-            <button @click="deleteTournament" class="w-full bg-red-900/10 hover:bg-red-900/30 border border-red-500/30 text-red-400 hover:text-red-300 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all">
-              <i class="ph-bold ph-trash"></i> Delete Tournament
+
+            <div class="space-y-2">
+              <label class="text-xs text-slate-500 uppercase font-bold">Edit Tournament Name</label>
+              <div class="flex gap-2">
+                <input v-model="editedName"
+                       type="text"
+                       class="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                       placeholder="Enter name...">
+
+                <button @click="updateTournamentName"
+                        :disabled="editedName === tournament?.name || !editedName"
+                        class="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-2 rounded font-bold transition-colors">
+                  <i class="ph-bold ph-check"></i>
+                </button>
+              </div>
+            </div>
+            <div class="pt-4 mt-4 border-t border-slate-700/50">
+              <div class="flex items-center justify-between">
+                <div class="flex flex-col">
+                  <div class="flex items-center gap-2">
+                    <label class="text-xs text-slate-500 uppercase font-bold">Placement Tiebreaker</label>
+
+                    <div class="group relative flex items-center">
+                      <i class="ph-fill ph-info text-indigo-400 hover:text-indigo-300 cursor-help text-sm"></i>
+                      <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-slate-900 border border-slate-600 rounded-lg shadow-xl text-xs text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                        <div class="font-bold text-white mb-1">How it works:</div>
+                        <p><strong>Enabled:</strong> If points are tied, the team with more 1st places wins. If still tied, 2nd places, etc.</p>
+                        <div class="mt-2 border-t border-slate-700 pt-2">
+                          <p><strong>Disabled:</strong> Only total points matter. Ties must be resolved via Admin selection.</p>
+                        </div>
+                        <div class="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-600"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="text-[10px] text-slate-500">
+                    {{ editedTiebreaker ? 'Auto-resolve ties via race results' : 'Manual resolution for point ties' }}
+                  </span>
+                </div>
+
+                <button @click="togglePlacementTiebreaker"
+                        class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+                        :class="editedTiebreaker ? 'bg-indigo-600' : 'bg-slate-700'">
+                  <span class="sr-only">Enable Tiebreaker</span>
+                  <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                        :class="editedTiebreaker ? 'translate-x-6' : 'translate-x-1'"/>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="border-t border-slate-700 mt-6 pt-2">
+
+            <button @click="isDangerZoneOpen = !isDangerZoneOpen"
+                    class="w-full flex items-center justify-between py-2 text-xs font-bold text-red-500 uppercase tracking-widest hover:text-red-400 transition-colors group">
+              <span class="flex items-center gap-2">
+                 <i class="ph-bold ph-warning"></i> Danger Zone
+              </span>
+              <i class="ph-bold ph-caret-down transition-transform duration-300"
+                 :class="isDangerZoneOpen ? 'rotate-180' : ''"></i>
             </button>
+
+            <div v-if="isDangerZoneOpen" class="pt-3 pb-2 animate-fade-in">
+              <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">
+                This will permanently delete the tournament and kick all active users to the home screen.
+              </p>
+
+              <button @click="deleteTournament"
+                      class="w-full bg-red-900/10 hover:bg-red-900/30 border border-red-500/30 text-red-400 hover:text-red-300 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all">
+                <i class="ph-bold ph-trash"></i> Delete Tournament
+              </button>
+            </div>
+
           </div>
 
         </div>
