@@ -48,4 +48,5 @@ export interface Tournament {
         currentIdx: number;
     };
     isSecured?: boolean;
+    usePlacementTiebreaker?: boolean;
 }
