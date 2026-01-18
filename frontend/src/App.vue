@@ -1,58 +1,25 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
-import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
-import { doc,
-  collection,
-  query,
-  orderBy,
-  getDocs,
-  onSnapshot,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  arrayUnion,
-  arrayRemove,
-  FieldValue,
-  writeBatch } from 'firebase/firestore';
-import { auth, db } from './firebase';
-import type { Tournament, Player, Team, Race, Wildcard } from './types';
-import { generateDiscordReport } from './utils/exportUtils';
+import {computed, onMounted, ref} from 'vue';
+import {signInAnonymously, signInWithCustomToken} from 'firebase/auth';
+import {collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc, writeBatch} from 'firebase/firestore';
+import {auth, db} from './firebase';
+import type {FirestoreUpdate, Tournament} from './types';
+import {generateDiscordReport} from './utils/exportUtils';
+import {
+  getPlayerAtPosition,
+  getPlayerName,
+  getPositionStyle,
+  getRaceTimestamp,
+  getRankColor,
+  getStatusColor,
+} from "./utils/utils.ts";
+import {useAdmin} from './composables/useAdmin';
+import {useDraft} from './composables/useDraft';
+import {useGameLogic} from "./composables/useGameLogic";
+import {useRoster} from "./composables/useRoster.ts";
+import {useEasterEgg} from "./composables/useEasterEgg.ts";
 
-export type FirestoreUpdate<T> = {
-  [K in keyof T]?: T[K] | FieldValue;
-};
-
-// Constants
-const POINTS_SYSTEM: Record<number, number> = {
-  1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2,
-  10: 1, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0, 16: 0, 17: 0, 18: 0
-};
-
-const TEAM_COLORS = [
-  '#ef4444', // Red
-  '#60a5fa', // Blue
-  '#4ade80', // Green
-  '#facc15', // Yellow
-  '#c084fc', // Purple
-  '#ff7fc1', // Pink
-  '#2dd4bf', // Teal
-  '#fb923c', // Orange
-  '#a3e635', // Lime
-  '#818cf8', // Indigo
-  '#22d3ee', // Cyan
-  '#f43f5e', // Rose
-];
-
-const UMAS = ['Fine Motion', 'Christmas Oguri Cap', 'Christmas Biwa Hayahide', 'Mejiro Dober', 'Tosan Jordan',
-  'Festival Symboli Rudolf', 'Festival Gold City', 'Manhattan Cafe', 'Kawakami Princess', 'Halloween Rice Shower',
-  'Halloween Super Creek', 'Agnes Digital', 'Hishi Akebono', 'Full Armor Matikanefukukitaru', 'Eishin Flash',
-  'Meisho Doto', 'Summer Special Week', 'Summer Maruzensky', 'Gold City', 'Fuji Kiseki', 'Fantasy Grass Wonder',
-  'Fantasy El Condor Pasa', 'Hishi Amazon', 'Seiun Sky', 'Wedding Air Groove', 'Wedding Mayano Top Gun', 'Narita Brian',
-  'Smart Falcon', 'Narita Taishin', 'Curren Chan', 'Anime Tokai Teio', 'Anime Mejiro McQueen', 'Biwa Hayahide',
-  'Mihono Bourbon', 'TM Opera O', 'Special Week', 'Silence Suzuka', 'Tokai Teio', 'Maruzensky', 'Oguri Cap',
-  'Taiki Shuttle', 'Mejiro McQueen', 'Symboli Rudolf', 'Rice Shower', 'Gold Ship', 'Vodka', 'Daiwa Scarlet',
-  'Grass Wonder', 'El Condor Pasa', 'Air Groove', 'Mayano Top Gun', 'Super Creek', 'Mejiro Ryan', 'Agnes Tachyon',
-  'Winning Ticket', 'Sakura Bakushin O', 'Haru Urara', 'Matikanefukukitaru', 'Nice Nature', 'King Halo'];
+import DraftPhase from './components/DraftPhase.vue';
 
 // Config
 const appId = 'default-app';
@@ -61,12 +28,6 @@ const getTournamentRef = (id: string) => {
   return doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', id);
 };
 
-//Security
-const adminPasswordInput = ref('');
-const localAdminPassword = ref('');
-const showAdminModal = ref(false);
-const isPublicTournament = ref(false);
-const HISHI_DURATION_MS = 8000;
 
 // State
 const tournament = ref<Tournament | null>(null);
@@ -74,18 +35,9 @@ const loading = ref(true);
 const hasInitialViewLoaded = ref(false);
 const newTournamentName = ref('');
 const joinId = ref('');
-const newPlayerName = ref('');
-const currentView = ref<'groups' | 'finals'>('groups');
 const banSearch = ref('');
 const showBans = ref(false);
-const showWildcardModal = ref(false);
-const newWildcardName = ref('');
-const wildcardTargetGroup = ref<'A' | 'B' | 'C' | 'Finals' | ''>('');
-const isDeleting = ref(false);
 const currentUnsubscribe = ref<(() => void) | null>(null);
-const editedName = ref('');
-const editedTiebreaker = ref(true);
-const isDangerZoneOpen = ref(false);
 
 // --- NEW STATE FOR HOME PAGE ---
 const homeListLoading = ref(false);
@@ -93,9 +45,8 @@ const showHistory = ref(false);
 const allTournaments = ref<Tournament[]>([]); // We store brief summaries here
 
 // Modals & UI
-const showUmaModal = ref(false);
 const showPlayerOrUmaName = ref(true);
-const saving = ref(false);
+
 
 // Auth & Init
 const init = async () => {
@@ -154,15 +105,6 @@ const pastTournamentsList = computed(() =>
     allTournaments.value.filter(t => t.status === 'completed')
 );
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'registration': return 'bg-green-500/20 text-green-300 border-green-500/50';
-    case 'active': return 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50';
-    case 'draft': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50';
-    default: return 'bg-slate-500/20 text-slate-400 border-slate-500/50';
-  }
-};
-
 const selectTournamentFromHome = (id: string) => {
   joinId.value = id;
   joinTournament();
@@ -187,37 +129,84 @@ const secureUpdate = async (data: FirestoreUpdate<Tournament>) => {
   }
 };
 
-const loginAsAdmin = async () => {
-  if (!tournament.value) return;
-  if (!auth.currentUser) await signInAnonymously(auth);
 
-  const pwd = adminPasswordInput.value.toUpperCase();
-  const userId = auth.currentUser!.uid;
-  const tId = tournament.value.id;
+const {
+  adminPasswordInput,
+  localAdminPassword,
+  showAdminModal,
+  isDangerZoneOpen,
+  isDeleting,
+  editedName,
+  editedTiebreaker,
+  isAdmin,
+  loginAsAdmin,
+  copyPassword,
+  updateTournamentName,
+  togglePlacementTiebreaker,
+  deleteTournament
+} = useAdmin(tournament, secureUpdate, fetchPublicTournaments, appId);
 
-  try {
-    const adminRef = doc(db, 'artifacts', appId, 'public', 'data', 'admins', `${tId}_${userId}`);
+const {
+  startDraft,
+  undoLastPick,
+} = useDraft(tournament, secureUpdate, isAdmin);
 
-    // Try to create the "Permission Slip"
-    // If the password is WRONG, Firestore Rules will reject this write.
-    await setDoc(adminRef, {
-      tournamentId: tId,
-      userId: userId,
-      password: pwd
-    });
+const {
+  currentView,
+  saving,
+  showTieBreakerModal,
+  showCoinFlip,
+  coinFlipResult,
+  tiedTeams,
+  guaranteedIds,
+  tiebreakersNeeded,
+  sortedTeamsA,
+  sortedTeamsB,
+  sortedTeamsC,
+  sortedFinalsTeams,
+  sortedRaces,
+  canAdvanceToFinals,
+  canEndTournament,
+  canShowFinals,
+  updateRacePlacement,
+  advanceToFinals,
+  resolveManually,
+  endTournament,
+  getRoundPoints,
+  getRaceCount,
+  activeStagePlayers,
+  getTotalPoints,
+  getGroupWildcards,
+  sortedPlayers,
+  getRaceResults,
+  getRaceResultsForPlayer,
+  isBanned,
+  isAdvancing,
+  toggleBan,
+  finishBanPhase,
+} = useGameLogic(tournament, secureUpdate);
 
-    // If we get here, the password was correct!
-    localAdminPassword.value = pwd;
-    localStorage.setItem(`admin_pwd_${tId}`, pwd);
-    showAdminModal.value = false;
-    adminPasswordInput.value = '';
-    alert("Access Granted!");
+const {
+  newPlayerName,
+  showWildcardModal,
+  newWildcardName,
+  wildcardTargetGroup,
+  showUmaModal,
+  validTeamCount,
+  validTotalPlayers,
+  canStartDraft,
+  getUmaList,
+  addPlayer,
+  removePlayer,
+  toggleCaptain,
+  openWildcardModal,
+  addWildcard,
+  submitUmas,
+  getPlayerColor,
+  getPlayerNameOrUma
+} = useRoster(tournament, secureUpdate, isAdmin);
 
-  } catch (e: any) {
-    console.error("Login failed", e);
-    alert("Incorrect Password");
-  }
-};
+const { showHishiOverlay } = useEasterEgg(tournament);
 
 const subscribeToTournament = (id: string) => {
   // 1. If we are already listening to a tournament, stop listening!
@@ -227,7 +216,7 @@ const subscribeToTournament = (id: string) => {
   }
   loading.value = true;
 
-  const unsubscribe = onSnapshot(getTournamentRef(id), (docSnap) => {
+  currentUnsubscribe.value = onSnapshot(getTournamentRef(id), (docSnap) => {
 
     // 1. If we are intentionally deleting, do NOTHING.
     if (isDeleting.value) return;
@@ -235,12 +224,11 @@ const subscribeToTournament = (id: string) => {
     if (docSnap.exists()) {
       const data = docSnap.data() as Tournament;
 
-      isPublicTournament.value = !(data.isSecured || (data.password && data.password !== ''));
       if (data.password) delete data.password;
 
       tournament.value = data;
 
-      if(!hasInitialViewLoaded.value && tournament.value.stage === 'finals') {
+      if (!hasInitialViewLoaded.value && tournament.value.stage === 'finals') {
         currentView.value = 'finals';
         hasInitialViewLoaded.value = true;
       }
@@ -254,8 +242,6 @@ const subscribeToTournament = (id: string) => {
     console.error("Sync error:", error);
     loading.value = false;
   });
-
-  currentUnsubscribe.value = unsubscribe;
 };
 
 const createTournament = async () => {
@@ -312,49 +298,6 @@ const createTournament = async () => {
   window.history.pushState({}, '', `?tid=${id}`);
 };
 
-const deleteTournament = async () => {
-  if (!tournament.value || !isAdmin.value) return;
-
-  // 1. Safety Check
-  const confirmed = confirm(
-      `DANGER: Are you sure you want to delete "${tournament.value.name}"?\n\nThis action cannot be undone.`
-  );
-
-  if (!confirmed) return;
-
-  isDeleting.value = true;
-  const tid = tournament.value.id;
-
-  try {
-    // 2. Delete from Firestore
-    await deleteDoc(getTournamentRef(tid));
-
-    // 3. Cleanup Local Storage / Session
-    sessionStorage.removeItem('active_tid');
-    localStorage.removeItem(`admin_pwd_${tid}`);
-    localAdminPassword.value = '';
-
-    // 4. Reset State
-    tournament.value = null;
-    showAdminModal.value = false;
-
-    // 5. Clean URL
-    const url = new URL(window.location.href);
-    url.searchParams.delete('tid');
-    window.history.pushState({}, '', url);
-
-    // 6. Refresh Home List (so the deleted item disappears)
-    await fetchPublicTournaments();
-
-    alert("Tournament deleted successfully.");
-  } catch (e) {
-    console.error("Error deleting tournament:", e);
-    alert("Failed to delete tournament. Check console for permissions error.");
-  } finally {
-    isDeleting.value = false;
-  }
-};
-
 const joinTournament = () => {
   if(!joinId.value) return;
   if (localStorage.getItem(`admin_pwd_${joinId.value}`)) {
@@ -365,18 +308,6 @@ const joinTournament = () => {
   subscribeToTournament(joinId.value);
   window.history.pushState({}, '', `?tid=${joinId.value}`);
   joinId.value = '';
-};
-
-const togglePlacementTiebreaker = async () => {
-  if (!tournament.value) return;
-
-  // Toggle the local value
-  editedTiebreaker.value = !editedTiebreaker.value;
-
-  // Save to Firestore
-  await secureUpdate({
-    usePlacementTiebreaker: editedTiebreaker.value
-  });
 };
 
 const exitTournament = () => {
@@ -411,13 +342,6 @@ const copyLink = () => {
   }
 };
 
-const copyPassword = () => {
-  if (localAdminPassword.value) {
-    navigator.clipboard.writeText(localAdminPassword.value);
-    alert("Password copied to clipboard!");
-  }
-};
-
 const copyResults = async () => {
   if (!tournament.value) return;
   const text = generateDiscordReport(tournament.value);
@@ -426,381 +350,7 @@ const copyResults = async () => {
   alert("Results copied to clipboard!");
 };
 
-const addPlayer = async () => {
-  if(!newPlayerName.value || !tournament.value) return;
-  const player: Player = {
-    id: crypto.randomUUID(),
-    name: newPlayerName.value,
-    isCaptain: false,
-    uma: ''
-  };
-
-  const updates = {
-    players: arrayUnion(player)
-  };
-
-  newPlayerName.value = '';
-  await secureUpdate(updates)
-};
-
-const openWildcardModal = (group: 'A' | 'B' | 'C' | 'Finals') => {
-  if (!isAdmin.value) return;
-  wildcardTargetGroup.value = group;
-  showWildcardModal.value = true;
-};
-
-const addWildcard = async () => {
-  if (!tournament.value || !newWildcardName.value || !wildcardTargetGroup.value) return;
-
-  // 1. Create the Player
-  const newPlayer: Player = {
-    id: crypto.randomUUID(),
-    name: newWildcardName.value,
-    isCaptain: false, // Wildcards are never captains
-    uma: ''
-  };
-
-  // 2. Create the Wildcard Entry
-  const newWildcard: Wildcard = {
-    playerId: newPlayer.id,
-    group: wildcardTargetGroup.value as any
-  };
-
-  // 3. Update Firestore
-  const updates = {
-    players: arrayUnion(newPlayer),
-    wildcards: arrayUnion(newWildcard)
-  };
-
-  await secureUpdate(updates);
-
-  // Reset
-  newWildcardName.value = '';
-  showWildcardModal.value = false;
-};
-
-const toggleCaptain = async (playerId: string) => {
-  if(!tournament.value) return;
-  if(!isAdmin.value) return;
-  const newPlayers = tournament.value.players.map(p => {
-    if (p.id === playerId) {
-      return { ...p, isCaptain: !p.isCaptain };
-    }
-    return p;
-  });
-
-  await secureUpdate( {
-    players: newPlayers
-  });
-};
-
-const removePlayer = async (pid: string) => {
-  if(!tournament.value) return;
-  const newPlayers = tournament.value.players.filter(p => p.id !== pid);
-  await secureUpdate({
-    players: newPlayers
-  });
-};
-
-const submitUmas = async () => {
-  if(!tournament.value) return;
-  const newPlayers = tournament.value.players.map(p => ({...p})); // Shallow copy
-  await secureUpdate({
-    players: newPlayers
-  });
-  showUmaModal.value = false;
-};
-
-// Validation
-const validTeamCount = computed(() => {
-  if(!tournament.value) return false;
-  const caps = tournament.value.players.filter(p => p.isCaptain).length;
-  return caps >= 3 && caps <= 9 && caps != 7;
-});
-
-const validTotalPlayers = computed(() => {
-  if(!tournament.value) return false;
-  const caps = tournament.value.players.filter(p => p.isCaptain).length;
-  return tournament.value.players.length === (caps * 3);
-});
-
-const canStartDraft = computed(() => validTeamCount.value && validTotalPlayers.value);
-
-// Draft
-const startDraft = async () => {
-  if(!tournament.value) return;
-  const captains = tournament.value.players.filter(p => p.isCaptain);
-  const draftOrderCaptains = [...captains].sort(() => Math.random() - 0.5);
-
-  let groupDeck: string[] = [];
-  const numTeams = captains.length;
-
-  // --- LOGIC UPDATE HERE ---
-  if (numTeams === 9) {
-    // 3 Groups of 3
-    groupDeck = ['A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'];
-  } else if (numTeams === 8) {
-    // 2 Groups of 4
-    groupDeck = ['A', 'A', 'A', 'A', 'B', 'B', 'B', 'B'];
-  } else if (numTeams === 6) {
-    // 2 Groups of 3
-    groupDeck = ['A', 'A', 'A', 'B', 'B', 'B'];
-  } else {
-    // Small tournament (Main Event)
-    groupDeck = Array(numTeams).fill('A');
-  }
-
-  // Shuffle groups
-  groupDeck.sort(() => Math.random() - 0.5);
-
-  const teams: Team[] = draftOrderCaptains.map((cap, index) => ({
-    id: crypto.randomUUID(),
-    captainId: cap.id,
-    memberIds: [],
-    name: `Team ${cap.name}`,
-    points: 0,
-    finalsPoints: 0,
-    group: groupDeck[index] as 'A' | 'B' | 'C',
-    color: TEAM_COLORS[index % TEAM_COLORS.length],
-    inFinals: numTeams < 6
-  }));
-
-  const draftOrder: string[] = [];
-  for(let i=0; i<teams.length; i++) draftOrder.push(teams[i]!.id);
-  for(let i=teams.length-1; i>=0; i--) draftOrder.push(teams[i]!.id);
-
-  await secureUpdate({
-    status: 'draft',
-    teams: teams,
-    draft: {
-      order: draftOrder,
-      currentIdx: 0
-    }
-  });
-};
-
-const availablePlayers = computed(() => {
-  if(!tournament.value) return [];
-  const assignedIds = new Set<string>();
-  tournament.value.teams.forEach(t => t.memberIds.forEach(m => assignedIds.add(m)));
-  return tournament.value.players.filter(p => !p.isCaptain && !assignedIds.has(p.id));
-});
-
-const currentDrafter = computed(() => {
-  if(!tournament.value?.draft) return null;
-  const teamId = tournament.value.draft.order[tournament.value.draft.currentIdx];
-  const team = tournament.value.teams.find(t => t.id === teamId);
-  return team ? { ...team, name: getPlayerName(team.captainId), teamName: team.name } : null;
-});
-
-const draftPreview = computed(() => {
-  if(!tournament.value?.draft) return [];
-  const d = tournament.value.draft;
-  return d.order.slice(d.currentIdx, d.currentIdx + 5);
-});
-
-const draftPlayer = async (player: Player) => {
-  // Check if we are already busy
-  if(!tournament.value || !tournament.value.draft) return;
-
-  // ... (Database Update Logic remains the same) ...
-  const t = tournament.value;
-  const currentTeamId = t.draft?.order[t.draft?.currentIdx];
-  const teamIndex = t.teams.findIndex(tm => tm.id === currentTeamId);
-
-  const updatedTeams = [...t.teams];
-  updatedTeams[teamIndex]?.memberIds.push(player.id);
-
-  const nextIdx = t.draft!.currentIdx! + 1;
-
-  const updates: any = {
-    teams: updatedTeams,
-    'draft.currentIdx': nextIdx
-  };
-
-  if(nextIdx >= t.draft!.order!.length) {
-    updates.status = 'ban';
-  }
-
-  await secureUpdate(updates);
-};
-
-// --- RANDOM DRAFT STATE ---
-const showRandomModal = ref(false);
-const randomWheelRotation = ref(0);
-const randomCandidates = ref<Player[]>([]); // The slice of players shown on wheel
-const randomWinner = ref<Player | null>(null);
-
-// --- ACTION: Start Random Draft ---
-const startRandomDraft = () => {
-  // 1. Get all valid candidates
-  const candidates = availablePlayers.value;
-  if (candidates.length === 0) return;
-
-  // 2. Pick the Winner (Deterministic)
-  const winnerIndex = Math.floor(Math.random() * candidates.length);
-  const winner = candidates[winnerIndex];
-
-  // TypeScript Guard: Ensure winner is defined before proceeding
-  if (!winner) return;
-
-  randomWinner.value = winner;
-
-  // 3. Prepare the Wheel (Visuals)
-  let wheelSet: Player[] = [];
-
-  if (candidates.length > 12) {
-    // Filter out the winner first
-    const others = candidates.filter(p => p.id !== winner.id);
-    // Shuffle and take 11
-    const decoys = others.sort(() => 0.5 - Math.random()).slice(0, 11);
-
-    // Combine: decoys + winner
-    // We cast explicitly here because we just proved 'winner' exists above
-    wheelSet = [...decoys, winner].sort(() => 0.5 - Math.random());
-  } else {
-    wheelSet = [...candidates].sort(() => 0.5 - Math.random());
-  }
-
-  randomCandidates.value = wheelSet;
-  showRandomModal.value = true;
-  randomWheelRotation.value = 0; // Reset rotation
-
-  // 4. Start Spin
-  setTimeout(() => {
-    spinRandomWheel(winner, wheelSet);
-  }, 300);
-};
-
-const spinRandomWheel = (winner: Player, wheelSet: Player[]) => {
-  // 1. Find where the winner is on our specific wheel subset
-  const winnerIdx = wheelSet.findIndex(p => p.id === winner.id);
-  const sliceSize = 360 / wheelSet.length;
-
-  // 2. Calculate target rotation
-  // Target center of the winner's slice
-  const targetAngle = (winnerIdx * sliceSize) + (sliceSize / 2);
-
-  // 3. Spin Math (Add 5-8 full spins + alignment)
-  // We rotate backwards (negative) to spin clockwise visually?
-  // Actually, standard rotate() is clockwise. To bring index X to top (0deg),
-  // we need to rotate roughly (360 - angle).
-  const spins = 5 + Math.floor(Math.random() * 3);
-  const finalRotation = (spins * 360) + (360 - targetAngle);
-
-  randomWheelRotation.value = finalRotation;
-
-  // 4. End of Animation -> Draft the player
-  // CSS duration is set to 4s. We wait 4.5s to be safe.
-  setTimeout(async () => {
-    // Close modal
-    showRandomModal.value = false;
-
-    // Trigger the standard draft function with animation
-    // We pass the player object. The draftPlayer function handles the
-    // "ghost button" animation from the button list.
-    // However, since the modal was open, the user didn't click the button.
-    // We can just call draftPlayer directly.
-    await draftPlayer(winner);
-  }, 5000);
-};
-
-// Helper for wheel colors
-const getRandomWheelGradient = computed(() => {
-  const count = randomCandidates.value.length;
-  if (count === 0) return '';
-  const slice = 100 / count;
-
-  const colors = ['#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
-
-  const stops = randomCandidates.value.map((_, i) => {
-    const color = colors[i % colors.length];
-    return `${color} ${i * slice}% ${(i + 1) * slice}%`;
-  });
-
-  // ADDED "from 0deg" to lock orientation
-  return `conic-gradient(from 0deg, ${stops.join(', ')})`;
-});
-
-const undoLastPick = async () => {
-  if (!tournament.value || !tournament.value.draft || !isAdmin.value) return;
-
-  const t = tournament.value;
-  const currentIdx = t.draft!.currentIdx;
-
-  // Cannot undo if no picks have been made
-  if (currentIdx <= 0) return;
-
-  // 1. Calculate the index of the previous pick (the one we want to undo)
-  const prevIdx = currentIdx - 1;
-  const teamId = t.draft!.order[prevIdx];
-
-  // 2. Find the team that made that pick
-  const teamIndex = t.teams.findIndex(tm => tm.id === teamId);
-  const team = t.teams[teamIndex];
-
-  if (!team || team.memberIds.length === 0) {
-    console.error("Undo Error: Team not found or has no members to remove");
-    return;
-  }
-
-  // 3. Remove the last member added to that team
-  const updatedTeams = [...t.teams];
-  // Create a copy of the memberIds array with the last element removed
-  const newMemberIds = team.memberIds.slice(0, -1);
-
-  updatedTeams[teamIndex] = {
-    ...team,
-    memberIds: newMemberIds
-  };
-
-  // 4. Update Firestore
-  const updates: Record<string, any> = {
-    teams: updatedTeams,
-    'draft.currentIdx': prevIdx,
-    status: 'draft'
-  };
-
-  await secureUpdate(updates);
-};
-
-// Toggle Logic (Add/Remove)
-const toggleBan = async (uma: string) => {
-  if(!tournament.value) return;
-
-  const currentlyBanned = isBanned(uma);
-  const updateOp = currentlyBanned ? arrayRemove(uma) : arrayUnion(uma);
-
-  await secureUpdate({
-    bans: updateOp
-  });
-};
-
-const finishBanPhase = async () => {
-  if(!tournament.value) return;
-
-  const isSmallTournament = tournament.value.teams.length < 6;
-  const nextStage = isSmallTournament ? 'finals' : 'groups';
-
-  const updates: any = {
-    status: 'active',
-    stage: nextStage
-  };
-
-  await secureUpdate(updates);
-
-  if (isSmallTournament) {
-    currentView.value = 'finals';
-  } else {
-    currentView.value = 'groups';
-  }
-}
-
 // Data Helpers
-const getUmaList = () => [...UMAS].sort();
-const getPlayerName = (id: string) => tournament.value?.players.find(p => p.id === id)?.name || 'Unknown';
-const getPlayerUma = (id: string) => tournament.value?.players.find(p => p.id === id)?.uma || '';
-const getPlayerNameOrUma = (id: string) => showPlayerOrUmaName.value ? getPlayerName(id) : getPlayerUma(id);
 
 const shouldShowGroup = (group: string) => {
   if(currentView.value === 'finals') return false;
@@ -818,794 +368,12 @@ const shouldShowGroup = (group: string) => {
   return ['A', 'B'].includes(group);
 };
 
-// Race Logic
-const activeStagePlayers = (targetGroup: 'A' | 'B' | 'C' | 'Finals') : Player[] => {
-  if (!tournament.value) return [];
-
-  let targetTeams: Team[] = [];
-  if (currentView.value === 'finals' || targetGroup === 'Finals') {
-    targetTeams = tournament.value.teams.filter(t => t.inFinals).sort((a,b) => b.finalsPoints - a.finalsPoints);
-  } else if (targetGroup) {
-    if(tournament.value.teams.length >= 6) {
-      targetTeams = tournament.value.teams.filter(t => t.group === targetGroup).sort((a,b) => b.points - a.points);
-    } else {
-      targetTeams = tournament.value.teams.sort((a,b) => b.points - a.points);
-    }
-  }
-
-  let players: {id: string, name: string, isCaptain: boolean, uma: string}[] = [];
-  targetTeams.forEach(t => {
-    players.push({ id: t.captainId, name: getPlayerName(t.captainId), isCaptain: true, uma: getPlayerUma(t.captainId) });
-    t.memberIds.forEach(mid => players.push({ id: mid, name: getPlayerName(mid), isCaptain: false, uma: getPlayerUma(mid) }));
-  });
-
-  // B. NEW: Get Wildcards for this Group
-  const groupWildcards = (tournament.value.wildcards || [])
-      .filter(w => w.group === targetGroup)
-      .map(w => tournament.value!.players.find(p => p.id === w.playerId))
-      .filter((p): p is Player => !!p); // Type guard to remove undefined
-
-  // Add wildcards to the list
-  players.push(...groupWildcards);
-
-  return players;
-};
-
-const findRace = (group: string, raceNumber: number) => {
-  if(!tournament.value) return undefined;
-  const stage = currentView.value;
-  return tournament.value.races.find(r =>
-      r.stage === stage &&
-      r.group === group &&
-      r.raceNumber === raceNumber
-  );
-};
-
-const getPlayerAtPosition = (group: any, raceNumber: number, position: number) => {
-  const race = findRace(group, raceNumber);
-  if (!race || !race.placements) return "";
-  const entry = Object.entries(race.placements).find(([_, pos]) => pos == position);
-  return entry ? entry[0] : "";
-};
-
-const getRaceTimestamp = (group: any, raceNumber: number) => {
-  const race = findRace(group, raceNumber);
-  if(!race) return "Not Started";
-  return new Date(race.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-}
-
-const updateRacePlacement = async (group: any, raceNumber: number, position: number, playerId: string) => {
-  if(!tournament.value) return;
-  saving.value = true;
-  const stage = currentView.value;
-
-  let currentRaces = [...tournament.value.races];
-  let raceIndex = currentRaces.findIndex(r => r.stage === stage && r.group === group && r.raceNumber === raceNumber);
-  let raceData: Race;
-
-  if (raceIndex === -1) {
-    raceData = {
-      id: crypto.randomUUID(),
-      stage: stage,
-      group: group,
-      raceNumber: raceNumber,
-      timestamp: new Date().toISOString(),
-      placements: {}
-    };
-    currentRaces.push(raceData);
-    raceIndex = currentRaces.length - 1;
-  } else {
-    raceData = { ...currentRaces[raceIndex]! };
-  }
-
-  const newPlacements = { ...raceData.placements };
-
-  if (playerId) {
-    for (const [pid] of Object.entries(newPlacements)) {
-      if (pid === playerId) delete newPlacements[pid];
-    }
-  }
-
-  for (const [pid, pos] of Object.entries(newPlacements)) {
-    if (pos == position) delete newPlacements[pid];
-  }
-
-  if (playerId) {
-    newPlacements[playerId] = position;
-  }
-
-  raceData.placements = newPlacements;
-  currentRaces[raceIndex] = raceData;
-
-  const updatedTeams = tournament.value.teams.map(t => ({
-    ...t,
-    points: 0,
-    finalsPoints: 0
-  }));
-
-  const getTeamIndex = (pid: string) => updatedTeams.findIndex(t => t.captainId === pid || t.memberIds.includes(pid));
-
-  currentRaces.forEach(r => {
-    for (const [pid, pos] of Object.entries(r.placements)) {
-      const points = POINTS_SYSTEM[pos] || 0;
-      const tIdx = getTeamIndex(pid);
-
-      if (tIdx !== -1) {
-        if (r.stage === 'finals') {
-          updatedTeams[tIdx]!.finalsPoints += points;
-        } else {
-          updatedTeams[tIdx]!.points += points;
-        }
-      }
-    }
-  });
-
-  try {
-    await secureUpdate({
-      races: currentRaces,
-      teams: updatedTeams
-    });
-  } catch (e) {
-    console.error("Error saving race:", e);
-    alert("Failed to save result. Check console.");
-  } finally {
-    saving.value = false;
-  }
-};
-
-// Stats & View Logic
-const getRaceCount = (group: string) => {
-  if(!tournament.value) return 0;
-  return tournament.value.races.filter(r => r.stage === currentView.value && r.group === group).length;
-};
-
-const sortedRaces = computed(() => {
-  if(!tournament.value || !tournament.value.races) return [];
-  return [...tournament.value.races].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-});
-
-const getRaceResults = (race: Race) => {
-  if(!race.placements) return [];
-  const results = Object.entries(race.placements).map(([pid, pos]) => ({
-    playerId: pid,
-    name: getPlayerName(pid),
-    position: pos,
-    uma: getPlayerUma(pid)
-  }));
-  return results.sort((a,b) => a.position - b.position);
-};
-
-const getRaceResultsForPlayer = (playerId: string) => {
-  if(!tournament.value || !tournament.value.races) return [];
-  const stagePriority: Record<string, number> = { 'groups': 1, 'finals': 2 };
-
-  const sortedRaces = [...tournament.value.races]
-      .filter(r => Object.keys(r.placements).includes(playerId))
-      .sort((a, b) => {
-        const stageA = stagePriority[a.stage] || 99;
-        const stageB = stagePriority[b.stage] || 99;
-        if (stageA !== stageB) return stageA - stageB;
-        return (a.raceNumber || 0) - (b.raceNumber || 0)
-      });
-
-  return sortedRaces.map(race => {
-    const pos = race.placements[playerId];
-    return {
-      raceNumber: race.raceNumber,
-      position: pos,
-      points: pos ? (POINTS_SYSTEM[pos] || 0) : 0,
-      stage: race.stage
-    };
-  });
-}
-
-const getPositionStyle = (pos?: number, stage?: string) => {
-  if (!pos) return 'bg-slate-900 border-slate-800 text-slate-600';
-  let style = 'bg-slate-800 border-slate-600 text-slate-400';
-  if (pos === 1) style = 'bg-amber-500/10 border-amber-500 text-amber-500';
-  if (pos === 2) style = 'bg-slate-300/10 border-slate-300 text-slate-300';
-  if (pos === 3) style = 'bg-orange-700/10 border-orange-700 text-orange-600';
-
-  if (stage === 'finals') {
-    style += ' ring-2 ring-amber-500/30';
-  }
-  return style;
-};
-
-const getTotalPoints = (playerid: string) => {
-  if(!tournament.value) return 0;
-  let points = 0;
-  tournament.value.races.forEach(race => {
-    const placement = race.placements[playerid];
-    if (placement) {
-      points += POINTS_SYSTEM[placement]!;
-    }
-  })
-  return points;
-};
-
-const getRoundPoints = (playerid: string) => {
-  if(!tournament.value) return 0;
-  let points = 0;
-  tournament.value.races.filter(r => r.stage === currentView.value).forEach(race => {
-    const placement = race.placements[playerid];
-    if (placement) {
-      points += POINTS_SYSTEM[placement]!;
-    }
-  })
-  return points;
-};
-
-const sortedPlayers = computed(() => {
-  if (!tournament?.value?.players) return [];
-  return [...tournament!.value.players].sort((a,b) => getTotalPoints(b.id) - getTotalPoints(a.id))
-})
-
-const sortedTeamsA = computed(() => {
-  if(!tournament.value) return [];
-  const teams = tournament.value.teams.filter(t => tournament.value!.teams.length < 6 || t.group === 'A');
-  return teams.sort((a, b) => compareTeams(a, b, true)); // Use new helper
-});
-
-const sortedTeamsB = computed(() => {
-  if(!tournament.value) return [];
-  const teams = tournament.value.teams.filter(t => t.group === 'B');
-  return teams.sort((a, b) => compareTeams(a, b, true)); // Use new helper
-});
-
-const sortedTeamsC = computed(() => {
-  if(!tournament.value) return [];
-  const teams = tournament.value.teams.filter(t => t.group === 'C');
-  return teams.sort((a, b) => compareTeams(a, b, true)); // Use new helper
-});
-
-const sortedFinalsTeams = computed<Team[]>(() => {
-  if(!tournament.value) return [];
-  return tournament.value.teams.filter(t => t.inFinals).sort((a,b) => b.finalsPoints - a.finalsPoints);
-});
-
-const canAdvanceToFinals = computed(() => {
-  if(!tournament.value) return false;
-  if(tournament.value.stage === 'finals') return false;
-
-  const countA = getRaceCount('A');
-  const countB = getRaceCount('B');
-  const countC = getRaceCount('C');
-  const teamCount = tournament.value.teams.length;
-
-  if (teamCount === 9) {
-    // Needs 5 races in A, B, and C
-    return countA >= 5 && countB >= 5 && countC >= 5;
-  } else if (teamCount >= 6) {
-    // Needs 5 races in A and B
-    return countA >= 5 && countB >= 5;
-  }
-
-  return false;
-});
-
-const canEndTournament = computed(() => {
-  if(!tournament.value) return false;
-  if(tournament.value.status === 'completed') return false;
-  const finalsRaces = tournament.value.races.filter(r => r.stage === 'finals').length;
-  return finalsRaces >= 5;
-});
-
-const endTournament = async () => {
-  if(!tournament.value) return;
-  await secureUpdate({
-    status: 'completed'
-  });
-};
-
-const getRankColor = (idx: number) => {
-  if(idx === 0) return 'border-amber-400';
-  if(idx === 1) return 'border-slate-400';
-  if(idx === 2) return 'border-orange-700';
-  return 'border-slate-700';
-};
-
-const getPlayerColor = (playerId: string) => {
-  if (!tournament.value) return '#e2e8f0';
-
-  // Check Team
-  const team = tournament.value.teams.find(t =>
-      t.captainId === playerId || t.memberIds.includes(playerId)
-  );
-  if (team) return team.color;
-
-  // Check Wildcard (Optional: Give them a distinct color like Slate-400 or White)
-  const isWildcard = tournament.value.wildcards?.some(w => w.playerId === playerId);
-  if (isWildcard) return '#94a3b8'; // Slate 400
-
-  return '#e2e8f0';
-};
-
-const getGroupWildcards = (group: string) => {
-  if (!tournament.value?.wildcards) return [];
-
-  const entries = tournament.value.wildcards.filter(w => w.group === group);
-
-  return entries.map(w => {
-    const points = getRoundPoints(w.playerId); // Re-use existing points calculator
-    return {
-      id: w.playerId,
-      name: getPlayerName(w.playerId),
-      uma: getPlayerUma(w.playerId),
-      points: points
-    };
-  }).sort((a, b) => b.points - a.points); // Sort by points desc
-};
-
 const filteredUmas = computed(() => {
   const query = banSearch.value.toLowerCase();
   return getUmaList().filter(u => u.toLowerCase().includes(query));
 });
 
-const isBanned = (uma: string) => {
-  return tournament.value?.bans?.includes(uma) || false;
-};
-
-const isAdmin = computed(() => {
-  if (!tournament.value) return false;
-  if (isPublicTournament.value) return true;
-  return localAdminPassword.value !== '';
-});
-
-const canShowFinals = computed(() => tournament.value && tournament.value.stage === 'finals');
-
-// --- Tie Breaker Helpers ---
-
-// 1. Get placement counts for a specific team (e.g. {1: 3, 2: 1, 3: 0})
-const getTeamPlacements = (team: Team) => {
-  const counts: Record<number, number> = {};
-  if(!tournament.value) return counts;
-
-  // Get all members (Captain + Members)
-  const roster = [team.captainId, ...team.memberIds];
-
-  // Look at ONLY the races for this team's group
-  const relevantRaces = tournament.value.races.filter(r =>
-      r.stage === 'groups' && r.group === team.group
-  );
-
-  relevantRaces.forEach(race => {
-    roster.forEach(pid => {
-      const pos = race.placements[pid];
-      if(pos) {
-        counts[pos] = (counts[pos] || 0) + 1;
-      }
-    });
-  });
-
-  return counts;
-};
-
-// 2. Compare two teams (Returns positive if A is better, negative if B is better)
-// Update the signature to accept a 3rd argument
-const compareTeams = (a: Team, b: Team, useIdFallback = true) => {
-  // Priority 1: Points
-  if (b.points !== a.points) {
-    return b.points - a.points;
-  }
-
-  const useTiebreaker = tournament.value?.usePlacementTiebreaker ?? true;
-
-  if (useTiebreaker) {
-    // Priority 2: Countback (Most 1sts, then 2nds, etc.)
-    const placementsA = getTeamPlacements(a);
-    const placementsB = getTeamPlacements(b);
-
-    for (let i = 1; i <= 18; i++) {
-      const countA = placementsA[i] || 0;
-      const countB = placementsB[i] || 0;
-      if (countB !== countA) {
-        return countB - countA;
-      }
-    }
-  }
-
-  // Priority 3: Fallback (Only if requested)
-  if (useIdFallback) {
-    return a.id.localeCompare(b.id);
-  }
-
-  return 0; // It is a perfect statistical tie
-};
-
-const advancingTeamIds = computed(() => {
-  if (!tournament.value) return new Set<string>();
-  const ids = new Set<string>();
-
-  const teamCount = tournament.value.teams.length;
-
-  // SCENARIO 1: 9 Teams (3 Groups) -> Top 1 from A, B, C
-  if (teamCount === 9) {
-    if (sortedTeamsA.value[0]) ids.add(sortedTeamsA.value[0].id);
-    if (sortedTeamsB.value[0]) ids.add(sortedTeamsB.value[0].id);
-    if (sortedTeamsC.value[0]) ids.add(sortedTeamsC.value[0].id);
-    let i = 1;
-    while (i < sortedTeamsA.value.length && compareTeams(sortedTeamsA.value[0]!, sortedTeamsA.value[i]!, false) === 0) {
-      ids.add(sortedTeamsA.value[i]!.id);
-      i++;
-    }
-    i = 1;
-    while (i < sortedTeamsB.value.length && compareTeams(sortedTeamsB.value[0]!, sortedTeamsB.value[i]!, false) === 0) {
-      ids.add(sortedTeamsB.value[i]!.id);
-      i++;
-    }
-    i = 1;
-    while (i < sortedTeamsC.value.length && compareTeams(sortedTeamsC.value[0]!, sortedTeamsC.value[i]!, false) === 0) {
-      ids.add(sortedTeamsC.value[i]!.id);
-      i++;
-    }
-  }
-  else if (teamCount === 8) {
-    if (sortedTeamsA.value[0]) ids.add(sortedTeamsA.value[0].id);
-    if (sortedTeamsA.value[1]) ids.add(sortedTeamsA.value[1].id);
-    if (sortedTeamsB.value[0]) ids.add(sortedTeamsB.value[0].id);
-    if (sortedTeamsB.value[1]) ids.add(sortedTeamsB.value[1].id);
-    let i = 2;
-    while (i < sortedTeamsA.value.length && compareTeams(sortedTeamsA.value[1]!, sortedTeamsA.value[i]!, false) === 0) {
-      ids.add(sortedTeamsA.value[i]!.id);
-      i++;
-    }
-    i = 2;
-    while (i < sortedTeamsB.value.length && compareTeams(sortedTeamsB.value[1]!, sortedTeamsB.value[i]!, false) === 0) {
-      ids.add(sortedTeamsB.value[i]!.id);
-      i++;
-    }
-  }
-  // SCENARIO 2: 6 Teams (2 Groups) -> Top 1 A, Top 1 B + Best Runner Up
-  else {
-    // 1. Automatic Qualifiers (Group Winners)
-    if (sortedTeamsA.value[0]) ids.add(sortedTeamsA.value[0].id);
-    if (sortedTeamsB.value[0]) ids.add(sortedTeamsB.value[0].id);
-
-    // 2. Wildcard Spot (Best Runner Up)
-    const runnerA = sortedTeamsA.value[1];
-    const runnerB = sortedTeamsB.value[1];
-    const lastA = sortedTeamsA.value[2];
-    const lastB = sortedTeamsB.value[2];
-
-    if (runnerA && runnerB) {
-      // Use your tie-breaker logic to compare them
-      // Returns negative if runnerA is "better" (sorted higher)
-      const comparison = compareTeams(runnerA, runnerB, false);
-
-      if (comparison < 0) {
-        ids.add(runnerA.id);
-      } else if (comparison > 0) {
-        ids.add(runnerB.id);
-      } else {
-        // If perfectly tied, highlight BOTH to indicate the tie
-        ids.add(runnerA.id);
-        ids.add(runnerB.id);
-      }
-      if (lastA) {
-        const comparisonLast = compareTeams(runnerA, lastA, false);
-
-        if (comparisonLast === 0 && ids.has(runnerA.id)) {
-          // If perfectly tied, highlight BOTH to indicate the tie
-          ids.add(lastA.id);
-        }
-      }
-      if (lastB) {
-        const comparisonLast = compareTeams(runnerB, lastB, false);
-
-        if (comparisonLast === 0 && ids.has(runnerB.id)) {
-          // If perfectly tied, highlight BOTH to indicate the tie
-          ids.add(lastB.id);
-        }
-      }
-    } else if (runnerA) {
-      // If only Group A has a runner up so far
-      ids.add(runnerA.id);
-    } else if (runnerB) {
-      ids.add(runnerB.id);
-    }
-  }
-
-  return ids;
-});
-
-watch(showAdminModal, (isOpen) => {
-  if (isOpen && tournament.value) {
-    editedName.value = tournament.value.name;
-    editedTiebreaker.value = tournament.value.usePlacementTiebreaker ?? true;
-  }else {
-    isDangerZoneOpen.value = false;
-  }
-});
-
-// --- NEW ACTION: Update Name ---
-const updateTournamentName = async () => {
-  if (!tournament.value || !editedName.value) return;
-
-  await secureUpdate({
-    name: editedName.value
-  });
-
-  alert("Tournament name updated!");
-};
-
-//----- Tie Breaker Handling
-// --- NEW STATE: Tie Breakers & Coin Flip ---
-const showTieBreakerModal = ref(false);
-const showCoinFlip = ref(false);
-const coinFlipResult = ref<'heads' | 'tails' | null>(null);
-const tiedTeams = ref<Team[]>([]);
-const guaranteedIds = ref<string[]>([]); // Teams that are definitely safely in
-const tiebreakersNeeded = ref(0);
-
-// --- HELPER: Identify who is tied ---
-const getTiedCandidates = (): { tied: Team[], safe: string[], needed: number } => {
-  if (!tournament.value) return { tied: [], safe: [], needed: 0 };
-
-  let needed = 0;
-
-  const teamCount = tournament.value.teams.length;
-  const safe: string[] = [];
-  const tied: Team[] = [];
-
-  // SCENARIO 1: 9 Teams (3 Groups) -> Tie is usually within a specific group for 1st place
-  if (teamCount === 9) {
-    // Check A
-    if (compareTeams(sortedTeamsA.value[0]!, sortedTeamsA.value[1]!, false) === 0) {
-      needed++;
-      tied.push(sortedTeamsA.value[0]!, sortedTeamsA.value[1]!);
-      if (compareTeams(sortedTeamsA.value[0]!, sortedTeamsA.value[2]!, false) === 0) {
-        tied.push(sortedTeamsA.value[2]!)
-      }
-    } else safe.push(sortedTeamsA.value[0]!.id);
-
-    // Check B
-    if (compareTeams(sortedTeamsB.value[0]!, sortedTeamsB.value[1]!, false) === 0) {
-      needed++;
-      tied.push(sortedTeamsB.value[0]!, sortedTeamsB.value[1]!);
-      if (compareTeams(sortedTeamsB.value[0]!, sortedTeamsB.value[2]!, false) === 0) {
-        tied.push(sortedTeamsB.value[2]!)
-      }
-    } else safe.push(sortedTeamsB.value[0]!.id);
-
-    // Check C
-    if (compareTeams(sortedTeamsC.value[0]!, sortedTeamsC.value[1]!, false) === 0) {
-      needed++;
-      tied.push(sortedTeamsC.value[0]!, sortedTeamsC.value[1]!);
-      if (compareTeams(sortedTeamsC.value[0]!, sortedTeamsC.value[2]!, false) === 0) {
-        tied.push(sortedTeamsC.value[2]!)
-      }
-    } else safe.push(sortedTeamsC.value[0]!.id);
-  }
-
-  else if (teamCount === 8) {
-    //check group A
-    let left: number = 0;
-    let right: number = 1;
-    let safeA: number = 0;
-    let tieA: Team[] = [];
-    while (safeA < 2 && right < sortedTeamsA.value.length) {
-      if (compareTeams(sortedTeamsA.value[left]!, sortedTeamsA.value[right]!, false) === 0) {
-        tieA.push(sortedTeamsA.value[right]!);
-        if (!tieA.includes(sortedTeamsA.value[left]!)) tieA.push(sortedTeamsA.value[left]!)
-      } else {
-        safe.push(sortedTeamsA.value[left]!.id);
-        left++;
-        safeA++;
-      }
-      right++;
-    }
-
-    //check group B
-    left = 0;
-    right = 1;
-    let safeB: number = 0;
-    let tieB: Team[] = [];
-    while (safeB < 2 && right < sortedTeamsB.value.length) {
-      if (compareTeams(sortedTeamsB.value[left]!, sortedTeamsB.value[right]!, false) === 0) {
-        tieB.push(sortedTeamsB.value[right]!);
-        if (!tieB.includes(sortedTeamsB.value[left]!)) tieB.push(sortedTeamsB.value[left]!)
-      } else {
-        safe.push(sortedTeamsB.value[left]!.id);
-        left++;
-        safeB++;
-      }
-      right++;
-    }
-
-    tied.push(...tieA);
-    tied.push(...tieB);
-    needed = 4 - safeA - safeB;
-  }
-  // SCENARIO 3: 6 Teams (2 Groups) -> Tie is usually for the "Best Runner Up" spot
-  else {
-    // Winners are safe (unless they are tied internally, but let's assume Groups resolved correctly for now)
-    safe.push(sortedTeamsA.value[0]!.id);
-    safe.push(sortedTeamsB.value[0]!.id);
-
-    const runnerA = sortedTeamsA.value[1];
-    const runnerB = sortedTeamsB.value[1];
-
-    if (runnerA && runnerB) {
-      const comparison = compareTeams(runnerA, runnerB, false);
-      if (comparison === 0) {
-        tied.push(runnerA, runnerB);
-        needed = 1;
-        //check both teams for multiple tied runner-ups
-      }
-      if (comparison <= 0) {
-        let multipleTied = false;
-        //check group A for multiple tied runner-ups
-        for (let i = 2; i < sortedTeamsA.value.length; i++) {
-          if (compareTeams(runnerA, sortedTeamsA.value[i]!, false) === 0) {
-            multipleTied = true;
-            tied.push(sortedTeamsA.value[i]!);
-          }
-        }
-        if (comparison < 0 && multipleTied) {
-          tied.push(runnerA);
-          needed = 1;
-        } else if (comparison < 0) {
-          safe.push(runnerA.id);
-        }
-      }
-      if (comparison >= 0) {
-        let multipleTied = false;
-        //check group B for multiple tied runner-ups
-        for (let i = 2; i < sortedTeamsB.value.length; i++) {
-          if (compareTeams(runnerB, sortedTeamsB.value[i]!, false) === 0) {
-            multipleTied = true;
-            tied.push(sortedTeamsB.value[i]!);
-          }
-        }
-        if (comparison > 0 && multipleTied) {
-          tied.push(runnerB);
-          needed = 1;
-        } else if (comparison > 0) {
-          safe.push(runnerB.id);
-        }
-      }
-    }
-  }
-
-  return { tied, safe, needed };
-};
-
-// --- MODIFIED ACTION: Advance to Finals ---
-const advanceToFinals = async () => {
-  if(!tournament.value) return;
-
-  const { tied, safe, needed } = getTiedCandidates();
-
-  // If we found a conflict (teams tied for a qualifying spot)
-  if (tied.length > 0) {
-    tiebreakersNeeded.value = needed;
-    tiedTeams.value = tied;
-    guaranteedIds.value = safe;
-    showTieBreakerModal.value = true;
-    return;
-  }
-
-  // No conflict? Proceed normally
-  await finalizeFinals(safe);
-};
-
-// --- ACTION: Finalize (Write to DB) ---
-const finalizeFinals = async (finalIds: string[]) => {
-  if (!tournament.value) return;
-
-  const updatedTeams = tournament.value.teams.map(t => ({
-    ...t,
-    inFinals: finalIds.includes(t.id),
-    finalsPoints: 0
-  }));
-
-  await secureUpdate({ teams: updatedTeams, stage: 'finals' });
-
-  // Reset UI
-  showTieBreakerModal.value = false;
-  showCoinFlip.value = false;
-  currentView.value = 'finals';
-  hasInitialViewLoaded.value = true;
-};
-
-// --- RESOLUTION OPTION 1: Manual Selection ---
-const resolveManually = async (winner: Team) => {
-  if (!guaranteedIds.value.includes(winner.id)) {
-    guaranteedIds.value.push(winner.id)
-    tiebreakersNeeded.value--;
-    if (tiebreakersNeeded.value === 0) {
-      const finalIds = [...guaranteedIds.value];
-      await finalizeFinals(finalIds);
-    }
-  } else {
-    guaranteedIds.value.splice(guaranteedIds.value.indexOf(winner.id), 1);
-    tiebreakersNeeded.value++;
-  }
-};
-
-//EASTER EGG SECTION
-// --- EASTER EGG STATE ---
-const showHishiOverlay = ref(false);
-const playedEggIds = ref(new Set<string>());
-const isFirstLoad = ref(true);
-
-// Audio File (Replace this URL with your local file, e.g., '/sounds/hishi_impact.mp3')
-// A heavy "Thud" or "Gong" works best.
-const hishiSound = new Audio('Bono.mp3');
-
-// --- EASTER EGG LOGIC ---
-const checkEasterEggs = () => {
-  if (!tournament.value) return;
-
-  tournament.value.races.forEach(race => {
-    // 1. Skip if we've already "seen" this race (whether on load or previous update)
-    if (playedEggIds.value.has(race.id)) return;
-
-    // 2. Mark it as seen immediately so we don't check it again
-    playedEggIds.value.add(race.id);
-
-    // 3. Check for Hishi Win
-    const winnerId = Object.keys(race.placements).find(pid => race.placements[pid] == 1);
-    if (winnerId) {
-      const winner = tournament.value!.players.find(p => p.id === winnerId);
-      if (winner && winner.uma === 'Hishi Akebono') {
-        triggerHishiEffect();
-      }
-    }
-  });
-};
-
-const triggerHishiEffect = () => {
-  // Play Audio
-  hishiSound.currentTime = 0;
-  hishiSound.volume = 0.8;
-  hishiSound.play().catch(e => console.warn("Audio blocked:", e));
-
-  // Start Visuals
-  showHishiOverlay.value = true;
-
-  // Stop Visuals after duration
-  setTimeout(() => {
-    showHishiOverlay.value = false;
-  }, HISHI_DURATION_MS);
-};
-
-// --- WATCHER ---
-// This runs whenever tournament data changes (either from admin input or firebase sync)
-watch(
-    () => tournament.value,
-    (newVal) => {
-      if (newVal) {
-        if (isFirstLoad.value) {
-          // 🛑 ON REFRESH: Just add all existing races to the 'seen' list silently.
-          // Do not trigger effects.
-          newVal.races.forEach(r => playedEggIds.value.add(r.id));
-          isFirstLoad.value = false;
-        } else {
-          // ✅ ON UPDATE: Actually check for new wins
-          checkEasterEggs();
-        }
-      }
-    },
-    { deep: true }
-);
-
-// Optional: Initialize "seen" races on load so we don't spam 5 sounds if she won 5 times in the past
-// Uncomment this block if you ONLY want it to play for NEW updates, not on page refresh.
-
-// Helper for the template to keep code clean
-const isAdvancing = (teamId: string) => {
-  // 1. Basic check: Is the tournament loaded and is the team in the top list?
-  if (!tournament.value || !advancingTeamIds.value.has(teamId)) return false;
-
-  // 2. Point check: Find the team and ensure they have > 0 points
-  const team = tournament.value.teams.find(t => t.id === teamId);
-
-  // Use '?? 0' to handle undefined safely.
-  // If team is missing or points is undefined, it becomes 0.
-  return (team?.points ?? 0) > 0;
-};
+const tData = computed(() => tournament.value as Tournament);
 
 onMounted(() => {
   init();
@@ -1623,7 +391,7 @@ onMounted(() => {
       </div>
 
         <div v-if="tournament" class="absolute left-1/2 -translate-x-1/2 font-bold text-slate-200 uppercase tracking-widest text-sm md:text-base hidden md:block whitespace-nowrap overflow-hidden text-ellipsis max-w-[300px] text-center">
-          {{ tournament.name }}
+          {{ tData.name }}
         </div>
 
         <div v-if="tournament" class="flex items-center gap-4 z-10">
@@ -1783,12 +551,12 @@ onMounted(() => {
         <div v-if="tournament.status === 'registration'" class="space-y-6">
           <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h2 class="text-3xl font-bold text-white">{{ tournament.name }}</h2>
+              <h2 class="text-3xl font-bold text-white">{{ tData.name }}</h2>
               <p class="text-slate-400">Phase: <span class="text-indigo-400 font-semibold">Registration</span></p>
             </div>
             <div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700">
               <div class="text-sm text-slate-400">Total Players</div>
-              <div class="text-2xl font-bold text-white font-mono">{{ tournament.players.length }} <span class="text-sm font-normal text-slate-500">/ 27 max</span></div>
+              <div class="text-2xl font-bold text-white font-mono">{{ tData.players.length }} <span class="text-sm font-normal text-slate-500">/ 27 max</span></div>
             </div>
           </div>
           <div class="grid md:grid-cols-3 gap-6">
@@ -1828,7 +596,7 @@ onMounted(() => {
             <div class="md:col-span-2 space-y-4">
               <div v-if="tournament.players.length === 0" class="text-center py-12 text-slate-600 border-2 border-dashed border-slate-800 rounded-xl">No players added yet.</div>
               <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div v-for="player in tournament.players" :key="player.id"
+                <div v-for="player in tData.players" :key="player.id"
                      @click="toggleCaptain(player.id)"
                      class="relative p-3 rounded-lg flex items-center justify-between group cursor-pointer border transition-all select-none"
                      :class="player.isCaptain
@@ -1858,96 +626,12 @@ onMounted(() => {
           </div>
         </div>
 
-        <div v-else-if="tournament.status === 'draft'" class="space-y-6">
-          <div class="flex items-center justify-between">
-            <div>
-              <h2 class="text-3xl font-bold text-white">Team Draft</h2>
-              <p class="text-slate-400">Captains are picking their team</p>
-            </div>
-            <div class="text-right">
-              <div class="text-sm text-slate-400">Remaining Pool</div>
-              <div class="text-2xl font-mono font-bold">{{ availablePlayers.length }}</div>
-            </div>
-          </div>
-          <div class="bg-slate-800 p-4 rounded-xl border border-indigo-500/30 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg shadow-indigo-900/10">
-            <div class="flex items-center gap-3">
-              <span class="text-slate-400 uppercase text-xs font-bold tracking-wider">Current Pick:</span>
-              <div class="flex items-center gap-2">
-                <span class="text-amber-400 font-bold text-xl heading">{{ currentDrafter?.name }}</span>
-                <span class="text-slate-500 text-sm">({{ currentDrafter?.teamName }})</span>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-4">
-              <button @click="undoLastPick"
-                      :disabled="!isAdmin || (tournament.draft?.currentIdx || 0) === 0"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-slate-200 text-sm font-bold transition-colors border border-slate-600">
-                <i class="ph-bold ph-arrow-u-up-left"></i> Undo
-              </button>
-
-              <div class="flex gap-1">
-                <div v-for="(_, idx) in draftPreview" :key="idx"
-                     class="w-3 h-3 rounded-full transition-all"
-                     :class="idx === 0 ? 'bg-amber-500 scale-125' : 'bg-slate-700'">
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="grid md:grid-cols-12 gap-6">
-            <div class="md:col-span-8">
-              <h3 class="text-lg font-bold mb-3 text-slate-300">Available Players</h3>
-              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 auto-rows-fr">
-                <button @click="startRandomDraft"
-                        :disabled="!isAdmin"
-                        class="bg-gradient-to-br from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 p-4 rounded-lg shadow-lg border-2 border-amber-300 flex items-center justify-between group relative overflow-hidden transition-all transform hover:scale-[1.02]">
-
-                  <div class="relative z-10 text-left">
-                    <div class="font-black text-amber-900 text-lg uppercase tracking-wider">Random</div>
-                    <div class="text-amber-900/80 text-xs font-bold">I'm feeling lucky</div>
-                  </div>
-
-                  <div class="relative z-10 text-amber-900 p-2 bg-white/20 rounded-full">
-                    <i class="ph-bold ph-dice-five text-3xl group-hover:rotate-180 transition-transform duration-500"></i>
-                  </div>
-
-                  <div class="absolute inset-0 bg-white/20 -skew-x-12 -translate-x-full group-hover:animate-shine"></div>
-                </button>
-                <button v-for="player in availablePlayers" :key="player.id"
-                        @click="draftPlayer(player)"
-                        :disabled="!isAdmin"
-                        class="h-full w-full bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 p-4 rounded-lg transition-all text-left group relative overflow-hidden flex flex-col justify-center">
-                  <span class="relative z-10 font-medium group-hover:text-white">{{ player.name }}</span>
-                  <div class="absolute bottom-0 right-0 p-2 text-slate-700 group-hover:text-indigo-400 opacity-20">
-                    <i class="ph-fill ph-steering-wheel text-4xl"></i>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <div class="md:col-span-4 space-y-4">
-              <h3 class="text-lg font-bold mb-3 text-slate-300">Squads</h3>
-              <div v-for="team in tournament.teams" :key="team.id"
-                   class="bg-slate-900 border rounded-lg p-4 transition-colors"
-                   :class="currentDrafter?.id === team.captainId ? 'border-amber-500 ring-1 ring-amber-500/50' : 'border-slate-800'">
-                <div class="flex justify-between items-center mb-2">
-                  <span class="font-bold text-white" :style="{ color: team.color }">{{ team.name }}</span>
-                  <i v-if="currentDrafter?.id === team.captainId" class="ph-fill ph-pencil-simple text-amber-500 animate-pulse"></i>
-                </div>
-                <div class="space-y-2">
-                  <div class="flex items-center gap-2 text-sm text-amber-400">
-                    <i class="ph-fill ph-crown"></i> {{ getPlayerName(team.captainId) }}
-                  </div>
-                  <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ml-2">
-                    <i class="ph-fill ph-user"></i> {{ getPlayerName(memberId) }}
-                  </div>
-                  <div v-for="n in (2 - team.memberIds.length)" :key="n" class="flex items-center gap-2 text-sm text-slate-700 ml-2 border-dashed border border-slate-800 p-1 rounded">
-                    <span class="text-xs">Empty Slot</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <DraftPhase
+            v-else-if="tournament.status === 'draft'"
+            :tournament="tournament"
+            :is-admin="isAdmin"
+            :secure-update="secureUpdate"
+        />
 
         <div v-else-if="tournament.status === 'ban'" class="space-y-6">
           <div class="sticky top-20 z-30 bg-slate-900/90 backdrop-blur-md p-4 rounded-xl border border-slate-700 shadow-xl flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -1970,7 +654,7 @@ onMounted(() => {
 
               <div class="text-right hidden sm:block">
                 <div class="text-2xl font-mono font-bold text-red-400">
-                  {{ tournament.bans?.length || 0 }}
+                  {{ tData.bans?.length || 0 }}
                 </div>
                 <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Banned</div>
               </div>
@@ -2022,19 +706,17 @@ onMounted(() => {
 
             <div class="md:col-span-4 space-y-4">
               <h3 class="text-lg font-bold mb-3 text-slate-300">Squads</h3>
-              <div v-for="team in tournament.teams" :key="team.id"
-                   class="bg-slate-900 border rounded-lg p-4 transition-colors"
-                   :class="currentDrafter?.id === team.captainId ? 'border-amber-500 ring-1 ring-amber-500/50' : 'border-slate-800'">
+              <div v-for="team in tData.teams" :key="team.id"
+                   class="bg-slate-900 border rounded-lg p-4 transition-colors border-slate-800">
                 <div class="flex justify-between items-center mb-2">
                   <span class="font-bold text-white" :style="{ color: team.color }">{{ team.name }}</span>
-                  <i v-if="currentDrafter?.id === team.captainId" class="ph-fill ph-pencil-simple text-amber-500 animate-pulse"></i>
                 </div>
                 <div class="space-y-2">
                   <div class="flex items-center gap-2 text-sm text-amber-400">
-                    <i class="ph-fill ph-crown"></i> {{ getPlayerName(team.captainId) }}
+                    <i class="ph-fill ph-crown"></i> {{ getPlayerName(tournament, team.captainId) }}
                   </div>
                   <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ml-2">
-                    <i class="ph-fill ph-user"></i> {{ getPlayerName(memberId) }}
+                    <i class="ph-fill ph-user"></i> {{ getPlayerName(tournament, memberId) }}
                   </div>
                   <div v-for="n in (2 - team.memberIds.length)" :key="n" class="flex items-center gap-2 text-sm text-slate-700 ml-2 border-dashed border border-slate-800 p-1 rounded">
                     <span class="text-xs">Empty Slot</span>
@@ -2062,7 +744,7 @@ onMounted(() => {
                   </div>
                   <div class="text-left">
                     <span class="block text-red-200 font-bold uppercase tracking-wider text-sm">Banned List</span>
-                    <span class="text-xs text-red-400/70">{{ tournament.bans.length }} characters restricted</span>
+                    <span class="text-xs text-red-400/70">{{ tData.bans?.length }} characters restricted</span>
                   </div>
                 </div>
                 <i class="ph-bold ph-caret-down text-red-400 transition-transform duration-300"
@@ -2138,7 +820,7 @@ onMounted(() => {
                   <h3 @click="openWildcardModal('A')"
                       class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"
                       :class="isAdmin ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">
-                    {{ tournament?.teams.length >= 6 ? 'Group A' : 'Standings' }}
+                    {{ tData?.teams.length >= 6 ? 'Group A' : 'Standings' }}
                     <i v-if="isAdmin" class="ph-bold ph-plus-circle inline-block text-sm opacity-0 group-hover:opacity-100 transition-opacity ml-1"></i>
                   </h3>
                 </div>
@@ -2160,12 +842,12 @@ onMounted(() => {
                   <div>
                     <div>
                       <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                      <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>
+                      <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>
                     </div>
                     <div class="text-xs text-slate-400 flex gap-2">
                     <span :style="{ color: team.color }"
                           v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}</span>
+                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}</span>
                     </div>
                   </div>
                   <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
@@ -2219,13 +901,13 @@ onMounted(() => {
                   <div>
                     <div>
                       <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                      <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>
+                      <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>
                     </div>
                     <div class="text-xs text-slate-400 flex gap-2">
                       <span :style="{ color: team.color }"
                             v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
                             :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">
-                        {{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}
+                        {{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}
                       </span>
                     </div>
                   </div>
@@ -2279,13 +961,13 @@ onMounted(() => {
                   <div>
                     <div>
                       <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                      <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>
+                      <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>
                     </div>
                     <div class="text-xs text-slate-400 flex gap-2">
                       <span :style="{ color: team.color }"
                             v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
                             :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">
-                        {{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}
+                        {{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}
                       </span>
                     </div>
                   </div>
@@ -2332,18 +1014,15 @@ onMounted(() => {
                      :key="team.id"
                      class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
                      :class="getRankColor(idx)">
-                  <!--                <div class="absolute -left-4 w-8 h-8 rounded-full bg-slate-900 border-2 border-slate-700 flex items-center justify-center font-bold font-mono text-slate-300">-->
-                  <!--                  {{ idx + 1 }}-->
-                  <!--                </div>-->
                   <div>
                     <div>
                       <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                      <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament!.players!.find((el) => el.id === member)?.name).join(' ') }}</span>
+                      <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>
                     </div>
                     <div class="text-sm text-slate-400 flex gap-2 mt-1">
                     <span :style="{ color: team.color }"
                           v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid) + ' (' + getRoundPoints(pid) + ')'}}</span>
+                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}</span>
                     </div>
                   </div>
                   <div class="text-4xl font-mono font-bold text-indigo-400">{{ team.finalsPoints || 0 }}</div>
@@ -2407,7 +1086,7 @@ onMounted(() => {
               <div class="flex items-center gap-4 mb-4">
                 <h3 class="text-2xl font-bold text-white tracking-wide">
                             <span class="text-indigo-400">
-                                {{ tournament?.teams.length >= 6 ? 'Group A' : 'Race' }}
+                                {{ tData?.teams.length >= 6 ? 'Group A' : 'Race' }}
                             </span> Results
                 </h3>
                 <div v-if="saving" class="text-xs font-mono text-emerald-400 animate-pulse">
@@ -2420,7 +1099,7 @@ onMounted(() => {
                   <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
                     <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center">
                       <span class="font-bold text-indigo-400">Race {{ raceNum }}</span>
-                      <span class="text-xs text-slate-500">{{ getRaceTimestamp('A', raceNum) }}</span>
+                      <span class="text-xs text-slate-500">{{ getRaceTimestamp('A', raceNum, tournament, currentView) }}</span>
                     </div>
                     <div class="p-2 space-y-1 flex-1">
                       <div v-for="pos in (activeStagePlayers('A').length)" :key="pos" class="flex items-center gap-2">
@@ -2430,9 +1109,9 @@ onMounted(() => {
                         </div>
                         <select
                             :disabled="!isAdmin || tournament.stage !== 'groups'"
-                            :value="getPlayerAtPosition('A', raceNum, pos)"
+                            :value="getPlayerAtPosition('A',raceNum,pos,tournament,currentView)"
                             @change="updateRacePlacement('A', raceNum, pos, ($event.target as HTMLSelectElement).value)"
-                            :style="{ color: getPlayerColor(getPlayerAtPosition('A', raceNum, pos)) }"
+                            :style="{ color: getPlayerColor(getPlayerAtPosition('A',raceNum,pos,tournament,currentView)) }"
                             class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
                           <option value="">- Select -</option>
                           <option v-for="player in activeStagePlayers('A')"
@@ -2461,7 +1140,7 @@ onMounted(() => {
                   <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
                     <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center">
                       <span class="font-bold text-rose-400">Race {{ raceNum }}</span>
-                      <span class="text-xs text-slate-500">{{ getRaceTimestamp('B', raceNum) }}</span>
+                      <span class="text-xs text-slate-500">{{ getRaceTimestamp('B', raceNum, tournament, currentView) }}</span>
                     </div>
                     <div class="p-2 space-y-1 flex-1">
                       <div v-for="pos in (activeStagePlayers('B').length)" :key="pos" class="flex items-center gap-2">
@@ -2471,9 +1150,9 @@ onMounted(() => {
                         </div>
                         <select
                             :disabled="!isAdmin || tournament.stage !== 'groups'"
-                            :value="getPlayerAtPosition('B', raceNum, pos)"
+                            :value="getPlayerAtPosition('B',raceNum,pos,tournament,currentView)"
                             @change="updateRacePlacement('B', raceNum, pos, ($event.target as HTMLSelectElement).value)"
-                            :style="{ color: getPlayerColor(getPlayerAtPosition('B', raceNum, pos)) }"
+                            :style="{ color: getPlayerColor(getPlayerAtPosition('B',raceNum,pos,tournament,currentView)) }"
                             class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
                           <option value="">- Select -</option>
                           <option v-for="player in activeStagePlayers('B')"
@@ -2502,7 +1181,7 @@ onMounted(() => {
                   <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
                     <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center">
                       <span class="font-bold text-emerald-400">Race {{ raceNum }}</span>
-                      <span class="text-xs text-slate-500">{{ getRaceTimestamp('C', raceNum) }}</span>
+                      <span class="text-xs text-slate-500">{{ getRaceTimestamp('C', raceNum, tournament, currentView) }}</span>
                     </div>
                     <div class="p-2 space-y-1 flex-1">
                       <div v-for="pos in (activeStagePlayers('C').length)" :key="pos" class="flex items-center gap-2">
@@ -2512,9 +1191,9 @@ onMounted(() => {
                         </div>
                         <select
                             :disabled="!isAdmin || tournament.stage !== 'groups'"
-                            :value="getPlayerAtPosition('C', raceNum, pos)"
+                            :value="getPlayerAtPosition('C',raceNum,pos,tournament,currentView)"
                             @change="updateRacePlacement('C', raceNum, pos, ($event.target as HTMLSelectElement).value)"
-                            :style="{ color: getPlayerColor(getPlayerAtPosition('C', raceNum, pos)) }"
+                            :style="{ color: getPlayerColor(getPlayerAtPosition('C',raceNum,pos,tournament,currentView)) }"
                             class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all">
                           <option value="">- Select -</option>
                           <option v-for="player in activeStagePlayers('C')"
@@ -2543,7 +1222,9 @@ onMounted(() => {
                   <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
                     <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center">
                       <span class="font-bold text-amber-500">Race {{ raceNum }}</span>
-                      <span class="text-xs text-slate-500">{{ getRaceTimestamp('Finals', raceNum) }}</span>
+                      <span class="text-xs text-slate-500">{{
+                          getRaceTimestamp('Finals', raceNum, tournament, currentView)
+                        }}</span>
                     </div>
                     <div class="p-2 space-y-1 flex-1">
                       <div v-for="pos in (activeStagePlayers('Finals').length)" :key="pos" class="flex items-center gap-2">
@@ -2553,9 +1234,9 @@ onMounted(() => {
                         </div>
                         <select
                             :disabled="!isAdmin || tournament.stage !== 'finals'"
-                            :value="getPlayerAtPosition('Finals', raceNum, pos)"
+                            :value="getPlayerAtPosition('Finals',raceNum,pos,tournament,currentView)"
                             @change="updateRacePlacement('Finals', raceNum, pos, ($event.target as HTMLSelectElement).value)"
-                            :style="{ color: getPlayerColor(getPlayerAtPosition('Finals', raceNum, pos)) }"
+                            :style="{ color: getPlayerColor(getPlayerAtPosition('Finals',raceNum,pos,tournament,currentView)) }"
                             class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all">
                           <option value="">- Select -</option>
                           <option v-for="player in activeStagePlayers('Finals')"
@@ -2628,7 +1309,7 @@ onMounted(() => {
                   <div class="flex items-center gap-3">
                     <span class="px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wider shadow-sm"
                           :class="race.stage === 'finals' ? 'bg-amber-900/50 text-amber-200 border border-amber-700/50' : 'bg-indigo-900/50 text-indigo-200 border border-indigo-700/50'">
-                        {{ race.stage === 'finals' ? 'Grand Finals' : (tournament?.teams.length >= 6 ? 'Group ' + race.group : 'Main Event') }}
+                        {{ race.stage === 'finals' ? 'Grand Finals' : (tData?.teams.length >= 6 ? 'Group ' + race.group : 'Main Event') }}
                     </span>
                     <span class="text-slate-400 text-sm flex items-center gap-1">
                       <i class="ph-bold ph-clock"></i>
@@ -2885,42 +1566,6 @@ onMounted(() => {
       </div>
     </div>
 
-    <div v-if="showRandomModal" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md">
-
-      <h2 class="text-3xl font-bold text-white mb-8 animate-pulse text-center">
-        <span class="text-amber-400">Fate</span> is deciding...
-      </h2>
-
-      <div class="relative">
-        <div class="absolute -top-8 left-1/2 -translate-x-1/2 z-20 drop-shadow-xl filter">
-          <i class="ph-fill ph-caret-down text-6xl text-white"></i>
-        </div>
-
-        <div class="w-80 h-80 sm:w-96 sm:h-96 rounded-full border-8 border-slate-800 shadow-[0_0_60px_rgba(245,158,11,0.3)] relative overflow-hidden transition-transform duration-[4000ms] ease-[cubic-bezier(0.25,1,0.5,1)]"
-             :style="{
-          background: getRandomWheelGradient,
-          transform: `rotate(${randomWheelRotation}deg)`
-        }">
-          <div v-for="(player, idx) in randomCandidates" :key="player.id"
-               class="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-[50%] origin-bottom flex justify-center pt-8"
-               :style="{ transform: `rotate(${(idx * (360/randomCandidates.length)) + (360/randomCandidates.length/2)}deg)` }">
-
-            <div class="text-white font-black text-xs uppercase drop-shadow-md px-1 py-2 rounded bg-black/20 backdrop-blur-sm truncate max-h-[120px] whitespace-nowrap">
-              {{ player.name }}
-            </div>
-          </div>
-        </div>
-
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-slate-800 rounded-full border-4 border-slate-600 z-10 shadow-lg flex items-center justify-center">
-          <div class="w-12 h-12 bg-amber-500 rounded-full animate-pulse"></div>
-        </div>
-      </div>
-
-      <p class="text-slate-500 mt-8 font-mono text-xs">
-        Choosing from {{ availablePlayers.length }} Players
-      </p>
-    </div>
-
     <div v-if="showCoinFlip" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md">
 
       <h2 class="text-3xl font-bold text-white mb-12 animate-pulse">Flipping for the spot...</h2>
@@ -2996,12 +1641,4 @@ onMounted(() => {
   backdrop-filter: contrast(1.2) sepia(0.2); /* Adds to the chaos */
 }
 
-@keyframes shine {
-  0% { transform: translateX(-150%) skewX(-12deg); }
-  100% { transform: translateX(150%) skewX(-12deg); }
-}
-
-.animate-shine {
-  animation: shine 1s ease-in-out infinite;
-}
 </style>

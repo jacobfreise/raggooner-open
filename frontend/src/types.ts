@@ -1,3 +1,5 @@
+import {FieldValue} from "firebase/firestore";
+
 export interface Player {
     id: string;
     name: string;
@@ -50,3 +52,7 @@ export interface Tournament {
     isSecured?: boolean;
     usePlacementTiebreaker?: boolean;
 }
+
+export type FirestoreUpdate<T> = {
+    [K in keyof T]?: T[K] | FieldValue;
+};
