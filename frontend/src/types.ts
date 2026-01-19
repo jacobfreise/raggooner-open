@@ -5,11 +5,21 @@ export interface Player {
     name: string;
     isCaptain: boolean;
     uma: string;
+    totalPoints?: number;
+    groupPoints?: number;
+    finalsPoints?: number;
 }
 
 export interface Wildcard {
     playerId: string;
     group: 'A' | 'B' | 'C' | 'Finals';
+}
+
+export interface PointAdjustment {
+    id: string;
+    reason: string;
+    amount: number; // Positive for bonus, negative for penalty
+    stage: 'groups' | 'finals';
 }
 
 export interface Team {
@@ -19,6 +29,7 @@ export interface Team {
     name: string;
     points: number;
     finalsPoints: number;
+    adjustments?: PointAdjustment[];
     group: 'A' | 'B' | 'C';
     inFinals?: boolean;
     color?: string;
@@ -51,6 +62,7 @@ export interface Tournament {
     };
     isSecured?: boolean;
     usePlacementTiebreaker?: boolean;
+    pointsSystem?: Record<number, number>;
 }
 
 export type FirestoreUpdate<T> = {

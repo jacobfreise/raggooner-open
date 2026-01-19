@@ -1,4 +1,5 @@
-import type {Team, Tournament} from "../types.ts";
+import type {Player, Team, Tournament} from "../types.ts";
+import {POINTS_SYSTEM as DEFAULT_POINTS} from "./constants.ts";
 
 // Compare two teams (Returns positive if A is better, negative if B is better)
 export const compareTeams = (a: Team, b: Team, useIdFallback = true, tournament: Tournament, isFinals?: boolean) => {
@@ -58,6 +59,76 @@ const getTeamPlacements = (team: Team, tournament: Tournament) => {
 
     return counts;
 };
+
+export const recalculateTournamentScores = (t: Tournament): { teams: Team[], players: Player[] } => {
+    const activePointsSystem = t.pointsSystem || DEFAULT_POINTS;
+
+    // 1. Clone arrays to avoid mutation issues
+    const teams = t.teams.map(team => ({
+        ...team,
+        points: 0,
+        finalsPoints: 0,
+        adjustments: team.adjustments || []
+    }));
+
+    const players = t.players.map(player => ({
+        ...player,
+        totalPoints: 0,
+        groupPoints: 0,
+        finalsPoints: 0
+    }));
+
+    // Helper to find indices
+    const findTeamIdx = (pid: string) => teams.findIndex(team => team.captainId === pid || team.memberIds.includes(pid));
+    const findPlayerIdx = (pid: string) => players.findIndex(p => p.id === pid);
+
+    // 2. Process ALL Races
+    t.races.forEach(race => {
+        const isFinals = race.stage === 'finals';
+
+        Object.entries(race.placements).forEach(([pid, pos]) => {
+            const numericPos = Number(pos);
+            const points = activePointsSystem[numericPos] || 0;
+
+            // Update Team
+            const tIdx = findTeamIdx(pid);
+            if (tIdx !== -1) {
+                // Added '!' after teams[tIdx]
+                if (isFinals) teams[tIdx]!.finalsPoints += points;
+                else teams[tIdx]!.points += points;
+            }
+
+            // Update Player
+            const pIdx = findPlayerIdx(pid);
+            if (pIdx !== -1) {
+                // Added '!' after players[pIdx] in every location
+                players[pIdx]!.totalPoints = (players[pIdx]!.totalPoints || 0) + points;
+
+                if (isFinals) {
+                    players[pIdx]!.finalsPoints = (players[pIdx]!.finalsPoints || 0) + points;
+                } else {
+                    players[pIdx]!.groupPoints = (players[pIdx]!.groupPoints || 0) + points;
+                }
+            }
+        });
+    });
+
+    // 3. Process Adjustments (Penalties/Bonuses)
+    teams.forEach(team => {
+        if (team.adjustments) {
+            team.adjustments.forEach(adj => {
+                if (adj.stage === 'finals') {
+                    team.finalsPoints += adj.amount;
+                } else {
+                    team.points += adj.amount;
+                }
+            });
+        }
+    });
+
+    return { teams, players };
+};
+
 export const getStatusColor = (status: string) => {
     switch (status) {
         case 'registration':

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, ref, toRef} from 'vue';
-import type { Tournament, FirestoreUpdate } from '../types';
+import type {Tournament, FirestoreUpdate, Team} from '../types';
 import { useGameLogic } from '../composables/useGameLogic';
 import { useRoster } from '../composables/useRoster';
 import {
@@ -20,6 +20,13 @@ const props = defineProps<{
 // Create Refs for composables
 const tournament = toRef(props, 'tournamentProp');
 const isAdminRef = toRef(props, 'isAdmin');
+
+const showAdjustmentModal = ref(false);
+const activeTeamId = ref('');
+const activeTeamName = ref('');
+const selectedTeamId = ref('');
+const adjAmount = ref(0);
+const adjReason = ref('');
 
 // Initialize Game Logic locally
 // This keeps 'currentView' (Groups vs Finals) state inside this component
@@ -51,7 +58,8 @@ const {
   guaranteedIds,
   resolveManually,
   getVisualRankIndex,
-  getProgressionStatus
+  getProgressionStatus,
+  addTeamAdjustment,
 } = useGameLogic(tournament, props.secureUpdate);
 
 // Initialize Roster (for visual helpers like colors/names)
@@ -87,6 +95,29 @@ const copyResults = async () => {
 
   await navigator.clipboard.writeText(text);
   alert("Results copied to clipboard!");
+};
+
+const openAdjustmentModal = (team: Team) => {
+  selectedTeamId.value = team.id;
+  activeTeamId.value = team.id;
+  activeTeamName.value = team.name;
+  adjAmount.value = 0;
+  adjReason.value = '';
+  showAdjustmentModal.value = true;
+};
+
+const submitAdjustment = async () => {
+  console.debug(selectedTeamId.value + ' ' + adjAmount.value);
+  if (!selectedTeamId.value || adjAmount.value === 0) return;
+
+  await addTeamAdjustment(selectedTeamId.value, adjAmount.value, adjReason.value);
+
+  showAdjustmentModal.value = false;
+  // adjReason.value = '';
+  // adjAmount.value = 0;
+  // selectedTeamId.value = '';
+  // activeTeamId.value = '';
+  // activeTeamName.value = '';
 };
 
 const tData = computed(() => tournament.value as Tournament);
@@ -221,7 +252,29 @@ const tData = computed(() => tournament.value as Tournament);
                           :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}</span>
               </div>
             </div>
-            <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
+            <div class="text-2xl font-mono font-bold">
+              {{ team.points }}
+              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>
+              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">
+                <i class="ph-bold ph-warning-circle text-amber-500 text-sm cursor-help"></i>
+
+                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-48 hidden group-hover:block z-50">
+                  <div v-for="adj in team.adjustments" :key="adj.id" class="text-xs flex justify-between">
+                    <span class="text-slate-400">{{ adj.reason }}:</span>
+                    <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'">
+                       {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                   </span>
+                  </div>
+                </div>
+              </div>
+
+              <button v-if="isAdmin"
+                      @click.stop="openAdjustmentModal(team)"
+                      class="w-8 h-8 rounded-full bg-slate-700 hover:bg-indigo-600 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+                      title="Add Penalty/Bonus">
+                <i class="ph-bold ph-gavel"></i>
+              </button>
+            </div>
           </div>
 
           <div v-if="getGroupWildcards('A').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
@@ -291,7 +344,29 @@ const tData = computed(() => tournament.value as Tournament);
                       </span>
               </div>
             </div>
-            <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
+            <div class="text-2xl font-mono font-bold">
+              {{ team.points }}
+              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>
+              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">
+                <i class="ph-bold ph-warning-circle text-amber-500 text-sm cursor-help"></i>
+
+                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-48 hidden group-hover:block z-50">
+                  <div v-for="adj in team.adjustments" :key="adj.id" class="text-xs flex justify-between">
+                    <span class="text-slate-400">{{ adj.reason }}:</span>
+                    <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'">
+                       {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                   </span>
+                  </div>
+                </div>
+              </div>
+
+              <button v-if="isAdmin"
+                      @click.stop="openAdjustmentModal(team)"
+                      class="w-8 h-8 rounded-full bg-slate-700 hover:bg-indigo-600 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+                      title="Add Penalty/Bonus">
+                <i class="ph-bold ph-gavel"></i>
+              </button>
+            </div>
           </div>
           <div v-if="getGroupWildcards('B').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
             <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
@@ -360,7 +435,27 @@ const tData = computed(() => tournament.value as Tournament);
                       </span>
               </div>
             </div>
-            <div class="text-2xl font-mono font-bold">{{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span></div>
+            <div class="text-2xl font-mono font-bold">
+              {{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span>
+              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">
+                <i class="ph-bold ph-warning-circle text-amber-500 text-sm cursor-help"></i>
+
+                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-48 hidden group-hover:block z-50">
+                  <div v-for="adj in team.adjustments" :key="adj.id" class="text-xs flex justify-between">
+                    <span class="text-slate-400">{{ adj.reason }}:</span>
+                    <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'">
+                       {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                   </span>
+                  </div>
+                </div>
+              </div>
+              <button v-if="isAdmin"
+                      @click.stop="openAdjustmentModal(team)"
+                      class="w-8 h-8 rounded-full bg-slate-700 hover:bg-indigo-600 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+                      title="Add Penalty/Bonus">
+                <i class="ph-bold ph-gavel"></i>
+              </button>
+            </div>
           </div>
           <div v-if="getGroupWildcards('C').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
             <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
@@ -376,7 +471,8 @@ const tData = computed(() => tournament.value as Tournament);
                 </div>
               </div>
               <div class="text-xl font-mono font-bold text-slate-400">
-                {{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span>
+                {{ wc.points }}
+                <span class="text-xs font-sans font-normal text-slate-600">PTS</span>
               </div>
             </div>
           </div>
@@ -415,7 +511,27 @@ const tData = computed(() => tournament.value as Tournament);
                           :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}</span>
               </div>
             </div>
-            <div class="text-4xl font-mono font-bold text-indigo-400">{{ team.finalsPoints || 0 }}</div>
+            <div class="text-4xl font-mono font-bold text-indigo-400">
+              {{ team.finalsPoints || 0 }}
+              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">
+                <i class="ph-bold ph-warning-circle text-amber-500 text-sm cursor-help"></i>
+
+                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-48 hidden group-hover:block z-50">
+                  <div v-for="adj in team.adjustments" :key="adj.id" class="text-xs flex justify-between">
+                    <span class="text-slate-400">{{ adj.reason }}:</span>
+                    <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'">
+                       {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                   </span>
+                  </div>
+                </div>
+              </div>
+              <button v-if="isAdmin"
+                      @click.stop="openAdjustmentModal(team)"
+                      class="w-8 h-8 rounded-full bg-slate-700 hover:bg-indigo-600 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+                      title="Add Penalty/Bonus">
+                <i class="ph-bold ph-gavel"></i>
+              </button>
+            </div>
           </div>
           <div v-if="getGroupWildcards('Finals').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
             <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
@@ -720,6 +836,47 @@ const tData = computed(() => tournament.value as Tournament);
       </div>
     </div>
 
+    <div v-if="showAdjustmentModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl">
+
+        <h3 class="text-xl font-bold text-white mb-1">Adjust Points</h3>
+        <p class="text-sm text-slate-400 mb-6">For team: <span class="text-indigo-400 font-bold">{{ activeTeamName }}</span></p>
+
+        <div class="space-y-4">
+          <div>
+            <label class="text-xs font-bold text-slate-500 uppercase">Amount</label>
+            <div class="flex gap-2 mt-1">
+              <button @click="adjAmount = -10" class="px-2 py-2 bg-slate-800 hover:bg-red-900/30 border border-slate-700 hover:border-red-500/50 text-red-400 rounded transition-colors font-bold">-10</button>
+              <button @click="adjAmount = -5" class="px-2 py-2 bg-slate-800 hover:bg-red-900/30 border border-slate-700 hover:border-red-500/50 text-red-400 rounded transition-colors font-bold">-5</button>
+
+              <input v-model.number="adjAmount" type="number"
+                     class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 text-white text-center font-bold focus:border-indigo-500 focus:outline-none">
+
+              <button @click="adjAmount = 5" class="px-2 py-2 bg-slate-800 hover:bg-emerald-900/30 border border-slate-700 hover:border-emerald-500/50 text-emerald-400 rounded transition-colors font-bold">+5</button>
+              <button @click="adjAmount = 10" class="px-2 py-2 bg-slate-800 hover:bg-emerald-900/30 border border-slate-700 hover:border-emerald-500/50 text-emerald-400 rounded transition-colors font-bold">+10</button>
+            </div>
+            <p class="text-[10px] text-slate-500 mt-1">Negative for penalty, positive for bonus.</p>
+          </div>
+
+          <div>
+            <label class="text-xs font-bold text-slate-500 uppercase">Reason</label>
+            <input v-model="adjReason" type="text" placeholder="e.g. Slow Play, Disconnect..."
+                   class="w-full mt-1 bg-slate-950 border border-slate-700 rounded p-3 text-white focus:border-indigo-500 focus:outline-none">
+          </div>
+
+          <div class="flex gap-3 pt-2">
+            <button @click="showAdjustmentModal = false" class="flex-1 py-3 rounded-lg font-bold text-slate-400 hover:bg-slate-800 transition-colors">
+              Cancel
+            </button>
+            <button @click="submitAdjustment"
+                    :disabled="!adjAmount || !adjReason"
+                    class="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-lg font-bold shadow-lg shadow-indigo-900/20 transition-all">
+              Apply
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div v-if="showUmaModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl">

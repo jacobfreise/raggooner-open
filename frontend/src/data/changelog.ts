@@ -6,9 +6,19 @@ export interface ChangeLogEntry {
     changes: { type: 'new' | 'fix' | 'improvement'; text: string }[];
 }
 
-export const APP_VERSION = '1.1.1'; // Update this manually when you deploy
+export const APP_VERSION = '1.2.0'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '1.2.0',
+        date: '2026-01-19',
+        title: 'Penalties/Bonuses and adjustable Points System',
+        changes: [
+            { type: 'new', text: 'Added ability to add penalties or bonuses to teams at any stage!' },
+            { type: 'improvement', text: 'Don\'t dynamically recalculate points all the time, but save and read them to/from db!' },
+            { type: 'new', text: 'Add ability to manually adjust the points system for the current tournament. The standard values are applied if not adjusted.' },
+        ]
+    },
     {
         version: '1.1.1',
         date: '2026-01-19',
