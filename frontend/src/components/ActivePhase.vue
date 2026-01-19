@@ -687,17 +687,19 @@ const tData = computed(() => tournament.value as Tournament);
 
                   <i class="ph-bold ph-warning-circle text-amber-500 text-2xl cursor-help"></i>
 
-                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-64">
+                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-max min-w-[160px] max-w-[400px]">
                     <div class="bg-slate-900 border border-slate-700 p-2 rounded shadow-xl">
                       <div v-for="adj in getRelevantAdjustments(team, 'groups')" :key="adj.id"
-                           class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
-                        <div class="flex-1 truncate text-left">
-                          <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
-                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">
-                       {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                    </span>
+                           class="text-xs flex justify-between items-center gap-3 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+
+                        <div class="flex-1 flex items-center min-w-0 mr-2">
+                          <span class="text-slate-400 truncate mr-1" :title="adj.reason">{{ adj.reason }}:</span>
+                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold whitespace-nowrap shrink-0">
+                           {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                        </span>
                         </div>
-                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors" title="Delete"><i class="ph-bold ph-trash"></i></button>
+
+                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="shrink-0 text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors" title="Delete"><i class="ph-bold ph-trash"></i></button>
                       </div>
                     </div>
                   </div>
@@ -782,17 +784,19 @@ const tData = computed(() => tournament.value as Tournament);
 
                   <i class="ph-bold ph-warning-circle text-amber-500 text-2xl cursor-help"></i>
 
-                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-64">
+                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-max min-w-[160px] max-w-[400px]">
                     <div class="bg-slate-900 border border-slate-700 p-2 rounded shadow-xl">
                       <div v-for="adj in getRelevantAdjustments(team, 'groups')" :key="adj.id"
-                           class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
-                        <div class="flex-1 truncate text-left">
-                          <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
-                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">
-                       {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                    </span>
+                           class="text-xs flex justify-between items-center gap-3 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+
+                        <div class="flex-1 flex items-center min-w-0 mr-2">
+                          <span class="text-slate-400 truncate mr-1" :title="adj.reason">{{ adj.reason }}:</span>
+                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold whitespace-nowrap shrink-0">
+                           {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                        </span>
                         </div>
-                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors" title="Delete"><i class="ph-bold ph-trash"></i></button>
+
+                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="shrink-0 text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors" title="Delete"><i class="ph-bold ph-trash"></i></button>
                       </div>
                     </div>
                   </div>
@@ -810,6 +814,7 @@ const tData = computed(() => tournament.value as Tournament);
                 </button>
               </div>
             </div>
+
           </div>
 
           <div v-if="getGroupWildcards('B').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
@@ -874,17 +879,19 @@ const tData = computed(() => tournament.value as Tournament);
 
                   <i class="ph-bold ph-warning-circle text-amber-500 text-2xl cursor-help"></i>
 
-                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-64">
+                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-max min-w-[160px] max-w-[400px]">
                     <div class="bg-slate-900 border border-slate-700 p-2 rounded shadow-xl">
                       <div v-for="adj in getRelevantAdjustments(team, 'groups')" :key="adj.id"
-                           class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
-                        <div class="flex-1 truncate text-left">
-                          <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
-                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">
-                       {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                    </span>
+                           class="text-xs flex justify-between items-center gap-3 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+
+                        <div class="flex-1 flex items-center min-w-0 mr-2">
+                          <span class="text-slate-400 truncate mr-1" :title="adj.reason">{{ adj.reason }}:</span>
+                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold whitespace-nowrap shrink-0">
+                           {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                        </span>
                         </div>
-                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors" title="Delete"><i class="ph-bold ph-trash"></i></button>
+
+                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="shrink-0 text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors" title="Delete"><i class="ph-bold ph-trash"></i></button>
                       </div>
                     </div>
                   </div>
@@ -902,6 +909,7 @@ const tData = computed(() => tournament.value as Tournament);
                 </button>
               </div>
             </div>
+
           </div>
 
           <div v-if="getGroupWildcards('C').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
@@ -958,14 +966,18 @@ const tData = computed(() => tournament.value as Tournament);
 
                   <i class="ph-bold ph-warning-circle text-amber-500 text-2xl cursor-help"></i>
 
-                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-64">
+                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-max min-w-[160px] max-w-[400px]">
                     <div class="bg-slate-900 border border-slate-700 p-2 rounded shadow-xl">
-                      <div v-for="adj in getRelevantAdjustments(team, 'finals')" :key="adj.id" class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
-                        <div class="flex-1 truncate text-left">
-                          <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
-                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">{{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}</span>
+                      <div v-for="adj in getRelevantAdjustments(team, 'finals')" :key="adj.id" class="text-xs flex justify-between items-center gap-3 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+
+                        <div class="flex-1 flex items-center min-w-0 mr-2">
+                          <span class="text-slate-400 truncate mr-1" :title="adj.reason">{{ adj.reason }}:</span>
+                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold whitespace-nowrap shrink-0">
+                           {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                        </span>
                         </div>
-                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors"><i class="ph-bold ph-trash"></i></button>
+
+                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="shrink-0 text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors"><i class="ph-bold ph-trash"></i></button>
                       </div>
                     </div>
                   </div>
@@ -981,6 +993,7 @@ const tData = computed(() => tournament.value as Tournament);
                 </button>
               </div>
             </div>
+
           </div>
           <div v-if="getGroupWildcards('Finals').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
             <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2"><i class="ph-bold ph-ghost"></i> Wildcards</div>
