@@ -6,7 +6,7 @@ export interface ChangeLogEntry {
     changes: { type: 'new' | 'fix' | 'improvement'; text: string }[];
 }
 
-export const APP_VERSION = '1.2.0'; // Update this manually when you deploy
+export const APP_VERSION = '1.1.0'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
     {
