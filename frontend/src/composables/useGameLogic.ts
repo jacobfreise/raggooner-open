@@ -446,8 +446,8 @@ export function useGameLogic(
                 wildCardPool.push(runA);
 
                 if (thirdA && compareTeams(runA, thirdA, false, tournament.value!) === 0) {
-                    tiedSet.add(runA.id);
-                    tiedSet.add(thirdA.id);
+                    // tiedSet.add(runA.id);
+                    // tiedSet.add(thirdA.id);
                     wildCardPool.push(thirdA);
                 }
             }
@@ -475,8 +475,8 @@ export function useGameLogic(
                 wildCardPool.push(runB);
 
                 if (thirdB && compareTeams(runB, thirdB, false, tournament.value!) === 0) {
-                    tiedSet.add(runB.id);
-                    tiedSet.add(thirdB.id);
+                    // tiedSet.add(runB.id);
+                    // tiedSet.add(thirdB.id);
                     wildCardPool.push(thirdB);
                 }
             }
@@ -489,7 +489,9 @@ export function useGameLogic(
 
             // Logic to handle pool boundary
             if (wildCardPool.length > slotsAvailable) {
-                console.debug('wildcardpool: ' + JSON.stringify(wildCardPool) + ' slotsavailable: ' + slotsAvailable);
+                console.debug('wildcardpool: ' + JSON.stringify(wildCardPool.map(w => {
+                    return w.name
+                })) + ' slotsavailable: ' + slotsAvailable);
                 const lastQualifier = wildCardPool[slotsAvailable - 1]!;
                 const firstLoser = wildCardPool[slotsAvailable]!;
 
