@@ -14,9 +14,12 @@ export const changelogData: ChangeLogEntry[] = [
         date: '2026-01-19',
         title: 'The Big Refactor',
         changes: [
-            { type: 'improvement', text: 'Massive code improvements by refactoring code. Users hopefully won\'t notice anything, but the dev might not get cancer.'},
+            { type: 'new', text: 'Added this Patch Notes menu to track updates!' },
+            { type: 'new', text: 'Added distinct amber and question mark indicators for teams currently in a tiebreaker.' },
+            { type: 'new', text: 'Added a footer with credits and direct Discord profile linking.' },
             { type: 'new', text: 'Added more functionality to the admin panel.' },
-            { type: 'fix', text: 'Fixed a bug where 6-team tournaments calculated wildcards incorrectly.' }
+            { type: 'improvement', text: 'Massive code improvements by refactoring code. Users hopefully won\'t notice anything, but the dev might not get cancer.'},
+            { type: 'fix', text: 'Fixed critical wildcard calculation logic for 6-team tournaments.' },
         ]
     },
     {

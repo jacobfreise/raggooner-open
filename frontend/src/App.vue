@@ -500,7 +500,35 @@ onMounted(() => {
 
       </div>
     </main>
+    <footer class="border-t border-slate-800 bg-slate-900/50 py-8 mt-auto backdrop-blur-sm">
+      <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
 
+        <div class="text-xs font-mono text-slate-600 flex items-center gap-2">
+          <i class="ph-bold ph-code"></i>
+          <span>
+            Powered by
+            <span class="text-emerald-500 font-bold">Vue</span> &
+            <span class="text-amber-500 font-bold">Firebase</span>
+          </span>
+        </div>
+
+        <div class="text-sm text-slate-400 flex items-center gap-2">
+          <span>Created with <i class="ph-fill ph-heart text-rose-500 inline-block animate-pulse"></i> by</span>
+
+          <a href="https://discord.com/users/131446525585784832"
+             target="_blank"
+             rel="noopener noreferrer"
+             class="font-bold text-indigo-400 hover:text-white transition-colors flex items-center gap-1.5 group"
+             title="Contact on Discord">
+
+            Sumpfranze
+
+            <i class="ph-fill ph-discord-logo text-lg group-hover:scale-110 transition-transform"></i>
+          </a>
+        </div>
+
+      </div>
+    </footer>
     <div v-if="showAdminModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-sm w-full p-6 shadow-2xl relative overflow-hidden">
 
