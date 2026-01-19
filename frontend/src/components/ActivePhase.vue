@@ -98,6 +98,10 @@ const copyResults = async () => {
   alert("Results copied to clipboard!");
 };
 
+const getRelevantAdjustments = (team: Team, stage: 'groups' | 'finals') => {
+  return team.adjustments?.filter(adj => adj.stage === stage) || [];
+};
+
 const openAdjustmentModal = (team: Team) => {
   selectedTeamId.value = team.id;
   activeTeamId.value = team.id;
@@ -206,6 +210,428 @@ const tData = computed(() => tournament.value as Tournament);
       </div>
     </div>
 
+<!--    <div :class="tournament?.teams.length === 9 && currentView === 'groups' ? 'grid md:grid-cols-3 gap-8' : 'grid md:grid-cols-2 gap-8'">-->
+<!--      <div v-if="shouldShowGroup('A')">-->
+<!--        <div class="flex items-center justify-between mb-4 group">-->
+<!--          <div class="flex items-center gap-3">-->
+<!--            <h3 @click="openWildcardModal('A')"-->
+<!--                class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"-->
+<!--                :class="isAdminRef ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">-->
+<!--              {{ tData?.teams.length >= 6 ? 'Group A' : 'Standings' }}-->
+<!--              <i v-if="isAdminRef" class="ph-bold ph-plus-circle inline-block text-sm opacity-0 group-hover:opacity-100 transition-opacity ml-1"></i>-->
+<!--            </h3>-->
+<!--          </div>-->
+<!--          <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('A') }} / 5 Races</span>-->
+<!--        </div>-->
+
+<!--        <div class="space-y-3">-->
+<!--          <div v-for="(team, idx) in sortedTeamsA" :key="team.id"-->
+<!--               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative hover:z-30"-->
+<!--               :class="[-->
+<!--                  getRankColor(idx),-->
+<!--                  getProgressionStatus(team.id) === 'safe'-->
+<!--                      ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'-->
+<!--                      : (getProgressionStatus(team.id) === 'tied'-->
+<!--                          ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'-->
+<!--                          : 'opacity-80')-->
+<!--               ]">-->
+
+<!--            <div v-if="getProgressionStatus(team.id) === 'safe'"-->
+<!--                 class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">-->
+<!--              Q-->
+<!--            </div>-->
+
+<!--            <div v-else-if="getProgressionStatus(team.id) === 'tied'"-->
+<!--                 class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl pointer-events-none select-none rotate-12">-->
+<!--              ?-->
+<!--            </div>-->
+<!--            <div>-->
+<!--              <div>-->
+<!--                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>-->
+<!--                <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>-->
+<!--              </div>-->
+<!--              <div class="text-xs text-slate-400 flex gap-2">-->
+<!--                    <span :style="{ color: team.color }"-->
+<!--                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"-->
+<!--                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}</span>-->
+<!--              </div>-->
+<!--            </div>-->
+
+<!--            <div class="text-2xl font-mono font-bold">-->
+<!--              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">-->
+<!--                <i class="ph-bold ph-warning-circle text-amber-500 text-md cursor-help"></i>-->
+
+<!--                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-56 hidden group-hover:block z-50 shadow-xl">-->
+
+<!--                  <div v-for="adj in team.adjustments" :key="adj.id"-->
+<!--                       class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">-->
+
+<!--                    <div class="flex-1 truncate">-->
+<!--                      <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>-->
+<!--                      <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">-->
+<!--                         {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}-->
+<!--                      </span>-->
+<!--                    </div>-->
+
+<!--                    <button v-if="isAdmin"-->
+<!--                            @click.stop="removeTeamAdjustment(team.id, adj.id)"-->
+<!--                            class="text-slate-500 hover:text-red-400 transition-colors p-1 rounded hover:bg-slate-800"-->
+<!--                            title="Delete Adjustment">-->
+<!--                      <i class="ph-bold ph-trash"></i>-->
+<!--                    </button>-->
+<!--                  </div>-->
+
+<!--                </div>-->
+<!--              </div>-->
+<!--              {{ team.points }}-->
+<!--              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>-->
+
+<!--              <button v-if="isAdmin"-->
+<!--                      @click.stop="openAdjustmentModal(team)"-->
+<!--                      class="w-8 h-8 rounded-full bg-slate-700 hover:bg-indigo-600 text-slate-400 hover:text-white flex items-center justify-center transition-colors"-->
+<!--                      title="Add Penalty/Bonus">-->
+<!--                <i class="ph-bold ph-gavel"></i>-->
+<!--              </button>-->
+<!--            </div>-->
+
+<!--          </div>-->
+<!--          <div v-if="getGroupWildcards('A').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">-->
+<!--            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">-->
+<!--              <i class="ph-bold ph-ghost"></i> Wildcards-->
+<!--            </div>-->
+
+<!--            <div v-for="wc in getGroupWildcards('A')" :key="wc.id"-->
+<!--                 class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors">-->
+<!--              <div>-->
+<!--                <div>-->
+<!--                  <span class="font-bold text-slate-300">{{ wc.name }}</span>-->
+<!--                  <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>-->
+<!--                </div>-->
+<!--              </div>-->
+<!--              <div class="text-xl font-mono font-bold text-slate-400">-->
+<!--                {{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span>-->
+<!--              </div>-->
+<!--            </div>-->
+<!--          </div>-->
+<!--        </div>-->
+<!--      </div>-->
+
+<!--      <div v-if="shouldShowGroup('B')">-->
+<!--        <div class="flex items-center justify-between mb-4 group">-->
+<!--          <div class="flex items-center gap-3">-->
+<!--            <h3 @click="openWildcardModal('B')"-->
+<!--                class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"-->
+<!--                :class="isAdminRef ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">-->
+<!--              {{ 'Group B' }}-->
+<!--              <i v-if="isAdminRef" class="ph-bold ph-plus-circle inline-block text-sm opacity-0 group-hover:opacity-100 transition-opacity ml-1"></i>-->
+<!--            </h3>-->
+<!--          </div>-->
+<!--          <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('B') }} / 5 Races</span>-->
+<!--        </div>-->
+<!--        <div class="space-y-3">-->
+<!--          <div v-for="(team, idx) in sortedTeamsB" :key="team.id"-->
+<!--               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative hover:z-30"-->
+<!--               :class="[-->
+<!--                  getRankColor(idx),-->
+<!--                  getProgressionStatus(team.id) === 'safe'-->
+<!--                      ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'-->
+<!--                      : (getProgressionStatus(team.id) === 'tied'-->
+<!--                          ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'-->
+<!--                          : 'opacity-80')-->
+<!--               ]">-->
+
+<!--            <div v-if="getProgressionStatus(team.id) === 'safe'"-->
+<!--                 class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">-->
+<!--              Q-->
+<!--            </div>-->
+
+<!--            <div v-else-if="getProgressionStatus(team.id) === 'tied'"-->
+<!--                 class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl pointer-events-none select-none rotate-12">-->
+<!--              ?-->
+<!--            </div>-->
+<!--            <div>-->
+<!--              <div>-->
+<!--                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>-->
+<!--                <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>-->
+<!--              </div>-->
+<!--              <div class="text-xs text-slate-400 flex gap-2">-->
+<!--                      <span :style="{ color: team.color }"-->
+<!--                            v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"-->
+<!--                            :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">-->
+<!--                        {{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}-->
+<!--                      </span>-->
+<!--              </div>-->
+<!--            </div>-->
+
+<!--            <div class="text-2xl font-mono font-bold">-->
+<!--              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">-->
+<!--                <i class="ph-bold ph-warning-circle text-amber-500 text-md cursor-help"></i>-->
+
+<!--                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-56 hidden group-hover:block z-50 shadow-xl">-->
+
+<!--                  <div v-for="adj in team.adjustments" :key="adj.id"-->
+<!--                       class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">-->
+
+<!--                    <div class="flex-1 truncate">-->
+<!--                      <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>-->
+<!--                      <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">-->
+<!--                         {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}-->
+<!--                      </span>-->
+<!--                    </div>-->
+
+<!--                    <button v-if="isAdmin"-->
+<!--                            @click.stop="removeTeamAdjustment(team.id, adj.id)"-->
+<!--                            class="text-slate-500 hover:text-red-400 transition-colors p-1 rounded hover:bg-slate-800"-->
+<!--                            title="Delete Adjustment">-->
+<!--                      <i class="ph-bold ph-trash"></i>-->
+<!--                    </button>-->
+<!--                  </div>-->
+
+<!--                </div>-->
+<!--              </div>-->
+<!--              {{ team.points }}-->
+<!--              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>-->
+
+<!--              <button v-if="isAdmin"-->
+<!--                      @click.stop="openAdjustmentModal(team)"-->
+<!--                      class="w-8 h-8 rounded-full bg-slate-700 hover:bg-indigo-600 text-slate-400 hover:text-white flex items-center justify-center transition-colors"-->
+<!--                      title="Add Penalty/Bonus">-->
+<!--                <i class="ph-bold ph-gavel"></i>-->
+<!--              </button>-->
+<!--            </div>-->
+<!--          </div>-->
+<!--          <div v-if="getGroupWildcards('B').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">-->
+<!--            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">-->
+<!--              <i class="ph-bold ph-ghost"></i> Wildcards-->
+<!--            </div>-->
+
+<!--            <div v-for="wc in getGroupWildcards('B')" :key="wc.id"-->
+<!--                 class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors">-->
+<!--              <div>-->
+<!--                <div>-->
+<!--                  <span class="font-bold text-slate-300">{{ wc.name }}</span>-->
+<!--                  <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>-->
+<!--                </div>-->
+<!--              </div>-->
+<!--              <div class="text-xl font-mono font-bold text-slate-400">-->
+<!--                {{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span>-->
+<!--              </div>-->
+<!--            </div>-->
+<!--          </div>-->
+<!--        </div>-->
+<!--      </div>-->
+
+<!--      <div v-if="shouldShowGroup('C')">-->
+<!--        <div class="flex items-center justify-between mb-4 group">-->
+<!--          <div class="flex items-center gap-3">-->
+<!--            <h3 @click="openWildcardModal('C')"-->
+<!--                class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"-->
+<!--                :class="isAdminRef ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">-->
+<!--              {{ 'Group C' }}-->
+<!--              <i v-if="isAdminRef" class="ph-bold ph-plus-circle inline-block text-sm opacity-0 group-hover:opacity-100 transition-opacity ml-1"></i>-->
+<!--            </h3>-->
+<!--          </div>-->
+<!--          <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('C') }} / 5 Races</span>-->
+<!--        </div>-->
+<!--        <div class="space-y-3">-->
+<!--          <div v-for="(team, idx) in sortedTeamsC" :key="team.id"-->
+<!--               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative hover:z-30"-->
+<!--               :class="[-->
+<!--                  getRankColor(idx),-->
+<!--                  getProgressionStatus(team.id) === 'safe'-->
+<!--                      ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'-->
+<!--                      : (getProgressionStatus(team.id) === 'tied'-->
+<!--                          ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'-->
+<!--                          : 'opacity-80')-->
+<!--               ]">-->
+
+<!--            <div v-if="getProgressionStatus(team.id) === 'safe'"-->
+<!--                 class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">-->
+<!--              Q-->
+<!--            </div>-->
+
+<!--            <div v-else-if="getProgressionStatus(team.id) === 'tied'"-->
+<!--                 class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl pointer-events-none select-none rotate-12">-->
+<!--              ?-->
+<!--            </div>-->
+<!--            <div>-->
+<!--              <div>-->
+<!--                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>-->
+<!--                <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>-->
+<!--              </div>-->
+<!--              <div class="text-xs text-slate-400 flex gap-2">-->
+<!--                      <span :style="{ color: team.color }"-->
+<!--                            v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"-->
+<!--                            :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">-->
+<!--                        {{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}-->
+<!--                      </span>-->
+<!--              </div>-->
+<!--            </div>-->
+<!--            <div class="text-2xl font-mono font-bold">-->
+<!--              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">-->
+<!--                <i class="ph-bold ph-warning-circle text-amber-500 text-md cursor-help"></i>-->
+
+<!--                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-56 hidden group-hover:block z-50 shadow-xl">-->
+
+<!--                  <div v-for="adj in team.adjustments" :key="adj.id"-->
+<!--                       class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">-->
+
+<!--                    <div class="flex-1 truncate">-->
+<!--                      <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>-->
+<!--                      <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">-->
+<!--                         {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}-->
+<!--                      </span>-->
+<!--                    </div>-->
+
+<!--                    <button v-if="isAdmin"-->
+<!--                            @click.stop="removeTeamAdjustment(team.id, adj.id)"-->
+<!--                            class="text-slate-500 hover:text-red-400 transition-colors p-1 rounded hover:bg-slate-800"-->
+<!--                            title="Delete Adjustment">-->
+<!--                      <i class="ph-bold ph-trash"></i>-->
+<!--                    </button>-->
+<!--                  </div>-->
+
+<!--                </div>-->
+<!--              </div>-->
+<!--              {{ team.points }}-->
+<!--              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>-->
+
+<!--              <button v-if="isAdmin"-->
+<!--                      @click.stop="openAdjustmentModal(team)"-->
+<!--                      class="w-8 h-8 rounded-full bg-slate-700 hover:bg-indigo-600 text-slate-400 hover:text-white flex items-center justify-center transition-colors"-->
+<!--                      title="Add Penalty/Bonus">-->
+<!--                <i class="ph-bold ph-gavel"></i>-->
+<!--              </button>-->
+<!--            </div>-->
+<!--          </div>-->
+<!--          <div v-if="getGroupWildcards('C').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">-->
+<!--            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">-->
+<!--              <i class="ph-bold ph-ghost"></i> Wildcards-->
+<!--            </div>-->
+
+<!--            <div v-for="wc in getGroupWildcards('C')" :key="wc.id"-->
+<!--                 class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors">-->
+<!--              <div>-->
+<!--                <div>-->
+<!--                  <span class="font-bold text-slate-300">{{ wc.name }}</span>-->
+<!--                  <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>-->
+<!--                </div>-->
+<!--              </div>-->
+<!--              <div class="text-xl font-mono font-bold text-slate-400">-->
+<!--                {{ wc.points }}-->
+<!--                <span class="text-xs font-sans font-normal text-slate-600">PTS</span>-->
+<!--              </div>-->
+<!--            </div>-->
+<!--          </div>-->
+<!--        </div>-->
+<!--      </div>-->
+
+<!--      <div v-if="currentView === 'finals'" class="col-span-2 max-w-2xl mx-auto w-full">-->
+<!--        <div class="text-center mb-6">-->
+<!--          <i class="ph-fill ph-trophy text-amber-500 text-5xl mb-2"></i>-->
+<!--          <div class="flex items-center justify-between mb-4 group">-->
+<!--            <div class="flex items-center gap-3">-->
+<!--              <h3 @click="openWildcardModal('Finals')"-->
+<!--                  class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"-->
+<!--                  :class="isAdminRef ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">-->
+<!--                {{ 'Finals' }}-->
+<!--                <i v-if="isAdminRef" class="ph-bold ph-plus-circle inline-block text-sm opacity-0 group-hover:opacity-100 transition-opacity ml-1"></i>-->
+<!--              </h3>-->
+<!--            </div>-->
+<!--            <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('Finals') }} / 5 Races</span>-->
+<!--          </div>-->
+<!--        </div>-->
+<!--        <div class="space-y-4">-->
+<!--          <div v-for="(team, idx) in sortedFinalsTeams"-->
+<!--               :key="team.id"-->
+<!--               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center hover:z-30"-->
+<!--               :class="getRankColor(getVisualRankIndex(idx, sortedFinalsTeams))"-->
+<!--          >-->
+<!--            <div>-->
+<!--              <div>-->
+<!--                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>-->
+<!--                <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>-->
+<!--              </div>-->
+<!--              <div class="text-sm text-slate-400 flex gap-2 mt-1">-->
+<!--                    <span :style="{ color: team.color }"-->
+<!--                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"-->
+<!--                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}</span>-->
+<!--              </div>-->
+<!--            </div>-->
+<!--            <div class="text-4xl font-mono font-bold">-->
+<!--              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">-->
+<!--                <i class="ph-bold ph-warning-circle text-amber-500 text-md cursor-help"></i>-->
+
+<!--                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-56 hidden group-hover:block z-50 shadow-xl">-->
+
+<!--                  <div v-for="adj in team.adjustments" :key="adj.id"-->
+<!--                       class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">-->
+
+<!--                    <div class="flex-1 truncate">-->
+<!--                      <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>-->
+<!--                      <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">-->
+<!--                         {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}-->
+<!--                      </span>-->
+<!--                    </div>-->
+
+<!--                    <button v-if="isAdmin"-->
+<!--                            @click.stop="removeTeamAdjustment(team.id, adj.id)"-->
+<!--                            class="text-slate-500 hover:text-red-400 transition-colors p-1 rounded hover:bg-slate-800"-->
+<!--                            title="Delete Adjustment">-->
+<!--                      <i class="ph-bold ph-trash"></i>-->
+<!--                    </button>-->
+<!--                  </div>-->
+
+<!--                </div>-->
+<!--              </div>-->
+<!--              {{ team.points }}-->
+<!--              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>-->
+
+<!--              <button v-if="isAdmin"-->
+<!--                      @click.stop="openAdjustmentModal(team)"-->
+<!--                      class="w-8 h-8 rounded-full bg-slate-700 hover:bg-indigo-600 text-slate-400 hover:text-white flex items-center justify-center transition-colors"-->
+<!--                      title="Add Penalty/Bonus">-->
+<!--                <i class="ph-bold ph-gavel"></i>-->
+<!--              </button>-->
+<!--            </div>-->
+<!--          </div>-->
+<!--          <div v-if="getGroupWildcards('Finals').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">-->
+<!--            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">-->
+<!--              <i class="ph-bold ph-ghost"></i> Wildcards-->
+<!--            </div>-->
+
+<!--            <div v-for="wc in getGroupWildcards('Finals')" :key="wc.id"-->
+<!--                 class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors">-->
+<!--              <div>-->
+<!--                <div>-->
+<!--                  <span class="font-bold text-slate-300">{{ wc.name }}</span>-->
+<!--                  <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>-->
+<!--                </div>-->
+<!--              </div>-->
+<!--              <div class="text-xl font-mono font-bold text-slate-400">-->
+<!--                {{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span>-->
+<!--              </div>-->
+<!--            </div>-->
+<!--          </div>-->
+<!--        </div>-->
+
+<!--        <div v-if="tournament.status === 'completed'" class="mt-8 flex flex-col text-center items-center p-6 bg-indigo-900/20 border border-indigo-500/30 rounded-xl">-->
+<!--          <h3 class="text-2xl font-bold text-indigo-300 mb-2">Tournament Complete</h3>-->
+<!--          <p class="text-slate-300">Winner: <span class="font-bold text-white">{{ sortedFinalsTeams[0]?.name }}</span></p>-->
+<!--          <button-->
+<!--              @click="copyResults"-->
+<!--              class="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold py-2 px-4 rounded flex items-center gap-2"-->
+<!--          >-->
+<!--            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">-->
+<!--              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />-->
+<!--              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />-->
+<!--            </svg>-->
+<!--            Export for Discord-->
+<!--          </button>-->
+<!--        </div>-->
+<!--      </div>-->
+<!--    </div>-->
+
     <div :class="tournament?.teams.length === 9 && currentView === 'groups' ? 'grid md:grid-cols-3 gap-8' : 'grid md:grid-cols-2 gap-8'">
 
       <div v-if="shouldShowGroup('A')">
@@ -225,89 +651,80 @@ const tData = computed(() => tournament.value as Tournament);
           <div v-for="(team, idx) in sortedTeamsA" :key="team.id"
                class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative hover:z-30"
                :class="[
-                  getRankColor(idx),
-                  getProgressionStatus(team.id) === 'safe'
-                      ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'
-                      : (getProgressionStatus(team.id) === 'tied'
-                          ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'
-                          : 'opacity-80')
-               ]">
+              getRankColor(idx),
+              getProgressionStatus(team.id) === 'safe'
+                  ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'
+                  : (getProgressionStatus(team.id) === 'tied'
+                      ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'
+                      : 'opacity-80')
+           ]">
 
-            <div v-if="getProgressionStatus(team.id) === 'safe'"
-                 class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">
-              Q
+            <div class="absolute inset-0 overflow-hidden rounded-lg pointer-events-none">
+              <div v-if="getProgressionStatus(team.id) === 'safe'" class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl select-none">Q</div>
+              <div v-else-if="getProgressionStatus(team.id) === 'tied'" class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl select-none rotate-12">?</div>
             </div>
 
-            <div v-else-if="getProgressionStatus(team.id) === 'tied'"
-                 class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl pointer-events-none select-none rotate-12">
-              ?
-            </div>
-            <div>
+            <div class="relative z-10">
               <div>
                 <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
                 <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>
               </div>
-              <div class="text-xs text-slate-400 flex gap-2">
-                    <span :style="{ color: team.color }"
-                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}</span>
+              <div class="text-xs text-slate-400 flex gap-2 mt-1">
+            <span :style="{ color: team.color }"
+                  v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                  :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">
+              {{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}
+            </span>
               </div>
             </div>
 
-            <div class="text-2xl font-mono font-bold">
-              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">
-                <i class="ph-bold ph-warning-circle text-amber-500 text-md cursor-help"></i>
+            <div class="flex items-center gap-4 relative z-10 min-w-[120px] justify-end">
 
-                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-56 hidden group-hover:block z-50 shadow-xl">
+              <div class="relative flex flex-col items-end leading-none">
 
-                  <div v-for="adj in team.adjustments" :key="adj.id"
-                       class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+                <div v-if="getRelevantAdjustments(team, 'groups').length > 0"
+                     class="absolute -left-10 top-1/2 -translate-y-1/2 group/adj h-8 w-8 flex items-center justify-center">
 
-                    <div class="flex-1 truncate">
-                      <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
-                      <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">
-                         {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                      </span>
+                  <i class="ph-bold ph-warning-circle text-amber-500 text-2xl cursor-help"></i>
+
+                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-64">
+                    <div class="bg-slate-900 border border-slate-700 p-2 rounded shadow-xl">
+                      <div v-for="adj in getRelevantAdjustments(team, 'groups')" :key="adj.id"
+                           class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+                        <div class="flex-1 truncate text-left">
+                          <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
+                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">
+                       {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                    </span>
+                        </div>
+                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors" title="Delete"><i class="ph-bold ph-trash"></i></button>
+                      </div>
                     </div>
-
-                    <button v-if="isAdmin"
-                            @click.stop="removeTeamAdjustment(team.id, adj.id)"
-                            class="text-slate-500 hover:text-red-400 transition-colors p-1 rounded hover:bg-slate-800"
-                            title="Delete Adjustment">
-                      <i class="ph-bold ph-trash"></i>
-                    </button>
                   </div>
-
                 </div>
-              </div>
-              {{ team.points }}
-              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>
 
-              <button v-if="isAdmin"
-                      @click.stop="openAdjustmentModal(team)"
-                      class="w-8 h-8 rounded-full bg-slate-700 hover:bg-indigo-600 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
-                      title="Add Penalty/Bonus">
-                <i class="ph-bold ph-gavel"></i>
-              </button>
+                <span class="text-2xl font-mono font-bold text-white tabular-nums">{{ team.points }}</span>
+                <span class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">PTS</span>
+              </div>
+
+              <div v-if="isAdmin" class="w-8 h-8 flex-shrink-0">
+                <button @click.stop="openAdjustmentModal(team)"
+                        class="w-8 h-8 rounded-full text-slate-600 hover:text-indigo-400 hover:bg-indigo-900/30 flex items-center justify-center transition-all"
+                        title="Add Penalty/Bonus">
+                  <i class="ph-bold ph-gavel text-lg"></i>
+                </button>
+              </div>
             </div>
 
           </div>
-          <div v-if="getGroupWildcards('A').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
-            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-              <i class="ph-bold ph-ghost"></i> Wildcards
-            </div>
 
-            <div v-for="wc in getGroupWildcards('A')" :key="wc.id"
-                 class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors">
+          <div v-if="getGroupWildcards('A').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2"><i class="ph-bold ph-ghost"></i> Wildcards</div>
+            <div v-for="wc in getGroupWildcards('A')" :key="wc.id" class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors mb-2">
               <div>
-                <div>
-                  <span class="font-bold text-slate-300">{{ wc.name }}</span>
-                  <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>
-                </div>
+                <span class="font-bold text-slate-300">{{ wc.name }}</span> <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>
               </div>
-              <div class="text-xl font-mono font-bold text-slate-400">
-                {{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span>
-              </div>
+              <div class="text-xl font-mono font-bold text-slate-400">{{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span></div>
             </div>
           </div>
         </div>
@@ -329,90 +746,77 @@ const tData = computed(() => tournament.value as Tournament);
           <div v-for="(team, idx) in sortedTeamsB" :key="team.id"
                class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative hover:z-30"
                :class="[
-                  getRankColor(idx),
-                  getProgressionStatus(team.id) === 'safe'
-                      ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'
-                      : (getProgressionStatus(team.id) === 'tied'
-                          ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'
-                          : 'opacity-80')
-               ]">
+              getRankColor(idx),
+              getProgressionStatus(team.id) === 'safe'
+                  ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'
+                  : (getProgressionStatus(team.id) === 'tied'
+                      ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'
+                      : 'opacity-80')
+           ]">
 
-            <div v-if="getProgressionStatus(team.id) === 'safe'"
-                 class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">
-              Q
+            <div class="absolute inset-0 overflow-hidden rounded-lg pointer-events-none">
+              <div v-if="getProgressionStatus(team.id) === 'safe'" class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl select-none">Q</div>
+              <div v-else-if="getProgressionStatus(team.id) === 'tied'" class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl select-none rotate-12">?</div>
             </div>
 
-            <div v-else-if="getProgressionStatus(team.id) === 'tied'"
-                 class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl pointer-events-none select-none rotate-12">
-              ?
-            </div>
-            <div>
+            <div class="relative z-10">
               <div>
                 <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
                 <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>
               </div>
-              <div class="text-xs text-slate-400 flex gap-2">
-                      <span :style="{ color: team.color }"
-                            v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                            :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">
-                        {{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}
-                      </span>
+              <div class="text-xs text-slate-400 flex gap-2 mt-1">
+             <span :style="{ color: team.color }"
+                   v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                   :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">
+               {{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}
+             </span>
               </div>
             </div>
 
-            <div class="text-2xl font-mono font-bold">
-              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">
-                <i class="ph-bold ph-warning-circle text-amber-500 text-md cursor-help"></i>
+            <div class="flex items-center gap-4 relative z-10 min-w-[120px] justify-end">
 
-                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-56 hidden group-hover:block z-50 shadow-xl">
+              <div class="relative flex flex-col items-end leading-none">
 
-                  <div v-for="adj in team.adjustments" :key="adj.id"
-                       class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+                <div v-if="getRelevantAdjustments(team, 'groups').length > 0"
+                     class="absolute -left-10 top-1/2 -translate-y-1/2 group/adj h-8 w-8 flex items-center justify-center">
 
-                    <div class="flex-1 truncate">
-                      <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
-                      <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">
-                         {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                      </span>
+                  <i class="ph-bold ph-warning-circle text-amber-500 text-2xl cursor-help"></i>
+
+                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-64">
+                    <div class="bg-slate-900 border border-slate-700 p-2 rounded shadow-xl">
+                      <div v-for="adj in getRelevantAdjustments(team, 'groups')" :key="adj.id"
+                           class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+                        <div class="flex-1 truncate text-left">
+                          <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
+                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">
+                       {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                    </span>
+                        </div>
+                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors" title="Delete"><i class="ph-bold ph-trash"></i></button>
+                      </div>
                     </div>
-
-                    <button v-if="isAdmin"
-                            @click.stop="removeTeamAdjustment(team.id, adj.id)"
-                            class="text-slate-500 hover:text-red-400 transition-colors p-1 rounded hover:bg-slate-800"
-                            title="Delete Adjustment">
-                      <i class="ph-bold ph-trash"></i>
-                    </button>
                   </div>
-
                 </div>
-              </div>
-              {{ team.points }}
-              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>
 
-              <button v-if="isAdmin"
-                      @click.stop="openAdjustmentModal(team)"
-                      class="w-8 h-8 rounded-full bg-slate-700 hover:bg-indigo-600 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
-                      title="Add Penalty/Bonus">
-                <i class="ph-bold ph-gavel"></i>
-              </button>
+                <span class="text-2xl font-mono font-bold text-white tabular-nums">{{ team.points }}</span>
+                <span class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">PTS</span>
+              </div>
+
+              <div v-if="isAdmin" class="w-8 h-8 flex-shrink-0">
+                <button @click.stop="openAdjustmentModal(team)"
+                        class="w-8 h-8 rounded-full text-slate-600 hover:text-indigo-400 hover:bg-indigo-900/30 flex items-center justify-center transition-all"
+                        title="Add Penalty/Bonus">
+                  <i class="ph-bold ph-gavel text-lg"></i>
+                </button>
+              </div>
             </div>
           </div>
-          <div v-if="getGroupWildcards('B').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
-            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-              <i class="ph-bold ph-ghost"></i> Wildcards
-            </div>
 
-            <div v-for="wc in getGroupWildcards('B')" :key="wc.id"
-                 class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors">
-              <div>
-                <div>
-                  <span class="font-bold text-slate-300">{{ wc.name }}</span>
-                  <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>
-                </div>
-              </div>
-              <div class="text-xl font-mono font-bold text-slate-400">
-                {{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span>
-              </div>
+          <div v-if="getGroupWildcards('B').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2"><i class="ph-bold ph-ghost"></i> Wildcards</div>
+            <div v-for="wc in getGroupWildcards('B')" :key="wc.id" class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors mb-2">
+              <div><span class="font-bold text-slate-300">{{ wc.name }}</span> <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span></div>
+              <div class="text-xl font-mono font-bold text-slate-400">{{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span></div>
             </div>
           </div>
         </div>
@@ -434,90 +838,77 @@ const tData = computed(() => tournament.value as Tournament);
           <div v-for="(team, idx) in sortedTeamsC" :key="team.id"
                class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative hover:z-30"
                :class="[
-                  getRankColor(idx),
-                  getProgressionStatus(team.id) === 'safe'
-                      ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'
-                      : (getProgressionStatus(team.id) === 'tied'
-                          ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'
-                          : 'opacity-80')
-               ]">
+              getRankColor(idx),
+              getProgressionStatus(team.id) === 'safe'
+                  ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'
+                  : (getProgressionStatus(team.id) === 'tied'
+                      ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'
+                      : 'opacity-80')
+           ]">
 
-            <div v-if="getProgressionStatus(team.id) === 'safe'"
-                 class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">
-              Q
+            <div class="absolute inset-0 overflow-hidden rounded-lg pointer-events-none">
+              <div v-if="getProgressionStatus(team.id) === 'safe'" class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl select-none">Q</div>
+              <div v-else-if="getProgressionStatus(team.id) === 'tied'" class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl select-none rotate-12">?</div>
             </div>
 
-            <div v-else-if="getProgressionStatus(team.id) === 'tied'"
-                 class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl pointer-events-none select-none rotate-12">
-              ?
-            </div>
-            <div>
+            <div class="relative z-10">
               <div>
                 <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
                 <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>
               </div>
-              <div class="text-xs text-slate-400 flex gap-2">
-                      <span :style="{ color: team.color }"
-                            v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                            :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">
-                        {{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}
-                      </span>
+              <div class="text-xs text-slate-400 flex gap-2 mt-1">
+             <span :style="{ color: team.color }"
+                   v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                   :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">
+               {{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}
+             </span>
               </div>
             </div>
-            <div class="text-2xl font-mono font-bold">
-              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">
-                <i class="ph-bold ph-warning-circle text-amber-500 text-md cursor-help"></i>
 
-                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-56 hidden group-hover:block z-50 shadow-xl">
+            <div class="flex items-center gap-4 relative z-10 min-w-[120px] justify-end">
 
-                  <div v-for="adj in team.adjustments" :key="adj.id"
-                       class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+              <div class="relative flex flex-col items-end leading-none">
 
-                    <div class="flex-1 truncate">
-                      <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
-                      <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">
-                         {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                      </span>
+                <div v-if="getRelevantAdjustments(team, 'groups').length > 0"
+                     class="absolute -left-10 top-1/2 -translate-y-1/2 group/adj h-8 w-8 flex items-center justify-center">
+
+                  <i class="ph-bold ph-warning-circle text-amber-500 text-2xl cursor-help"></i>
+
+                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-64">
+                    <div class="bg-slate-900 border border-slate-700 p-2 rounded shadow-xl">
+                      <div v-for="adj in getRelevantAdjustments(team, 'groups')" :key="adj.id"
+                           class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+                        <div class="flex-1 truncate text-left">
+                          <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
+                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">
+                       {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                    </span>
+                        </div>
+                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors" title="Delete"><i class="ph-bold ph-trash"></i></button>
+                      </div>
                     </div>
-
-                    <button v-if="isAdmin"
-                            @click.stop="removeTeamAdjustment(team.id, adj.id)"
-                            class="text-slate-500 hover:text-red-400 transition-colors p-1 rounded hover:bg-slate-800"
-                            title="Delete Adjustment">
-                      <i class="ph-bold ph-trash"></i>
-                    </button>
                   </div>
-
                 </div>
-              </div>
-              {{ team.points }}
-              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>
 
-              <button v-if="isAdmin"
-                      @click.stop="openAdjustmentModal(team)"
-                      class="w-8 h-8 rounded-full bg-slate-700 hover:bg-indigo-600 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
-                      title="Add Penalty/Bonus">
-                <i class="ph-bold ph-gavel"></i>
-              </button>
+                <span class="text-2xl font-mono font-bold text-white tabular-nums">{{ team.points }}</span>
+                <span class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">PTS</span>
+              </div>
+
+              <div v-if="isAdmin" class="w-8 h-8 flex-shrink-0">
+                <button @click.stop="openAdjustmentModal(team)"
+                        class="w-8 h-8 rounded-full text-slate-600 hover:text-indigo-400 hover:bg-indigo-900/30 flex items-center justify-center transition-all"
+                        title="Add Penalty/Bonus">
+                  <i class="ph-bold ph-gavel text-lg"></i>
+                </button>
+              </div>
             </div>
           </div>
-          <div v-if="getGroupWildcards('C').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
-            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-              <i class="ph-bold ph-ghost"></i> Wildcards
-            </div>
 
-            <div v-for="wc in getGroupWildcards('C')" :key="wc.id"
-                 class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors">
-              <div>
-                <div>
-                  <span class="font-bold text-slate-300">{{ wc.name }}</span>
-                  <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>
-                </div>
-              </div>
-              <div class="text-xl font-mono font-bold text-slate-400">
-                {{ wc.points }}
-                <span class="text-xs font-sans font-normal text-slate-600">PTS</span>
-              </div>
+          <div v-if="getGroupWildcards('C').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2"><i class="ph-bold ph-ghost"></i> Wildcards</div>
+            <div v-for="wc in getGroupWildcards('C')" :key="wc.id" class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors mb-2">
+              <div><span class="font-bold text-slate-300">{{ wc.name }}</span> <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span></div>
+              <div class="text-xl font-mono font-bold text-slate-400">{{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span></div>
             </div>
           </div>
         </div>
@@ -541,73 +932,61 @@ const tData = computed(() => tournament.value as Tournament);
         <div class="space-y-4">
           <div v-for="(team, idx) in sortedFinalsTeams"
                :key="team.id"
-               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center hover:z-30"
+               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center hover:z-30 relative"
                :class="getRankColor(getVisualRankIndex(idx, sortedFinalsTeams))"
           >
-            <div>
+            <div class="relative z-10">
               <div>
                 <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>
+                <span class="font-light text-sm">
+                  {{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}
+                </span>
               </div>
               <div class="text-sm text-slate-400 flex gap-2 mt-1">
-                    <span :style="{ color: team.color }"
-                          v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                          :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}</span>
+                <span :style="{ color: team.color }"
+                      v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                      :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}</span>
               </div>
             </div>
-            <div class="text-4xl font-mono font-bold">
-              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">
-                <i class="ph-bold ph-warning-circle text-amber-500 text-md cursor-help"></i>
 
-                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-56 hidden group-hover:block z-50 shadow-xl">
+            <div class="flex items-center gap-4 relative z-10 min-w-[140px] justify-end">
 
-                  <div v-for="adj in team.adjustments" :key="adj.id"
-                       class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+              <div class="relative flex flex-col items-end leading-none">
 
-                    <div class="flex-1 truncate">
-                      <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
-                      <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">
-                         {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                      </span>
+                <div v-if="getRelevantAdjustments(team, 'finals').length > 0"
+                     class="absolute -left-10 top-1/2 -translate-y-1/2 group/adj h-8 w-8 flex items-center justify-center">
+
+                  <i class="ph-bold ph-warning-circle text-amber-500 text-2xl cursor-help"></i>
+
+                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-64">
+                    <div class="bg-slate-900 border border-slate-700 p-2 rounded shadow-xl">
+                      <div v-for="adj in getRelevantAdjustments(team, 'finals')" :key="adj.id" class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+                        <div class="flex-1 truncate text-left">
+                          <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
+                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">{{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}</span>
+                        </div>
+                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors"><i class="ph-bold ph-trash"></i></button>
+                      </div>
                     </div>
-
-                    <button v-if="isAdmin"
-                            @click.stop="removeTeamAdjustment(team.id, adj.id)"
-                            class="text-slate-500 hover:text-red-400 transition-colors p-1 rounded hover:bg-slate-800"
-                            title="Delete Adjustment">
-                      <i class="ph-bold ph-trash"></i>
-                    </button>
                   </div>
-
                 </div>
-              </div>
-              {{ team.points }}
-              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>
 
-              <button v-if="isAdmin"
-                      @click.stop="openAdjustmentModal(team)"
-                      class="w-8 h-8 rounded-full bg-slate-700 hover:bg-indigo-600 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
-                      title="Add Penalty/Bonus">
-                <i class="ph-bold ph-gavel"></i>
-              </button>
+                <span class="text-4xl font-mono font-bold text-indigo-400 tabular-nums">{{ team.finalsPoints || 0 }}</span>
+                <span class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">PTS</span>
+              </div>
+
+              <div v-if="isAdmin" class="w-8 h-8 flex-shrink-0">
+                <button @click.stop="openAdjustmentModal(team)" class="w-8 h-8 rounded-full text-slate-600 hover:text-indigo-400 hover:bg-indigo-900/30 flex items-center justify-center transition-all">
+                  <i class="ph-bold ph-gavel text-lg"></i>
+                </button>
+              </div>
             </div>
           </div>
           <div v-if="getGroupWildcards('Finals').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
-            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-              <i class="ph-bold ph-ghost"></i> Wildcards
-            </div>
-
-            <div v-for="wc in getGroupWildcards('Finals')" :key="wc.id"
-                 class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors">
-              <div>
-                <div>
-                  <span class="font-bold text-slate-300">{{ wc.name }}</span>
-                  <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>
-                </div>
-              </div>
-              <div class="text-xl font-mono font-bold text-slate-400">
-                {{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span>
-              </div>
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2"><i class="ph-bold ph-ghost"></i> Wildcards</div>
+            <div v-for="wc in getGroupWildcards('Finals')" :key="wc.id" class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors mb-2">
+              <div><span class="font-bold text-slate-300">{{ wc.name }}</span> <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span></div>
+              <div class="text-xl font-mono font-bold text-slate-400">{{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span></div>
             </div>
           </div>
         </div>
