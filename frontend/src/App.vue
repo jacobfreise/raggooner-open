@@ -304,41 +304,44 @@ onMounted(() => {
   <div class="min-h-screen flex flex-col"
        :class="{ 'hishi-quake': showHishiOverlay }">
     <header class="border-b border-slate-700 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
-      <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between relative"> <div class="flex items-center gap-2 text-indigo-500 cursor-pointer z-10" @click="exitTournament">
-        <i class="ph-fill ph-flag-checkered text-3xl"></i>
-        <span class="text-2xl font-bold text-white heading tracking-widest hidden sm:block">Raccoon Open</span>
-        <span class="text-2xl font-bold text-white heading tracking-widest sm:hidden">RO</span>
-      </div>
+      <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between relative">
+        <div class="flex items-center gap-2 text-indigo-500 cursor-pointer z-10" @click="exitTournament">
+          <i class="ph-fill ph-flag-checkered text-3xl"></i>
+          <span class="text-2xl font-bold text-white heading tracking-widest hidden sm:block">Raccoon Open</span>
+          <span class="text-2xl font-bold text-white heading tracking-widest sm:hidden">RO</span>
+        </div>
 
         <div v-if="tournament" class="absolute left-1/2 -translate-x-1/2 font-bold text-slate-200 uppercase tracking-widest text-sm md:text-base hidden md:block whitespace-nowrap overflow-hidden text-ellipsis max-w-[300px] text-center">
           {{ tData.name }}
         </div>
 
-        <div v-if="tournament" class="flex items-center gap-4 z-10">
+        <div class="flex items-center gap-4 z-10">
           <button @click="openChangelog" class="relative text-slate-400 hover:text-white transition-colors mr-2">
             <i class="ph-bold ph-bell text-xl"></i>
-
             <span v-if="hasNewUpdates" class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse"></span>
           </button>
-          <button @click="showAdminModal = true"
-                  class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition-colors mr-2"
-                  :class="isAdmin ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400 hover:bg-emerald-900/50' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'">
-            <i class="ph-bold" :class="isAdmin ? 'ph-lock-open' : 'ph-lock'"></i>
-            {{ isAdmin ? 'Admin' : 'Viewer' }}
-          </button>
-
-          <div class="hidden md:flex flex-col items-end">
-            <button @click="copyId" class="text-sm font-mono text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
-              Tournament ID <i class="ph ph-copy"></i>
+          <template v-if="tournament">
+            <button @click="showAdminModal = true"
+                    class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition-colors mr-2"
+                    :class="isAdmin ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400 hover:bg-emerald-900/50' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'">
+              <i class="ph-bold" :class="isAdmin ? 'ph-lock-open' : 'ph-lock'"></i>
+              {{ isAdmin ? 'Admin' : 'Viewer' }}
             </button>
-            <button @click="copyLink" class="text-sm font-mono text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
-              Link <i class="ph ph-share"></i>
-            </button>
-          </div>
 
-          <button @click="exitTournament" class="text-slate-400 hover:text-white" title="Go to Home">
-            <i class="ph ph-sign-out text-xl"></i>
-          </button>
+            <div class="hidden md:flex flex-col items-end">
+              <button @click="copyId" class="text-sm font-mono text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                Tournament ID <i class="ph ph-copy"></i>
+              </button>
+              <button @click="copyLink" class="text-sm font-mono text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                Link <i class="ph ph-share"></i>
+              </button>
+            </div>
+
+            <button @click="exitTournament" class="text-slate-400 hover:text-white" title="Go to Home">
+              <i class="ph ph-sign-out text-xl"></i>
+            </button>
+          </template>
+
         </div>
       </div>
     </header>
