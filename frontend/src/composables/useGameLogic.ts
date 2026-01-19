@@ -454,6 +454,12 @@ export function useGameLogic(
         const points = currentView.value === 'finals' ? (team.finalsPoints || 0) : (team.points || 0);
         if (points === 0) return 'none';
 
+        const isPastGroupStage = tournament.value?.stage === 'finals' || tournament.value?.status === 'completed';
+
+        if (isPastGroupStage && currentView.value === 'groups') {
+            return team.inFinals ? 'safe' : 'none';
+        }
+
         if (projectedProgression.value.safe.includes(teamId)) return 'safe';
         if (projectedProgression.value.tied.some(t => t.id === teamId)) return 'tied';
         return 'none';
