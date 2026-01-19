@@ -444,6 +444,12 @@ export function useGameLogic(
             } else {
                 safeIds.push(topA.id);
                 wildCardPool.push(runA);
+
+                if (thirdA && compareTeams(runA, thirdA, false, tournament.value!) === 0) {
+                    tiedSet.add(runA.id);
+                    tiedSet.add(thirdA.id);
+                    wildCardPool.push(thirdA);
+                }
             }
 
             // 2. Analyze Group B Winner
@@ -467,6 +473,12 @@ export function useGameLogic(
             } else {
                 safeIds.push(topB.id);
                 wildCardPool.push(runB);
+
+                if (thirdB && compareTeams(runB, thirdB, false, tournament.value!) === 0) {
+                    tiedSet.add(runB.id);
+                    tiedSet.add(thirdB.id);
+                    wildCardPool.push(thirdB);
+                }
             }
 
             // 3. Analyze Wildcard Pool
