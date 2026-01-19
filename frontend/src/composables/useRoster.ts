@@ -52,11 +52,12 @@ export function useRoster(
             uma: ''
         };
 
+        newPlayerName.value = '';
+
         await secureUpdate({
             players: arrayUnion(player)
         });
 
-        newPlayerName.value = '';
     };
 
     const removePlayer = async (pid: string) => {
