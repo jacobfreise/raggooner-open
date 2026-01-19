@@ -489,6 +489,7 @@ export function useGameLogic(
 
             // Logic to handle pool boundary
             if (wildCardPool.length > slotsAvailable) {
+                console.debug('wildcardpool: ' + JSON.stringify(wildCardPool) + ' slotsavailable: ' + slotsAvailable);
                 const lastQualifier = wildCardPool[slotsAvailable - 1]!;
                 const firstLoser = wildCardPool[slotsAvailable]!;
 
@@ -517,6 +518,7 @@ export function useGameLogic(
                         if (tiedSet.has(p.id)) tiedSet.delete(p.id);
                         if (!safeIds.includes(p.id)) safeIds.push(p.id);
                     }
+                    tiedSet.clear()
                     needed = 0;
                 }
             } else {
