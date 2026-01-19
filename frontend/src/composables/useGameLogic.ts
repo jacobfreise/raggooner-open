@@ -341,13 +341,21 @@ export function useGameLogic(
             // 1. Analyze Group A Winner
             const topA = sortedTeamsA.value[0]!;
             const runA = sortedTeamsA.value[1]!;
+            const thirdA = sortedTeamsA.value[2]; // Get the 3rd team
 
             if (compareTeams(topA, runA, false, tournament.value!) === 0) {
-                // Tie for 1st: Both go to pool, Slot opens up
+                // Tie for 1st detected
                 tiedSet.add(topA.id);
                 tiedSet.add(runA.id);
-                slotsAvailable++;
                 wildCardPool.push(topA, runA);
+
+                // FIX 2: Check if 3rd team is also part of this tie
+                if (thirdA && compareTeams(topA, thirdA, false, tournament.value!) === 0) {
+                    tiedSet.add(thirdA.id);
+                    wildCardPool.push(thirdA);
+                }
+
+                slotsAvailable++;
             } else {
                 safeIds.push(topA.id);
                 wildCardPool.push(runA);
@@ -356,12 +364,21 @@ export function useGameLogic(
             // 2. Analyze Group B Winner
             const topB = sortedTeamsB.value[0]!;
             const runB = sortedTeamsB.value[1]!;
+            const thirdB = sortedTeamsB.value[2]; // Get the 3rd team
 
             if (compareTeams(topB, runB, false, tournament.value!) === 0) {
+                // Tie for 1st detected
                 tiedSet.add(topB.id);
                 tiedSet.add(runB.id);
-                slotsAvailable++;
                 wildCardPool.push(topB, runB);
+
+                // FIX 2: Check if 3rd team is also part of this tie
+                if (thirdB && compareTeams(topB, thirdB, false, tournament.value!) === 0) {
+                    tiedSet.add(thirdB.id);
+                    wildCardPool.push(thirdB);
+                }
+
+                slotsAvailable++;
             } else {
                 safeIds.push(topB.id);
                 wildCardPool.push(runB);
@@ -373,7 +390,7 @@ export function useGameLogic(
             // Sort pool to find the best scores (Descending)
             wildCardPool.sort((a, b) => compareTeams(a, b, false, tournament.value!));
 
-            // CRITICAL FIX: Logic to handle pool boundary
+            // Logic to handle pool boundary
             if (wildCardPool.length > slotsAvailable) {
                 const lastQualifier = wildCardPool[slotsAvailable - 1]!;
                 const firstLoser = wildCardPool[slotsAvailable]!;
@@ -381,33 +398,29 @@ export function useGameLogic(
                 // Check if the "Cutoff Line" is blurry (Tie between last in and first out)
                 if (compareTeams(lastQualifier, firstLoser, false, tournament.value!) === 0) {
                     // TIE BOUNDARY HIT
-                    // We need to loop through the ENTIRE pool and decide fate based on the lastQualifier
-
                     wildCardPool.forEach(p => {
                         const comparison = compareTeams(p, lastQualifier, false, tournament.value!);
 
                         if (comparison < 0) {
                             // This team is BETTER than the tie boundary -> They are SAFE
-                            if (tiedSet.has(p.id)) tiedSet.delete(p.id); // Remove from "Group Tie" status if they cleared it
+                            if (tiedSet.has(p.id)) tiedSet.delete(p.id);
                             if (!safeIds.includes(p.id)) safeIds.push(p.id);
-                            slotsAvailable--; // They took a spot
+                            slotsAvailable--;
                         } else if (comparison === 0) {
                             // This team is TIED at the boundary -> They are in the TIEBREAKER
                             tiedSet.add(p.id);
                         }
-                        // If comparison > 0, they are eliminated (do nothing)
                     });
 
-                    needed = slotsAvailable; // Whatever slots remain are for the tied set
+                    needed = slotsAvailable;
                 } else {
                     // CLEAR BOUNDARY
-                    // Top N teams are safe.
                     for(let i=0; i<slotsAvailable; i++) {
                         const p = wildCardPool[i]!;
                         if (tiedSet.has(p.id)) tiedSet.delete(p.id);
                         if (!safeIds.includes(p.id)) safeIds.push(p.id);
                     }
-                    needed = 0; // No tiebreaker needed
+                    needed = 0;
                 }
             } else {
                 // Everyone fits
@@ -435,6 +448,12 @@ export function useGameLogic(
 
     // 3. NEW: Helper for UI to check status
     const getProgressionStatus = (teamId: string): 'safe' | 'tied' | 'none' => {
+        const team = tournament.value?.teams.find(t => t.id === teamId);
+        if (!team) return 'none';
+
+        const points = currentView.value === 'finals' ? (team.finalsPoints || 0) : (team.points || 0);
+        if (points === 0) return 'none';
+
         if (projectedProgression.value.safe.includes(teamId)) return 'safe';
         if (projectedProgression.value.tied.some(t => t.id === teamId)) return 'tied';
         return 'none';

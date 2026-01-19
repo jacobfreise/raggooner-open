@@ -6,9 +6,17 @@ export interface ChangeLogEntry {
     changes: { type: 'new' | 'fix' | 'improvement'; text: string }[];
 }
 
-export const APP_VERSION = '1.1.0'; // Update this manually when you deploy
+export const APP_VERSION = '1.1.1'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '1.1.1',
+        date: '2026-01-19',
+        title: 'Tiebreakers, the bane of my existence',
+        changes: [
+            { type: 'fix', text: 'Hopefully fixed 6 team tiebreaker logic for the last time!' },
+        ]
+    },
     {
         version: '1.1.0',
         date: '2026-01-19',
