@@ -656,7 +656,7 @@ const tData = computed(() => tournament.value as Tournament);
                   ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'
                   : (getProgressionStatus(team.id) === 'tied'
                       ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'
-                      : 'opacity-80')
+                      : 'opacity-80 hover:opacity-100')
            ]">
 
             <div class="absolute inset-0 overflow-hidden rounded-lg pointer-events-none">
@@ -751,7 +751,7 @@ const tData = computed(() => tournament.value as Tournament);
                   ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'
                   : (getProgressionStatus(team.id) === 'tied'
                       ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'
-                      : 'opacity-80')
+                      : 'opacity-80 hover:opacity-100')
            ]">
 
             <div class="absolute inset-0 overflow-hidden rounded-lg pointer-events-none">
@@ -843,7 +843,7 @@ const tData = computed(() => tournament.value as Tournament);
                   ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'
                   : (getProgressionStatus(team.id) === 'tied'
                       ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'
-                      : 'opacity-80')
+                      : 'opacity-80 hover:opacity-100')
            ]">
 
             <div class="absolute inset-0 overflow-hidden rounded-lg pointer-events-none">
