@@ -5,7 +5,7 @@ import {collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc, writeBa
 import {auth, db} from './firebase';
 import type {FirestoreUpdate, Tournament} from './types';
 import {
-  getStatusColor,
+  getStatusColor, recalculateTournamentScores,
 } from "./utils/utils.ts";
 import {useAdmin} from './composables/useAdmin';
 import {useGameLogic} from "./composables/useGameLogic";
@@ -17,6 +17,7 @@ import DraftPhase from './components/DraftPhase.vue';
 import BanPhase from "./components/BanPhase.vue";
 import ActivePhase from './components/ActivePhase.vue';
 import ChangelogModal from './components/ChangelogModal.vue';
+import {POINTS_SYSTEM} from "./utils/constants.ts";
 
 // Config
 const appId = 'default-app';
@@ -211,6 +212,7 @@ const createTournament = async () => {
     races: [],
     isSecured: true,
     usePlacementTiebreaker: true,
+    pointsSystem: { ...POINTS_SYSTEM },
     createdAt: new Date().toISOString(),
   };
 
@@ -285,6 +287,42 @@ const openChangelog = () => {
   showChangelog.value = true;
   hasNewUpdates.value = false; // Clear the dot immediately
   localStorage.setItem('last_seen_version', APP_VERSION);
+};
+
+const isEditingPoints = ref(false);
+const localPointsSystem = ref<Record<number, number>>({});
+
+// Initialize the local state when the modal opens or when editing starts
+const startEditingPoints = () => {
+  if (!tournament.value) return;
+  // Deep copy the current system (or default if missing)
+  localPointsSystem.value = { ...(tournament.value.pointsSystem || POINTS_SYSTEM) };
+  isEditingPoints.value = true;
+};
+
+const savePointsSystem = async () => {
+  if (!tournament.value) return;
+
+  // 1. Update the tournament object
+  // We need to trigger a recalculation of ALL scores because the rules changed!
+  // This is expensive but necessary.
+
+  // We can reuse the recalculateTournamentScores logic locally
+  const tempTournament = {
+    ...tournament.value,
+    pointsSystem: localPointsSystem.value
+  };
+
+  // Import recalculateTournamentScores from utils
+  const { teams, players } = recalculateTournamentScores(tempTournament);
+
+  await secureUpdate({
+    pointsSystem: localPointsSystem.value,
+    teams,   // Save recalculated teams
+    players  // Save recalculated players
+  });
+
+  isEditingPoints.value = false;
 };
 
 const tData = computed(() => tournament.value as Tournament);
@@ -616,6 +654,44 @@ onMounted(() => {
                         :class="editedTiebreaker ? 'translate-x-6' : 'translate-x-1'"/>
                 </button>
               </div>
+            </div>
+            <div class="border-t border-slate-700 pt-6 mb-6">
+              <div class="flex items-center justify-between mb-3">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <i class="ph-bold ph-list-numbers"></i> Points System
+                </h4>
+                <button v-if="!isEditingPoints" @click="startEditingPoints" class="text-xs text-indigo-400 hover:text-white font-bold">
+                  Edit
+                </button>
+                <div v-else class="flex gap-2">
+                  <button @click="isEditingPoints = false" class="text-xs text-slate-500 hover:text-white">Cancel</button>
+                  <button @click="savePointsSystem" class="text-xs text-emerald-400 hover:text-emerald-300 font-bold">Save</button>
+                </div>
+              </div>
+
+              <div v-if="!isEditingPoints" class="grid grid-cols-6 gap-2 bg-slate-800 p-3 rounded-lg border border-slate-700">
+                <div v-for="pos in 18" :key="pos" class="text-center">
+                  <div class="text-[10px] text-slate-500 font-bold mb-0.5">{{ pos }}</div>
+                  <div class="text-sm font-mono text-white">
+                    {{ (tData?.pointsSystem || POINTS_SYSTEM)[pos] || 0 }}
+                  </div>
+                </div>
+              </div>
+
+              <div v-else class="grid grid-cols-4 gap-2 bg-slate-800 p-3 rounded-lg border border-slate-700">
+                <div v-for="pos in 18" :key="pos" class="flex flex-col">
+                  <label class="text-[10px] text-slate-500 font-bold text-center mb-1">Pos {{ pos }}</label>
+                  <input
+                      v-model.number="localPointsSystem[pos]"
+                      type="number"
+                      class="bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-white text-sm focus:border-indigo-500 focus:outline-none"
+                  >
+                </div>
+              </div>
+
+              <p v-if="isEditingPoints" class="text-[10px] text-amber-500 mt-2 flex items-center gap-1">
+                <i class="ph-bold ph-warning"></i> Saving will recalculate all past race scores immediately.
+              </p>
             </div>
           </div>
 

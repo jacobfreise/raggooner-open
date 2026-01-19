@@ -1,7 +1,7 @@
 import {ref, computed, type Ref, watch} from 'vue';
-import type {Tournament, Team, Race, FirestoreUpdate, Player} from '../types';
-import { POINTS_SYSTEM } from '../utils/constants';
-import { compareTeams, getPlayerUma, getPlayerName } from '../utils/utils';
+import type {Tournament, Team, Race, FirestoreUpdate, Player, PointAdjustment} from '../types';
+import { POINTS_SYSTEM as DEFAULT_POINTS } from '../utils/constants';
+import {compareTeams, getPlayerUma, getPlayerName, recalculateTournamentScores} from '../utils/utils';
 import {
     arrayRemove,
     arrayUnion
@@ -36,6 +36,24 @@ export function useGameLogic(
         return tournament.value.races.filter(r => r.stage === currentView.value && r.group === group).length;
     };
 
+    // const getRoundPoints = (playerId: string) => {
+    //     if (!tournament.value) return 0;
+    //     let points = 0;
+    //     tournament.value.races
+    //         .filter(r => r.stage === currentView.value)
+    //         .forEach(race => {
+    //             const placement = race.placements[playerId];
+    //             if (placement) points += POINTS_SYSTEM[placement]!;
+    //         });
+    //     return points;
+    // };
+
+    const getPointsForPos = (pos: number) => {
+        if (!tournament.value) return 0;
+        const system = tournament.value.pointsSystem || DEFAULT_POINTS;
+        return system[pos] || 0;
+    };
+
     const getRoundPoints = (playerId: string) => {
         if (!tournament.value) return 0;
         let points = 0;
@@ -43,7 +61,7 @@ export function useGameLogic(
             .filter(r => r.stage === currentView.value)
             .forEach(race => {
                 const placement = race.placements[playerId];
-                if (placement) points += POINTS_SYSTEM[placement]!;
+                if (placement) points += getPointsForPos(placement); // USE HELPER
             });
         return points;
     };
@@ -54,7 +72,7 @@ export function useGameLogic(
         let points = 0;
         tournament.value.races.forEach(race => {
             const placement = race.placements[playerId];
-            if (placement) points += POINTS_SYSTEM[placement]!;
+            if (placement) points += getPointsForPos(placement);
         });
         return points;
     };
@@ -194,6 +212,79 @@ export function useGameLogic(
     });
 
     // --- ACTIONS: RACE UPDATES ---
+    // const updateRacePlacement = async (group: string, raceNumber: number, position: number, playerId: string) => {
+    //     if (!tournament.value) return;
+    //     saving.value = true;
+    //     const stage = currentView.value;
+    //
+    //     let currentRaces = [...tournament.value.races];
+    //     let raceIndex = currentRaces.findIndex(r => r.stage === stage && r.group === group && r.raceNumber === raceNumber);
+    //     let raceData: Race;
+    //
+    //     if (raceIndex === -1) {
+    //         raceData = {
+    //             id: crypto.randomUUID(),
+    //             stage: stage,
+    //             group: group as 'A' | 'B' | 'C',
+    //             raceNumber: raceNumber,
+    //             timestamp: new Date().toISOString(),
+    //             placements: {}
+    //         };
+    //         currentRaces.push(raceData);
+    //         raceIndex = currentRaces.length - 1;
+    //     } else {
+    //         raceData = { ...currentRaces[raceIndex]! };
+    //     }
+    //
+    //     const newPlacements = { ...raceData.placements };
+    //
+    //     // Logic: Remove player from old pos, remove anyone in new pos, set player to new pos
+    //     if (playerId) {
+    //         for (const [pid] of Object.entries(newPlacements)) {
+    //             if (pid === playerId) delete newPlacements[pid];
+    //         }
+    //     }
+    //     for (const [pid, pos] of Object.entries(newPlacements)) {
+    //         if (pos == position) delete newPlacements[pid];
+    //     }
+    //     if (playerId) {
+    //         newPlacements[playerId] = position;
+    //     }
+    //
+    //     raceData.placements = newPlacements;
+    //     currentRaces[raceIndex] = raceData;
+    //
+    //     // Recalculate Points for ALL teams
+    //     const updatedTeams = tournament.value.teams.map(t => ({
+    //         ...t,
+    //         points: 0,
+    //         finalsPoints: 0
+    //     }));
+    //
+    //     const getTeamIndex = (pid: string) => updatedTeams.findIndex(t => t.captainId === pid || t.memberIds.includes(pid));
+    //
+    //     currentRaces.forEach(r => {
+    //         for (const [pid, pos] of Object.entries(r.placements)) {
+    //             const points = POINTS_SYSTEM[pos] || 0;
+    //             const tIdx = getTeamIndex(pid);
+    //             if (tIdx !== -1) {
+    //                 if (r.stage === 'finals') updatedTeams[tIdx]!.finalsPoints += points;
+    //                 else updatedTeams[tIdx]!.points += points;
+    //             }
+    //         }
+    //     });
+    //
+    //     try {
+    //         await secureUpdate({ races: currentRaces, teams: updatedTeams });
+    //     } catch (e) {
+    //         console.error("Error saving race:", e);
+    //         alert("Failed to save result.");
+    //     } finally {
+    //         saving.value = false;
+    //     }
+    // };
+
+    // --- 2. REFACTOR: The Save Action ---
     const updateRacePlacement = async (group: string, raceNumber: number, position: number, playerId: string) => {
         if (!tournament.value) return;
         saving.value = true;
@@ -236,31 +327,25 @@ export function useGameLogic(
         raceData.placements = newPlacements;
         currentRaces[raceIndex] = raceData;
 
-        // Recalculate Points for ALL teams
-        const updatedTeams = tournament.value.teams.map(t => ({
-            ...t,
-            points: 0,
-            finalsPoints: 0
-        }));
+        // NEW: Recalculate everything before saving
+        // We create a temporary tournament object with the NEW races to calculate scores
+        const tempTournament = {
+            ...tournament.value,
+            races: currentRaces
+        };
 
-        const getTeamIndex = (pid: string) => updatedTeams.findIndex(t => t.captainId === pid || t.memberIds.includes(pid));
-
-        currentRaces.forEach(r => {
-            for (const [pid, pos] of Object.entries(r.placements)) {
-                const points = POINTS_SYSTEM[pos] || 0;
-                const tIdx = getTeamIndex(pid);
-                if (tIdx !== -1) {
-                    if (r.stage === 'finals') updatedTeams[tIdx]!.finalsPoints += points;
-                    else updatedTeams[tIdx]!.points += points;
-                }
-            }
-        });
+        const { teams: updatedTeams, players: updatedPlayers } = recalculateTournamentScores(tempTournament);
 
         try {
-            await secureUpdate({ races: currentRaces, teams: updatedTeams });
+            // Save Races, Teams (with new points), and Players (with new stats)
+            await secureUpdate({
+                races: currentRaces,
+                teams: updatedTeams,
+                players: updatedPlayers
+            });
         } catch (e) {
-            console.error("Error saving race:", e);
-            alert("Failed to save result.");
+            console.error(e);
+            alert("Failed");
         } finally {
             saving.value = false;
         }
@@ -540,7 +625,7 @@ export function useGameLogic(
             return {
                 raceNumber: race.raceNumber,
                 position: pos,
-                points: pos ? (POINTS_SYSTEM[pos] || 0) : 0,
+                points: pos ? (getPointsForPos(pos) || 0) : 0,
                 stage: race.stage
             };
         });
@@ -606,6 +691,44 @@ export function useGameLogic(
         return (team?.points ?? 0) > 0;
     };
 
+    // --- 3. NEW FEATURE: Add Penalty/Bonus ---
+    const addTeamAdjustment = async (teamId: string, amount: number, reason: string) => {
+        if (!tournament.value) return;
+        saving.value = true;
+
+        const stage = currentView.value; // 'groups' or 'finals'
+
+        const adjustment: PointAdjustment = {
+            id: crypto.randomUUID(),
+            amount, // e.g. -10 or +5
+            reason,
+            stage
+        };
+
+        // 1. Add adjustment to the specific team locally
+        const tempTeams = tournament.value.teams.map(t => {
+            if (t.id === teamId) {
+                return {
+                    ...t,
+                    adjustments: [...(t.adjustments || []), adjustment]
+                };
+            }
+            return t;
+        });
+
+        // 2. Recalculate scores based on this new adjustment
+        const tempTournament = { ...tournament.value, teams: tempTeams };
+        const { teams: updatedTeams, players: updatedPlayers } = recalculateTournamentScores(tempTournament);
+
+        try {
+            await secureUpdate({ teams: updatedTeams, players: updatedPlayers });
+        } catch(e) {
+            console.error(e);
+        } finally {
+            saving.value = false;
+        }
+    };
+
     /**
      * Returns the "Visual Rank Index" for a team.
      * If Team A (idx 0) and Team B (idx 1) are tied, this returns 0 for both.
@@ -665,6 +788,7 @@ export function useGameLogic(
         finishBanPhase,
         toggleBan,
         getVisualRankIndex,
-        getProgressionStatus
+        getProgressionStatus,
+        addTeamAdjustment
     };
 }
