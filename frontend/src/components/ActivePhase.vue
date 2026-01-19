@@ -94,12 +94,6 @@ const tData = computed(() => tournament.value as Tournament);
 
 <template>
   <div class="space-y-6">
-    <div>
-      <span>{{isAdmin}}</span>
-      <span>{{isAdminRef}}</span>
-      <span>{{tournament.stage}}</span>
-      <span>{{currentView}}</span>
-    </div>
     <div v-if="tournament.bans && tournament.bans.length > 0" class="mb-8">
       <div class="bg-red-900/10 border border-red-500/20 rounded-xl overflow-hidden transition-all duration-300"
            :class="showBans ? 'shadow-lg shadow-red-900/10' : ''">
