@@ -729,6 +729,35 @@ export function useGameLogic(
         }
     };
 
+    // NEW: Remove Adjustment
+    const removeTeamAdjustment = async (teamId: string, adjustmentId: string) => {
+        if (!tournament.value) return;
+        saving.value = true;
+
+        // 1. Create a local copy of teams with the specific adjustment removed
+        const tempTeams = tournament.value.teams.map(t => {
+            if (t.id === teamId && t.adjustments) {
+                return {
+                    ...t,
+                    adjustments: t.adjustments.filter(a => a.id !== adjustmentId)
+                };
+            }
+            return t;
+        });
+
+        // 2. Recalculate scores based on the new adjustment list
+        const tempTournament = { ...tournament.value, teams: tempTeams };
+        const { teams: updatedTeams, players: updatedPlayers } = recalculateTournamentScores(tempTournament);
+
+        try {
+            await secureUpdate({ teams: updatedTeams, players: updatedPlayers });
+        } catch(e) {
+            console.error("Error removing adjustment:", e);
+        } finally {
+            saving.value = false;
+        }
+    };
+
     /**
      * Returns the "Visual Rank Index" for a team.
      * If Team A (idx 0) and Team B (idx 1) are tied, this returns 0 for both.
@@ -789,6 +818,7 @@ export function useGameLogic(
         toggleBan,
         getVisualRankIndex,
         getProgressionStatus,
-        addTeamAdjustment
+        addTeamAdjustment,
+        removeTeamAdjustment
     };
 }

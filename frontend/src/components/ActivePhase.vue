@@ -60,6 +60,7 @@ const {
   getVisualRankIndex,
   getProgressionStatus,
   addTeamAdjustment,
+  removeTeamAdjustment
 } = useGameLogic(tournament, props.secureUpdate);
 
 // Initialize Roster (for visual helpers like colors/names)
@@ -222,7 +223,7 @@ const tData = computed(() => tournament.value as Tournament);
 
         <div class="space-y-3">
           <div v-for="(team, idx) in sortedTeamsA" :key="team.id"
-               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative overflow-hidden"
+               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative hover:z-30"
                :class="[
                   getRankColor(idx),
                   getProgressionStatus(team.id) === 'safe'
@@ -252,21 +253,35 @@ const tData = computed(() => tournament.value as Tournament);
                           :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}</span>
               </div>
             </div>
-            <div class="text-2xl font-mono font-bold">
-              {{ team.points }}
-              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>
-              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">
-                <i class="ph-bold ph-warning-circle text-amber-500 text-sm cursor-help"></i>
 
-                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-48 hidden group-hover:block z-50">
-                  <div v-for="adj in team.adjustments" :key="adj.id" class="text-xs flex justify-between">
-                    <span class="text-slate-400">{{ adj.reason }}:</span>
-                    <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'">
-                       {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                   </span>
+            <div class="text-2xl font-mono font-bold">
+              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">
+                <i class="ph-bold ph-warning-circle text-amber-500 text-md cursor-help"></i>
+
+                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-56 hidden group-hover:block z-50 shadow-xl">
+
+                  <div v-for="adj in team.adjustments" :key="adj.id"
+                       class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+
+                    <div class="flex-1 truncate">
+                      <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
+                      <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">
+                         {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                      </span>
+                    </div>
+
+                    <button v-if="isAdmin"
+                            @click.stop="removeTeamAdjustment(team.id, adj.id)"
+                            class="text-slate-500 hover:text-red-400 transition-colors p-1 rounded hover:bg-slate-800"
+                            title="Delete Adjustment">
+                      <i class="ph-bold ph-trash"></i>
+                    </button>
                   </div>
+
                 </div>
               </div>
+              {{ team.points }}
+              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>
 
               <button v-if="isAdmin"
                       @click.stop="openAdjustmentModal(team)"
@@ -275,8 +290,8 @@ const tData = computed(() => tournament.value as Tournament);
                 <i class="ph-bold ph-gavel"></i>
               </button>
             </div>
-          </div>
 
+          </div>
           <div v-if="getGroupWildcards('A').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
             <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
               <i class="ph-bold ph-ghost"></i> Wildcards
@@ -312,7 +327,7 @@ const tData = computed(() => tournament.value as Tournament);
         </div>
         <div class="space-y-3">
           <div v-for="(team, idx) in sortedTeamsB" :key="team.id"
-               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative overflow-hidden"
+               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative hover:z-30"
                :class="[
                   getRankColor(idx),
                   getProgressionStatus(team.id) === 'safe'
@@ -344,21 +359,35 @@ const tData = computed(() => tournament.value as Tournament);
                       </span>
               </div>
             </div>
-            <div class="text-2xl font-mono font-bold">
-              {{ team.points }}
-              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>
-              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">
-                <i class="ph-bold ph-warning-circle text-amber-500 text-sm cursor-help"></i>
 
-                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-48 hidden group-hover:block z-50">
-                  <div v-for="adj in team.adjustments" :key="adj.id" class="text-xs flex justify-between">
-                    <span class="text-slate-400">{{ adj.reason }}:</span>
-                    <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'">
-                       {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                   </span>
+            <div class="text-2xl font-mono font-bold">
+              <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">
+                <i class="ph-bold ph-warning-circle text-amber-500 text-md cursor-help"></i>
+
+                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-56 hidden group-hover:block z-50 shadow-xl">
+
+                  <div v-for="adj in team.adjustments" :key="adj.id"
+                       class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+
+                    <div class="flex-1 truncate">
+                      <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
+                      <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">
+                         {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                      </span>
+                    </div>
+
+                    <button v-if="isAdmin"
+                            @click.stop="removeTeamAdjustment(team.id, adj.id)"
+                            class="text-slate-500 hover:text-red-400 transition-colors p-1 rounded hover:bg-slate-800"
+                            title="Delete Adjustment">
+                      <i class="ph-bold ph-trash"></i>
+                    </button>
                   </div>
+
                 </div>
               </div>
+              {{ team.points }}
+              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>
 
               <button v-if="isAdmin"
                       @click.stop="openAdjustmentModal(team)"
@@ -403,7 +432,7 @@ const tData = computed(() => tournament.value as Tournament);
         </div>
         <div class="space-y-3">
           <div v-for="(team, idx) in sortedTeamsC" :key="team.id"
-               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative overflow-hidden"
+               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative hover:z-30"
                :class="[
                   getRankColor(idx),
                   getProgressionStatus(team.id) === 'safe'
@@ -436,19 +465,34 @@ const tData = computed(() => tournament.value as Tournament);
               </div>
             </div>
             <div class="text-2xl font-mono font-bold">
-              {{ team.points }} <span class="text-xs font-sans font-normal text-slate-500">PTS</span>
               <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">
-                <i class="ph-bold ph-warning-circle text-amber-500 text-sm cursor-help"></i>
+                <i class="ph-bold ph-warning-circle text-amber-500 text-md cursor-help"></i>
 
-                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-48 hidden group-hover:block z-50">
-                  <div v-for="adj in team.adjustments" :key="adj.id" class="text-xs flex justify-between">
-                    <span class="text-slate-400">{{ adj.reason }}:</span>
-                    <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'">
-                       {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                   </span>
+                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-56 hidden group-hover:block z-50 shadow-xl">
+
+                  <div v-for="adj in team.adjustments" :key="adj.id"
+                       class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+
+                    <div class="flex-1 truncate">
+                      <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
+                      <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">
+                         {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                      </span>
+                    </div>
+
+                    <button v-if="isAdmin"
+                            @click.stop="removeTeamAdjustment(team.id, adj.id)"
+                            class="text-slate-500 hover:text-red-400 transition-colors p-1 rounded hover:bg-slate-800"
+                            title="Delete Adjustment">
+                      <i class="ph-bold ph-trash"></i>
+                    </button>
                   </div>
+
                 </div>
               </div>
+              {{ team.points }}
+              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>
+
               <button v-if="isAdmin"
                       @click.stop="openAdjustmentModal(team)"
                       class="w-8 h-8 rounded-full bg-slate-700 hover:bg-indigo-600 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
@@ -497,7 +541,7 @@ const tData = computed(() => tournament.value as Tournament);
         <div class="space-y-4">
           <div v-for="(team, idx) in sortedFinalsTeams"
                :key="team.id"
-               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
+               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center hover:z-30"
                :class="getRankColor(getVisualRankIndex(idx, sortedFinalsTeams))"
           >
             <div>
@@ -511,20 +555,35 @@ const tData = computed(() => tournament.value as Tournament);
                           :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}</span>
               </div>
             </div>
-            <div class="text-4xl font-mono font-bold text-indigo-400">
-              {{ team.finalsPoints || 0 }}
+            <div class="text-4xl font-mono font-bold">
               <div v-if="team.adjustments?.length" class="group relative inline-block ml-2">
-                <i class="ph-bold ph-warning-circle text-amber-500 text-sm cursor-help"></i>
+                <i class="ph-bold ph-warning-circle text-amber-500 text-md cursor-help"></i>
 
-                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-48 hidden group-hover:block z-50">
-                  <div v-for="adj in team.adjustments" :key="adj.id" class="text-xs flex justify-between">
-                    <span class="text-slate-400">{{ adj.reason }}:</span>
-                    <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'">
-                       {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                   </span>
+                <div class="absolute bottom-full right-0 bg-slate-900 border border-slate-700 p-2 rounded w-56 hidden group-hover:block z-50 shadow-xl">
+
+                  <div v-for="adj in team.adjustments" :key="adj.id"
+                       class="text-xs flex justify-between items-center gap-2 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
+
+                    <div class="flex-1 truncate">
+                      <span class="text-slate-400 mr-1">{{ adj.reason }}:</span>
+                      <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold">
+                         {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                      </span>
+                    </div>
+
+                    <button v-if="isAdmin"
+                            @click.stop="removeTeamAdjustment(team.id, adj.id)"
+                            class="text-slate-500 hover:text-red-400 transition-colors p-1 rounded hover:bg-slate-800"
+                            title="Delete Adjustment">
+                      <i class="ph-bold ph-trash"></i>
+                    </button>
                   </div>
+
                 </div>
               </div>
+              {{ team.points }}
+              <span class="text-xs font-sans font-normal text-slate-500">PTS</span>
+
               <button v-if="isAdmin"
                       @click.stop="openAdjustmentModal(team)"
                       class="w-8 h-8 rounded-full bg-slate-700 hover:bg-indigo-600 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
