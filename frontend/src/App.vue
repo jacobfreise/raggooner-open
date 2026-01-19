@@ -10,11 +10,13 @@ import {
 import {useAdmin} from './composables/useAdmin';
 import {useGameLogic} from "./composables/useGameLogic";
 import {useEasterEgg} from "./composables/useEasterEgg.ts";
+import { APP_VERSION } from './data/changelog';
 
 import RegistrationPhase from "./components/RegistrationPhase.vue";
 import DraftPhase from './components/DraftPhase.vue';
 import BanPhase from "./components/BanPhase.vue";
 import ActivePhase from './components/ActivePhase.vue';
+import ChangelogModal from './components/ChangelogModal.vue';
 
 // Config
 const appId = 'default-app';
@@ -23,6 +25,9 @@ const getTournamentRef = (id: string) => {
   return doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', id);
 };
 
+//version info
+const showChangelog = ref(false);
+const hasNewUpdates = ref(false);
 
 // State
 const tournament = ref<Tournament | null>(null);
@@ -276,10 +281,22 @@ const copyLink = () => {
   }
 };
 
+const openChangelog = () => {
+  showChangelog.value = true;
+  hasNewUpdates.value = false; // Clear the dot immediately
+  localStorage.setItem('last_seen_version', APP_VERSION);
+};
+
 const tData = computed(() => tournament.value as Tournament);
 
 onMounted(() => {
   init();
+
+  // Check version
+  const lastSeen = localStorage.getItem('last_seen_version');
+  if (lastSeen !== APP_VERSION) {
+    hasNewUpdates.value = true;
+  }
 });
 </script>
 
@@ -298,6 +315,11 @@ onMounted(() => {
         </div>
 
         <div v-if="tournament" class="flex items-center gap-4 z-10">
+          <button @click="openChangelog" class="relative text-slate-400 hover:text-white transition-colors mr-2">
+            <i class="ph-bold ph-bell text-xl"></i>
+
+            <span v-if="hasNewUpdates" class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse"></span>
+          </button>
           <button @click="showAdminModal = true"
                   class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition-colors mr-2"
                   :class="isAdmin ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400 hover:bg-emerald-900/50' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'">
@@ -601,6 +623,10 @@ onMounted(() => {
       BONO!
     </h1>
   </div>
+
+  <Transition enter-active-class="duration-200 ease-out" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="duration-150 ease-in" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+    <ChangelogModal v-if="showChangelog" @close="showChangelog = false" />
+  </Transition>
 </template>
 
 <style scoped>
