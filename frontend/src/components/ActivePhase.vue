@@ -62,6 +62,7 @@ const {
   submitUmas,
   getUmaList,
   showWildcardModal,
+  openWildcardModal,
   newWildcardName,
   wildcardTargetGroup,
   addWildcard,
@@ -87,15 +88,6 @@ const copyResults = async () => {
   await navigator.clipboard.writeText(text);
   alert("Results copied to clipboard!");
 };
-
-// Emits for the Modals that live in App.vue (Wildcard, Tiebreaker)
-// OR you can move those modals in here later. For now, let's emit.
-const emit = defineEmits(['open-wildcard']);
-
-// Wrapper to emit instead of opening directly, if you keep modal in App.vue
-const handleOpenWildcard = (group: string) => {
-  emit('open-wildcard', group);
-}
 
 const tData = computed(() => tournament.value as Tournament);
 </script>
@@ -193,7 +185,7 @@ const tData = computed(() => tournament.value as Tournament);
       <div v-if="shouldShowGroup('A')">
         <div class="flex items-center justify-between mb-4 group">
           <div class="flex items-center gap-3">
-            <h3 @click="handleOpenWildcard('A')"
+            <h3 @click="openWildcardModal('A')"
                 class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"
                 :class="isAdminRef ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">
               {{ tData?.teams.length >= 6 ? 'Group A' : 'Standings' }}
@@ -262,7 +254,7 @@ const tData = computed(() => tournament.value as Tournament);
       <div v-if="shouldShowGroup('B')">
         <div class="flex items-center justify-between mb-4 group">
           <div class="flex items-center gap-3">
-            <h3 @click="handleOpenWildcard('B')"
+            <h3 @click="openWildcardModal('B')"
                 class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"
                 :class="isAdminRef ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">
               {{ 'Group B' }}
@@ -331,7 +323,7 @@ const tData = computed(() => tournament.value as Tournament);
       <div v-if="shouldShowGroup('C')">
         <div class="flex items-center justify-between mb-4 group">
           <div class="flex items-center gap-3">
-            <h3 @click="handleOpenWildcard('C')"
+            <h3 @click="openWildcardModal('C')"
                 class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"
                 :class="isAdminRef ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">
               {{ 'Group C' }}
@@ -402,7 +394,7 @@ const tData = computed(() => tournament.value as Tournament);
           <i class="ph-fill ph-trophy text-amber-500 text-5xl mb-2"></i>
           <div class="flex items-center justify-between mb-4 group">
             <div class="flex items-center gap-3">
-              <h3 @click="handleOpenWildcard('Finals')"
+              <h3 @click="openWildcardModal('Finals')"
                   class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"
                   :class="isAdminRef ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">
                 {{ 'Finals' }}
