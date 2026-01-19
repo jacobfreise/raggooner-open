@@ -19,7 +19,7 @@ export const changelogData: ChangeLogEntry[] = [
             { type: 'new', text: 'Added a footer with credits and direct Discord profile linking.' },
             { type: 'new', text: 'Added more functionality to the admin panel.' },
             { type: 'improvement', text: 'Massive code improvements by refactoring code. Users hopefully won\'t notice anything, but the dev might not get cancer.'},
-            { type: 'fix', text: 'Fixed critical wildcard calculation logic for 6-team tournaments.' },
+            { type: 'fix', text: 'Fixed critical tiebreaker calculation logic for 6-team tournaments.' },
         ]
     },
     {
