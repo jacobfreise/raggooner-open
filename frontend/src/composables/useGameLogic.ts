@@ -1,4 +1,4 @@
-import { ref, computed, type Ref } from 'vue';
+import {ref, computed, type Ref, watch} from 'vue';
 import type {Tournament, Team, Race, FirestoreUpdate, Player} from '../types';
 import { POINTS_SYSTEM } from '../utils/constants';
 import { compareTeams, getPlayerUma, getPlayerName } from '../utils/utils';
@@ -14,13 +14,18 @@ export function useGameLogic(
     secureUpdate: SecureUpdateFn
 ) {
     // --- STATE ---
-    const currentView = ref<'groups' | 'finals'>('groups');
+    const initialStage = tournament.value?.stage === 'finals' ? 'finals' : 'groups';
+    const currentView = ref<'groups' | 'finals'>(initialStage);
     const saving = ref(false);
+
+    watch(() => tournament.value?.stage, (newStage) => {
+        if (newStage === 'finals' || newStage === 'groups') {
+            currentView.value = newStage;
+        }
+    }, { immediate: true });
 
     // Tiebreaker / Progression State
     const showTieBreakerModal = ref(false);
-    const showCoinFlip = ref(false);
-    const coinFlipResult = ref<'heads' | 'tails' | null>(null);
     const tiedTeams = ref<Team[]>([]);
     const guaranteedIds = ref<string[]>([]);
     const tiebreakersNeeded = ref(0);
@@ -95,7 +100,9 @@ export function useGameLogic(
 
     const sortedFinalsTeams = computed<Team[]>(() => {
         if (!tournament.value) return [];
-        return tournament.value.teams!.filter(t => t.inFinals).sort((a, b) => b.finalsPoints - a.finalsPoints)!;
+        return tournament.value.teams!
+            .filter(t => t.inFinals)
+            .sort((a, b) => compareTeams(a, b, true, tournament.value!, true))!;
     });
 
     const sortedRaces = computed<Race[]>(() => {
@@ -259,15 +266,178 @@ export function useGameLogic(
         }
     };
 
-    // --- ACTIONS: PROGRESSION / TIEBREAKERS ---
-    const getTiedCandidates = () => {
-        // ... (Copy the full logic from App.vue for 9, 8, 6 teams) ...
-        // Ensure you replace references to `sortedTeamsA` with `sortedTeamsA.value`
-        // and pass `tournament.value!` to compareTeams.
-        // Due to length, I'm abbreviating here - paste the App.vue logic block back in.
+    const projectedProgression = computed(() => {
+        if (!tournament.value) return { tied: [], safe: [], needed: 0 };
 
-        // Placeholder return to make it valid TS:
-        return { tied: [] as Team[], safe: [] as string[], needed: 0 };
+        const teamCount = tournament.value.teams.length;
+        const safeIds: string[] = []; // Using local array for easier checks
+        const tiedSet = new Set<string>();
+        let needed = 0;
+
+        // --- SCENARIO 1: 9 Teams (3 Groups, 1 Winner each) ---
+        if (teamCount === 9) {
+            const groups = [
+                { list: sortedTeamsA.value, name: 'A' },
+                { list: sortedTeamsB.value, name: 'B' },
+                { list: sortedTeamsC.value, name: 'C' }
+            ];
+
+            groups.forEach(g => {
+                const top = g.list[0]!;
+                const runner = g.list[1]!;
+                if (compareTeams(top, runner, false, tournament.value!) === 0) {
+                    tiedSet.add(top.id);
+                    tiedSet.add(runner.id);
+                    if (g.list[2] && compareTeams(top, g.list[2], false, tournament.value!) === 0) {
+                        tiedSet.add(g.list[2].id);
+                    }
+                    needed++;
+                } else {
+                    safeIds.push(top.id);
+                }
+            });
+        }
+
+        // --- SCENARIO 2: 8 Teams (2 Groups, 2 Winners each) ---
+        else if (teamCount === 8) {
+            const groups = [sortedTeamsA, sortedTeamsB];
+            groups.forEach(list => {
+                const first = list.value[0]!;
+                const second = list.value[1]!;
+                const third = list.value[2]!;
+
+                if (compareTeams(second, third, false, tournament.value!) === 0) {
+                    if (compareTeams(first, second, false, tournament.value!) === 0) {
+                        // 1, 2, 3 tied
+                        tiedSet.add(first.id);
+                        tiedSet.add(second.id);
+                        tiedSet.add(third.id);
+                        if (list.value[3] && compareTeams(first, list.value[3], false, tournament.value!) === 0) {
+                            tiedSet.add(list.value[3].id);
+                        }
+                        needed += 2;
+                    } else {
+                        // 1 Safe. 2, 3 tied
+                        safeIds.push(first.id);
+                        tiedSet.add(second.id);
+                        tiedSet.add(third.id);
+                        if (list.value[3] && compareTeams(second, list.value[3], false, tournament.value!) === 0) {
+                            tiedSet.add(list.value[3].id);
+                        }
+                        needed += 1;
+                    }
+                } else {
+                    safeIds.push(first.id);
+                    safeIds.push(second.id);
+                }
+            });
+        }
+
+        // --- SCENARIO 3: 6 Teams (2 Groups, 1 Winner each + 1 Wildcard) ---
+        else {
+            let slotsAvailable = 0;
+            const wildCardPool: Team[] = [];
+
+            // 1. Analyze Group A Winner
+            const topA = sortedTeamsA.value[0]!;
+            const runA = sortedTeamsA.value[1]!;
+
+            if (compareTeams(topA, runA, false, tournament.value!) === 0) {
+                // Tie for 1st: Both go to pool, Slot opens up
+                tiedSet.add(topA.id);
+                tiedSet.add(runA.id);
+                slotsAvailable++;
+                wildCardPool.push(topA, runA);
+            } else {
+                safeIds.push(topA.id);
+                wildCardPool.push(runA);
+            }
+
+            // 2. Analyze Group B Winner
+            const topB = sortedTeamsB.value[0]!;
+            const runB = sortedTeamsB.value[1]!;
+
+            if (compareTeams(topB, runB, false, tournament.value!) === 0) {
+                tiedSet.add(topB.id);
+                tiedSet.add(runB.id);
+                slotsAvailable++;
+                wildCardPool.push(topB, runB);
+            } else {
+                safeIds.push(topB.id);
+                wildCardPool.push(runB);
+            }
+
+            // 3. Analyze Wildcard Pool
+            slotsAvailable++; // Add the 1 dedicated wildcard slot
+
+            // Sort pool to find the best scores (Descending)
+            wildCardPool.sort((a, b) => compareTeams(a, b, false, tournament.value!));
+
+            // CRITICAL FIX: Logic to handle pool boundary
+            if (wildCardPool.length > slotsAvailable) {
+                const lastQualifier = wildCardPool[slotsAvailable - 1]!;
+                const firstLoser = wildCardPool[slotsAvailable]!;
+
+                // Check if the "Cutoff Line" is blurry (Tie between last in and first out)
+                if (compareTeams(lastQualifier, firstLoser, false, tournament.value!) === 0) {
+                    // TIE BOUNDARY HIT
+                    // We need to loop through the ENTIRE pool and decide fate based on the lastQualifier
+
+                    wildCardPool.forEach(p => {
+                        const comparison = compareTeams(p, lastQualifier, false, tournament.value!);
+
+                        if (comparison < 0) {
+                            // This team is BETTER than the tie boundary -> They are SAFE
+                            if (tiedSet.has(p.id)) tiedSet.delete(p.id); // Remove from "Group Tie" status if they cleared it
+                            if (!safeIds.includes(p.id)) safeIds.push(p.id);
+                            slotsAvailable--; // They took a spot
+                        } else if (comparison === 0) {
+                            // This team is TIED at the boundary -> They are in the TIEBREAKER
+                            tiedSet.add(p.id);
+                        }
+                        // If comparison > 0, they are eliminated (do nothing)
+                    });
+
+                    needed = slotsAvailable; // Whatever slots remain are for the tied set
+                } else {
+                    // CLEAR BOUNDARY
+                    // Top N teams are safe.
+                    for(let i=0; i<slotsAvailable; i++) {
+                        const p = wildCardPool[i]!;
+                        if (tiedSet.has(p.id)) tiedSet.delete(p.id);
+                        if (!safeIds.includes(p.id)) safeIds.push(p.id);
+                    }
+                    needed = 0; // No tiebreaker needed
+                }
+            } else {
+                // Everyone fits
+                wildCardPool.forEach(p => {
+                    if (tiedSet.has(p.id)) tiedSet.delete(p.id);
+                    if (!safeIds.includes(p.id)) safeIds.push(p.id);
+                });
+                needed = 0;
+            }
+        }
+
+        // Final Cleanup: ensure Safe IDs are not in Tied Set
+        safeIds.forEach(id => {
+            if (tiedSet.has(id)) tiedSet.delete(id);
+        });
+
+        const tiedTeamsList = tournament.value.teams.filter(t => tiedSet.has(t.id));
+        return { tied: tiedTeamsList, safe: safeIds, needed };
+    })
+
+    // --- ACTIONS: PROGRESSION / TIEBREAKERS ---
+    const getTiedCandidates = (): { tied: Team[], safe: string[], needed: number } => {
+        return projectedProgression.value;
+    };
+
+    // 3. NEW: Helper for UI to check status
+    const getProgressionStatus = (teamId: string): 'safe' | 'tied' | 'none' => {
+        if (projectedProgression.value.safe.includes(teamId)) return 'safe';
+        if (projectedProgression.value.tied.some(t => t.id === teamId)) return 'tied';
+        return 'none';
     };
 
     const finalizeFinals = async (finalIds: string[]) => {
@@ -280,7 +450,6 @@ export function useGameLogic(
         await secureUpdate({ teams: updatedTeams, stage: 'finals' });
 
         showTieBreakerModal.value = false;
-        showCoinFlip.value = false;
         currentView.value = 'finals';
     };
 
@@ -402,8 +571,7 @@ export function useGameLogic(
         const nextStage = isSmallTournament ? 'finals' : 'groups';
         await secureUpdate({ status: 'active', stage: nextStage });
 
-        if (isSmallTournament) currentView.value = 'finals';
-        else currentView.value = 'groups';
+        currentView.value = nextStage;
     };
 
     // --- NEW: HELPERS ---
@@ -413,13 +581,35 @@ export function useGameLogic(
         return (team?.points ?? 0) > 0;
     };
 
+    /**
+     * Returns the "Visual Rank Index" for a team.
+     * If Team A (idx 0) and Team B (idx 1) are tied, this returns 0 for both.
+     * This ensures both get the "Gold" color.
+     */
+    const getVisualRankIndex = (index: number, sortedList: Team[]) => {
+        if (index <= 0) return 0;
+
+        const currentTeam = sortedList[index]!;
+        const prevTeam = sortedList[index - 1]!;
+
+        // We use compareTeams with `useIdFallback = false`.
+        // If it returns 0, they are perfectly tied regarding points and placements.
+        const isTied = compareTeams(currentTeam, prevTeam, false, tournament.value!, currentView.value === 'finals') === 0;
+
+        if (isTied) {
+            // Recursively get the rank of the previous team
+            // (handles 3-way ties: A=B=C -> all get A's rank)
+            return getVisualRankIndex(index - 1, sortedList);
+        }
+
+        return index;
+    };
+
     return {
         // State
         currentView,
         saving,
         showTieBreakerModal,
-        showCoinFlip,
-        coinFlipResult,
         tiedTeams,
         guaranteedIds,
         tiebreakersNeeded,
@@ -432,6 +622,7 @@ export function useGameLogic(
         canAdvanceToFinals,
         canEndTournament,
         canShowFinals,
+        sortedPlayers,
         // Actions
         updateRacePlacement,
         advanceToFinals,
@@ -442,12 +633,13 @@ export function useGameLogic(
         activeStagePlayers,
         getTotalPoints,
         getGroupWildcards,
-        sortedPlayers,
         getRaceResults,
         getRaceResultsForPlayer,
         isBanned,
         isAdvancing,
         finishBanPhase,
         toggleBan,
+        getVisualRankIndex,
+        getProgressionStatus
     };
 }

@@ -1,10 +1,13 @@
 import type {Team, Tournament} from "../types.ts";
 
 // Compare two teams (Returns positive if A is better, negative if B is better)
-export const compareTeams = (a: Team, b: Team, useIdFallback = true, tournament: Tournament) => {
+export const compareTeams = (a: Team, b: Team, useIdFallback = true, tournament: Tournament, isFinals?: boolean) => {
+    const aPoints = isFinals ? a.finalsPoints : a.points;
+    const bPoints = isFinals ? b.finalsPoints : b.points;
+
     // Priority 1: Points
-    if (b.points !== a.points) {
-        return b.points - a.points;
+    if (bPoints !== aPoints) {
+        return bPoints - aPoints;
     }
 
     const useTiebreaker = tournament.usePlacementTiebreaker ?? true;
@@ -29,7 +32,9 @@ export const compareTeams = (a: Team, b: Team, useIdFallback = true, tournament:
     }
 
     return 0; // It is a perfect statistical tie
-}; // 1. Get placement counts for a specific team (e.g. {1: 3, 2: 1, 3: 0})
+};
+
+// 1. Get placement counts for a specific team (e.g. {1: 3, 2: 1, 3: 0})
 const getTeamPlacements = (team: Team, tournament: Tournament) => {
     const counts: Record<number, number> = {};
     if (!tournament) return counts;

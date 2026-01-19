@@ -6,6 +6,9 @@ import {getPlayerName, getPlayerUma} from "../utils/utils.ts";
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
 
+// UMA Editing State
+const showUmaModal = ref(false);
+
 export function useRoster(
     tournament: Ref<Tournament | null>,
     secureUpdate: SecureUpdateFn,
@@ -18,9 +21,6 @@ export function useRoster(
     const showWildcardModal = ref(false);
     const newWildcardName = ref('');
     const wildcardTargetGroup = ref<'A' | 'B' | 'C' | 'Finals' | ''>('');
-
-    // Uma Editing State
-    const showUmaModal = ref(false);
 
     // --- COMPUTED: VALIDATION ---
     const validTeamCount = computed(() => {

@@ -1,10 +1,5 @@
 import type {Tournament, Team, Player, Race, Wildcard} from '../types'; // Adjust path if needed
-
-// 🛠️ CONFIG: Adjust this to match your game's scoring rules
-const POINTS_SYSTEM: Record<number, number> = {
-    1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2,
-    10: 1, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0, 16: 0, 17: 0, 18: 0
-};
+import {POINTS_SYSTEM} from "./constants.ts";
 
 export const generateDiscordReport = (t: Tournament): string => {
     const lines: string[] = [];
@@ -123,7 +118,7 @@ const buildStageSection = (
             return scoreB - scoreA;
         });
 
-        // Sum up points for the whole team based on scoped scores
+        // Sum up points for the whole team
         const teamRoundScore = fullRosterIds.reduce((sum, pid) => {
             return sum + (scopedPlayerScores[pid] || 0);
         }, 0);
@@ -131,9 +126,24 @@ const buildStageSection = (
         return { ...team, teamRoundScore, fullRosterIds };
     }).sort((a, b) => b.teamRoundScore - a.teamRoundScore);
 
-    // 3. Generate Ranking Text
+    // 3. Generate Ranking Text with Tie Handling
+    let currentRank = 1;
+
     rankedTeams.forEach((team, index) => {
-        const rank = getOrdinal(index + 1);
+        // LOGIC: If this isn't the first team, check if score equals previous team
+        if (index > 0) {
+            const prevTeam = rankedTeams[index - 1];
+            // If scores are different, the rank "jumps" to the current index + 1
+            // (e.g., 1st, 1st, 3rd)
+            if (team.teamRoundScore < prevTeam!.teamRoundScore) {
+                currentRank = index + 1;
+            }
+            // If scores are the same, 'currentRank' stays the same as the previous iteration
+        } else {
+            currentRank = 1;
+        }
+
+        const rankString = getOrdinal(currentRank);
 
         // Generate text for the full roster
         const membersText = team.fullRosterIds.map(pid => {
@@ -147,12 +157,12 @@ const buildStageSection = (
             return p ? (p.uma || 'Unknown') : 'Unknown';
         }).join(', ');
 
-        sectionLines.push(`**${rank}:**  ${team.name} - **${team.teamRoundScore} Points**`)
+        sectionLines.push(`**${rankString}:** ${team.name} - **${team.teamRoundScore} Points**`)
         sectionLines.push(`${membersText}`);
         sectionLines.push(`> Umas - ${umasText}`);
     });
 
-    // 4. Generate Wildcard Text (NEW)
+    // 4. Generate Wildcard Text
     const activeWildcards = wildcards.filter(w => w.group === groupIdentifier);
 
     if (activeWildcards.length > 0) {
