@@ -15,6 +15,7 @@ export const changelogData: ChangeLogEntry[] = [
         title: 'Tiebreakers, the bane of my existence',
         changes: [
             { type: 'fix', text: 'Hopefully fixed 6 team tiebreaker logic for the last time!' },
+            { type: 'improvement', text: 'Only show advancing teams when at least 1 race was done, so when teams have points!' },
         ]
     },
     {
