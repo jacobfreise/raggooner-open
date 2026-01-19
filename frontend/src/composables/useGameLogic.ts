@@ -36,18 +36,6 @@ export function useGameLogic(
         return tournament.value.races.filter(r => r.stage === currentView.value && r.group === group).length;
     };
 
-    // const getRoundPoints = (playerId: string) => {
-    //     if (!tournament.value) return 0;
-    //     let points = 0;
-    //     tournament.value.races
-    //         .filter(r => r.stage === currentView.value)
-    //         .forEach(race => {
-    //             const placement = race.placements[playerId];
-    //             if (placement) points += POINTS_SYSTEM[placement]!;
-    //         });
-    //     return points;
-    // };
-
     const getPointsForPos = (pos: number) => {
         if (!tournament.value) return 0;
         const system = tournament.value.pointsSystem || DEFAULT_POINTS;
@@ -212,79 +200,6 @@ export function useGameLogic(
     });
 
     // --- ACTIONS: RACE UPDATES ---
-    // const updateRacePlacement = async (group: string, raceNumber: number, position: number, playerId: string) => {
-    //     if (!tournament.value) return;
-    //     saving.value = true;
-    //     const stage = currentView.value;
-    //
-    //     let currentRaces = [...tournament.value.races];
-    //     let raceIndex = currentRaces.findIndex(r => r.stage === stage && r.group === group && r.raceNumber === raceNumber);
-    //     let raceData: Race;
-    //
-    //     if (raceIndex === -1) {
-    //         raceData = {
-    //             id: crypto.randomUUID(),
-    //             stage: stage,
-    //             group: group as 'A' | 'B' | 'C',
-    //             raceNumber: raceNumber,
-    //             timestamp: new Date().toISOString(),
-    //             placements: {}
-    //         };
-    //         currentRaces.push(raceData);
-    //         raceIndex = currentRaces.length - 1;
-    //     } else {
-    //         raceData = { ...currentRaces[raceIndex]! };
-    //     }
-    //
-    //     const newPlacements = { ...raceData.placements };
-    //
-    //     // Logic: Remove player from old pos, remove anyone in new pos, set player to new pos
-    //     if (playerId) {
-    //         for (const [pid] of Object.entries(newPlacements)) {
-    //             if (pid === playerId) delete newPlacements[pid];
-    //         }
-    //     }
-    //     for (const [pid, pos] of Object.entries(newPlacements)) {
-    //         if (pos == position) delete newPlacements[pid];
-    //     }
-    //     if (playerId) {
-    //         newPlacements[playerId] = position;
-    //     }
-    //
-    //     raceData.placements = newPlacements;
-    //     currentRaces[raceIndex] = raceData;
-    //
-    //     // Recalculate Points for ALL teams
-    //     const updatedTeams = tournament.value.teams.map(t => ({
-    //         ...t,
-    //         points: 0,
-    //         finalsPoints: 0
-    //     }));
-    //
-    //     const getTeamIndex = (pid: string) => updatedTeams.findIndex(t => t.captainId === pid || t.memberIds.includes(pid));
-    //
-    //     currentRaces.forEach(r => {
-    //         for (const [pid, pos] of Object.entries(r.placements)) {
-    //             const points = POINTS_SYSTEM[pos] || 0;
-    //             const tIdx = getTeamIndex(pid);
-    //             if (tIdx !== -1) {
-    //                 if (r.stage === 'finals') updatedTeams[tIdx]!.finalsPoints += points;
-    //                 else updatedTeams[tIdx]!.points += points;
-    //             }
-    //         }
-    //     });
-    //
-    //     try {
-    //         await secureUpdate({ races: currentRaces, teams: updatedTeams });
-    //     } catch (e) {
-    //         console.error("Error saving race:", e);
-    //         alert("Failed to save result.");
-    //     } finally {
-    //         saving.value = false;
-    //     }
-    // };
-
-    // --- 2. REFACTOR: The Save Action ---
     const updateRacePlacement = async (group: string, raceNumber: number, position: number, playerId: string) => {
         if (!tournament.value) return;
         saving.value = true;
@@ -446,8 +361,6 @@ export function useGameLogic(
                 wildCardPool.push(runA);
 
                 if (thirdA && compareTeams(runA, thirdA, false, tournament.value!) === 0) {
-                    // tiedSet.add(runA.id);
-                    // tiedSet.add(thirdA.id);
                     wildCardPool.push(thirdA);
                 }
             }
@@ -475,8 +388,6 @@ export function useGameLogic(
                 wildCardPool.push(runB);
 
                 if (thirdB && compareTeams(runB, thirdB, false, tournament.value!) === 0) {
-                    // tiedSet.add(runB.id);
-                    // tiedSet.add(thirdB.id);
                     wildCardPool.push(thirdB);
                 }
             }
@@ -489,9 +400,6 @@ export function useGameLogic(
 
             // Logic to handle pool boundary
             if (wildCardPool.length > slotsAvailable) {
-                console.debug('wildcardpool: ' + JSON.stringify(wildCardPool.map(w => {
-                    return w.name
-                })) + ' slotsavailable: ' + slotsAvailable);
                 const lastQualifier = wildCardPool[slotsAvailable - 1]!;
                 const firstLoser = wildCardPool[slotsAvailable]!;
 
