@@ -533,7 +533,7 @@ onMounted(() => {
       </div>
     </footer>
     <div v-if="showAdminModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-sm w-full p-6 shadow-2xl relative overflow-hidden">
+      <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-sm w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
 
         <div class="flex justify-between items-center mb-4">
           <h3 class="text-xl font-bold text-white">
