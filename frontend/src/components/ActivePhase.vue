@@ -202,12 +202,12 @@ const tData = computed(() => tournament.value as Tournament);
                ]">
 
             <div v-if="getProgressionStatus(team.id) === 'safe'"
-                 class="absolute -right-2 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">
+                 class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">
               Q
             </div>
 
             <div v-else-if="getProgressionStatus(team.id) === 'tied'"
-                 class="absolute -right-2 -top-2 text-amber-500/10 font-black text-6xl pointer-events-none select-none rotate-12">
+                 class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl pointer-events-none select-none rotate-12">
               ?
             </div>
             <div>
@@ -270,12 +270,12 @@ const tData = computed(() => tournament.value as Tournament);
                ]">
 
             <div v-if="getProgressionStatus(team.id) === 'safe'"
-                 class="absolute -right-2 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">
+                 class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">
               Q
             </div>
 
             <div v-else-if="getProgressionStatus(team.id) === 'tied'"
-                 class="absolute -right-2 -top-2 text-amber-500/10 font-black text-6xl pointer-events-none select-none rotate-12">
+                 class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl pointer-events-none select-none rotate-12">
               ?
             </div>
             <div>
@@ -339,12 +339,12 @@ const tData = computed(() => tournament.value as Tournament);
                ]">
 
             <div v-if="getProgressionStatus(team.id) === 'safe'"
-                 class="absolute -right-2 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">
+                 class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl pointer-events-none select-none">
               Q
             </div>
 
             <div v-else-if="getProgressionStatus(team.id) === 'tied'"
-                 class="absolute -right-2 -top-2 text-amber-500/10 font-black text-6xl pointer-events-none select-none rotate-12">
+                 class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl pointer-events-none select-none rotate-12">
               ?
             </div>
             <div>
