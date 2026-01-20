@@ -489,29 +489,60 @@ export function useGameLogic(
 
     const advanceToFinals = async () => {
         if (!tournament.value) return;
-        const { tied, safe, needed } = getTiedCandidates(); // Implementation needed above
+        const { tied, safe, needed } = getTiedCandidates();
 
         if (tied.length > 0) {
             tiebreakersNeeded.value = needed;
-            tiedTeams.value = tied;
-            guaranteedIds.value = safe;
+
+            // FIX: Use [...spread] to create copies instead of references
+            tiedTeams.value = [...tied];
+            guaranteedIds.value = [...safe];
+
             showTieBreakerModal.value = true;
             return;
         }
         await finalizeFinals(safe);
     };
 
-    const resolveManually = async (winner: Team) => {
+    const resolveManually = (winner: Team) => {
         if (!guaranteedIds.value.includes(winner.id)) {
             guaranteedIds.value.push(winner.id);
             tiebreakersNeeded.value--;
-            if (tiebreakersNeeded.value === 0) {
-                await finalizeFinals([...guaranteedIds.value]);
-            }
+
+            // --- REMOVED THIS BLOCK ---
+            // if (tiebreakersNeeded.value === 0) {
+            //    await finalizeFinals([...guaranteedIds.value]);
+            // }
+            // --------------------------
+
         } else {
             guaranteedIds.value.splice(guaranteedIds.value.indexOf(winner.id), 1);
             tiebreakersNeeded.value++;
         }
+    };
+
+    const confirmTiebreakerSelection = async () => {
+        if (!tournament.value) return;
+
+        // Double-check we have the right amount
+        if (tiebreakersNeeded.value === 0) {
+            saving.value = true; // Show loading state if you have one
+            try {
+                // Finalize using the IDs the user manually selected
+                await finalizeFinals([...guaranteedIds.value]);
+            } finally {
+                saving.value = false;
+            }
+        }
+    };
+
+    const cancelTieBreaker = () => {
+        showTieBreakerModal.value = false;
+
+        // Reset state to avoid "ghost" selections next time it opens
+        tiedTeams.value = [];
+        guaranteedIds.value = [];
+        tiebreakersNeeded.value = 0;
     };
 
     const endTournament = async () => {
@@ -743,6 +774,8 @@ export function useGameLogic(
         getVisualRankIndex,
         getProgressionStatus,
         addTeamAdjustment,
-        removeTeamAdjustment
+        removeTeamAdjustment,
+        confirmTiebreakerSelection,
+        cancelTieBreaker
     };
 }

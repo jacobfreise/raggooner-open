@@ -60,7 +60,9 @@ const {
   getVisualRankIndex,
   getProgressionStatus,
   addTeamAdjustment,
-  removeTeamAdjustment
+  removeTeamAdjustment,
+  confirmTiebreakerSelection,
+  cancelTieBreaker
 } = useGameLogic(tournament, props.secureUpdate);
 
 // Initialize Roster (for visual helpers like colors/names)
@@ -1393,54 +1395,167 @@ const tData = computed(() => tournament.value as Tournament);
       </div>
     </div>
 
+<!--    <div v-if="showTieBreakerModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">-->
+<!--      <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full p-6 shadow-2xl relative">-->
+<!--        <div class="text-center mb-6">-->
+<!--          <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/10 text-amber-500 mb-4 ring-1 ring-amber-500/50">-->
+<!--            <i class="ph-fill ph-scales text-3xl"></i>-->
+<!--          </div>-->
+<!--          <div class="relative flex justify-center items-center mb-4">-->
+
+<!--            <h3 class="text-2xl font-bold text-white">Tie Breaker Required</h3>-->
+
+<!--            <button @click="showTieBreakerModal = false"-->
+<!--                    class="absolute right-0 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-2">-->
+<!--              <i class="ph-bold ph-x text-xl"></i>-->
+<!--            </button>-->
+
+<!--          </div>-->
+<!--          <p class="text-slate-400 mt-2">-->
+<!--            A perfect statistical tie was detected between:-->
+<!--          </p>-->
+<!--        </div>-->
+
+<!--        <div class="flex justify-center gap-4 mb-8">-->
+<!--          <div v-for="(team, idx) in tiedTeams" :key="team.id"-->
+<!--               class="bg-slate-800 border border-slate-700 p-4 rounded-lg text-center min-w-[120px]">-->
+<!--            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Candidate {{ idx + 1 }}</div>-->
+<!--            <div class="font-bold text-white text-lg" :style="{ color: team.color }">{{ team.name }}</div>-->
+<!--            <div class="text-xs text-slate-400">{{ team.points }} pts</div>-->
+<!--          </div>-->
+<!--        </div>-->
+
+<!--        <div class="space-y-3">-->
+<!--          <div class="relative">-->
+<!--            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>-->
+<!--            <div class="relative flex justify-center text-xs uppercase"><span class="px-2 bg-slate-900 text-slate-600">Select Winner Manually</span></div>-->
+<!--            <div class="relative flex justify-center text-xs uppercase"><span class="px-2 bg-slate-900 text-slate-600">{{ tiebreakersNeeded }} {{ tiebreakersNeeded > 1 ? 'Teams' : 'Team' }} needed</span></div>-->
+<!--          </div>-->
+
+<!--          <div class="grid grid-cols-2 gap-3">-->
+<!--            <button v-for="team in tiedTeams" :key="team.id"-->
+<!--                    @click="resolveManually(team)"-->
+<!--                    class="py-3 rounded-lg font-bold transition-all relative overflow-hidden"-->
+<!--                    :class="guaranteedIds.includes(team.id)-->
+<!--                      ? 'bg-slate-800 border-emerald-500 text-emerald-400 ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]'-->
+<!--                      : 'bg-indigo-600/10 border border-indigo-500/30 hover:border-indigo-500 text-indigo-300 hover:bg-indigo-600/20'">-->
+<!--              Advance {{ team.name }}-->
+<!--            </button>-->
+<!--          </div>-->
+<!--        </div>-->
+<!--      </div>-->
+<!--    </div>-->
     <div v-if="showTieBreakerModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full p-6 shadow-2xl relative">
+
+      <div class="bg-slate-900 border border-slate-700 rounded-xl w-auto min-w-[350px] max-w-[90vw] p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+
         <div class="text-center mb-6">
           <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/10 text-amber-500 mb-4 ring-1 ring-amber-500/50">
             <i class="ph-fill ph-scales text-3xl"></i>
           </div>
-          <div class="relative flex justify-center items-center mb-4">
 
-            <h3 class="text-2xl font-bold text-white">Tie Breaker Required</h3>
+          <div class="relative flex justify-center items-center mb-2">
+            <h3 class="text-2xl font-bold text-white whitespace-nowrap">Tie Breaker Required</h3>
 
-            <button @click="showTieBreakerModal = false"
-                    class="absolute right-0 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-2">
+            <button @click="cancelTieBreaker"
+                    class="absolute -right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-2">
               <i class="ph-bold ph-x text-xl"></i>
             </button>
-
           </div>
-          <p class="text-slate-400 mt-2">
-            A perfect statistical tie was detected between:
+
+          <p class="text-slate-400 text-sm mb-3">
+            A perfect statistical tie was detected.
           </p>
-        </div>
 
-        <div class="flex justify-center gap-4 mb-8">
-          <div v-for="(team, idx) in tiedTeams" :key="team.id"
-               class="bg-slate-800 border border-slate-700 p-4 rounded-lg text-center min-w-[120px]">
-            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Candidate {{ idx + 1 }}</div>
-            <div class="font-bold text-white text-lg" :style="{ color: team.color }">{{ team.name }}</div>
-            <div class="text-xs text-slate-400">{{ team.points }} pts</div>
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border whitespace-nowrap"
+               :class="tData.usePlacementTiebreaker ? 'bg-indigo-900/30 border-indigo-500/30 text-indigo-300' : 'bg-slate-800 border-slate-600 text-slate-400'">
+            <i class="ph-fill" :class="tData.usePlacementTiebreaker ? 'ph-check-circle' : 'ph-x-circle'"></i>
+            {{ tData.usePlacementTiebreaker ? 'Placement Tiebreaker: Active' : 'Placement Tiebreaker: Disabled' }}
           </div>
         </div>
 
-        <div class="space-y-3">
-          <div class="relative">
-            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
-            <div class="relative flex justify-center text-xs uppercase"><span class="px-2 bg-slate-900 text-slate-600">Select Winner Manually</span></div>
-            <div class="relative flex justify-center text-xs uppercase"><span class="px-2 bg-slate-900 text-slate-600">{{ tiebreakersNeeded }} {{ tiebreakersNeeded > 1 ? 'Teams' : 'Team' }} needed</span></div>
-          </div>
+        <div class="flex flex-wrap justify-center gap-4 mb-8">
 
-          <div class="grid grid-cols-2 gap-3">
-            <button v-for="team in tiedTeams" :key="team.id"
+          <div v-for="group in ['A', 'B', 'C'].filter(g => tiedTeams.some(t => t.group === g))" :key="group"
+               class="bg-slate-950/50 rounded-lg p-3 border border-slate-800 flex flex-col gap-3 w-64 shrink-0">
+
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest text-center border-b border-slate-800 pb-2">
+              Group {{ group }}
+            </div>
+
+            <div v-if="tData.teams.some(t => t.group === group && guaranteedIds.includes(t.id) && !tiedTeams.some(tt => tt.id === t.id))"
+                 class="space-y-2">
+
+              <div class="text-[10px] text-emerald-500/70 font-bold uppercase tracking-wider px-1">Qualified</div>
+
+              <div v-for="team in tData.teams.filter(t => t.group === group && guaranteedIds.includes(t.id) && !tiedTeams.some(tt => tt.id === t.id)).sort((a,b) => b.points - a.points)"
+                   :key="team.id"
+                   class="bg-emerald-900/10 border border-emerald-500/20 rounded p-2 flex justify-between items-center opacity-70 grayscale-[0.3]">
+
+                <div class="flex items-center gap-2 overflow-hidden">
+                  <div class="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-[10px] font-bold ring-1 ring-emerald-500/50">Q</div>
+                  <div class="text-sm font-bold text-slate-300 truncate" :style="{ color: team.color }">{{ team.name }}</div>
+                </div>
+                <div class="text-xs font-mono text-slate-500">{{ team.points }} pts</div>
+              </div>
+
+              <div class="border-t border-slate-800 border-dashed my-2"></div>
+            </div>
+
+            <div v-if="tData.teams.some(t => t.group === group && guaranteedIds.includes(t.id) && !tiedTeams.some(tt => tt.id === t.id))"
+                 class="text-[10px] text-amber-500/70 font-bold uppercase tracking-wider px-1 mb-1">
+              Contenders
+            </div>
+
+            <button v-for="team in tiedTeams.filter(t => t.group === group)" :key="team.id"
                     @click="resolveManually(team)"
-                    class="py-3 rounded-lg font-bold transition-all relative overflow-hidden"
+                    class="relative text-left p-3 rounded-lg border transition-all duration-200 group hover:shadow-lg"
                     :class="guaranteedIds.includes(team.id)
-                      ? 'bg-slate-800 border-emerald-500 text-emerald-400 ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-                      : 'bg-indigo-600/10 border border-indigo-500/30 hover:border-indigo-500 text-indigo-300 hover:bg-indigo-600/20'">
-              Advance {{ team.name }}
+            ? 'bg-slate-800 border-emerald-500 ring-1 ring-emerald-500'
+            : 'bg-slate-900 border-slate-700 hover:border-indigo-500 hover:bg-slate-800'"
+            >
+              <div class="absolute top-3 right-3 w-5 h-5 rounded-full border flex items-center justify-center transition-colors"
+                   :class="guaranteedIds.includes(team.id) ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-600 text-transparent'">
+                <i class="ph-bold ph-check text-xs"></i>
+              </div>
+
+              <div class="font-bold text-base mb-1 pr-6 truncate" :style="{ color: team.color }">{{ team.name }}</div>
+              <div class="text-xs font-mono text-slate-400 mb-3">{{ team.points }} pts</div>
+
+              <div class="space-y-1">
+                <div v-for="pid in [team.captainId, ...team.memberIds]" :key="pid" class="flex items-center gap-1.5">
+                  <div class="w-1 h-1 rounded-full bg-slate-600 shrink-0"></div>
+                  <span class="text-[10px] text-slate-400 leading-tight truncate">
+              {{ tData.players.find(p => p.id === pid)?.name || 'Unknown' }}
+            </span>
+                </div>
+              </div>
             </button>
+
           </div>
         </div>
+
+        <div class="relative py-4">
+          <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
+          <div class="relative flex justify-center text-xs uppercase font-bold tracking-widest">
+            <span class="px-3 bg-slate-900 whitespace-nowrap"
+                  :class="tiebreakersNeeded === 0 ? 'text-emerald-400' : 'text-slate-500'">
+                {{ tiebreakersNeeded > 0
+                ? `Select ${tiebreakersNeeded} more to advance`
+                : 'Selection Complete' }}
+            </span>
+          </div>
+        </div>
+
+        <button v-if="tiebreakersNeeded === 0"
+                @click="confirmTiebreakerSelection"
+                class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-lg shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 animate-fade-in">
+          Confirm & Advance Teams <i class="ph-bold ph-arrow-right"></i>
+        </button>
+        <div v-else class="text-center text-xs text-slate-600 italic">
+          Please resolve the tie to proceed.
+        </div>
+
       </div>
     </div>
 
