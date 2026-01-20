@@ -11,7 +11,7 @@ export const APP_VERSION = '1.2.1'; // Update this manually when you deploy
 export const changelogData: ChangeLogEntry[] = [
     {
         version: '1.2.1',
-        date: '2026-01-19',
+        date: '2026-01-20',
         title: 'Penalties/Bonuses and adjustable Points System',
         changes: [
             { type: 'improvement', text: 'Redesigned tiebreaker modal for much more visual clarity!' },
