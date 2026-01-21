@@ -226,7 +226,7 @@ const tData = computed(() => tournament.value as Tournament);
       <div class="bg-slate-800 p-1 rounded-lg flex gap-1 mx-auto md:mx-0 md:justify-self-center">
         <button @click="showPlayerOrUmaName = true"
                 class="px-6 py-2 rounded-md font-bold transition-colors"
-                :class="showPlayerOrUmaName === true ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'">
+                :class="showPlayerOrUmaName ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'">
           Players
         </button>
         <button @click="showPlayerOrUmaName = false"
@@ -852,7 +852,7 @@ const tData = computed(() => tournament.value as Tournament);
             </div>
           </div>
 
-          <div class="flex-1 flex flex-col gap-4">
+          <div class="flex-1 flex flex-col gap-2">
 
             <template v-for="results in [getSplitResults(player.id)]" :key="player.id">
 
