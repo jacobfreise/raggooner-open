@@ -833,7 +833,7 @@ const tData = computed(() => tournament.value as Tournament);
 
           <div class="flex justify-between items-start mb-2 pb-3 border-slate-700/50">
             <div>
-              <div class="font-bold text-white text-lg leading-tight group-hover:text-indigo-300 transition-colors"
+              <div class="font-bold font-mono text-white text-2xl leading-tight group-hover:text-indigo-300 transition-colors"
                    :style="{ color: getPlayerColor(player.id) }">{{ player.name }}</div>
               <div class="text-xs text-slate-500 mt-1" v-if="player.uma">{{ player.uma }}</div>
             </div>
