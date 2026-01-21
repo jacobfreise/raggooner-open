@@ -890,18 +890,17 @@ const tData = computed(() => tournament.value as Tournament);
                       {{ result.position || '-' }}
                     </div>
                     <span class="text-[10px] font-mono text-slate-500">
-                  {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
-                </span>
+                      {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
+                    </span>
                   </div>
                 </div>
               </div>
 
               <div v-if="!isSmallTournament && !playerEliminated(player.id)">
-
                 <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 mt-1 flex items-center gap-2">
-              <span :class="isSmallTournament ? 'text-slate-500' : 'text-amber-500'">
-                Finals
-              </span>
+                  <span :class="isSmallTournament ? 'text-slate-500' : 'text-amber-500'">
+                    Finals
+                  </span>
                   <div class="h-px bg-slate-700 flex-1"></div>
                   <span class="font-mono text-slate-400">{{ getPhaseTotal(results.finals) }} pts</span>
                 </div>
