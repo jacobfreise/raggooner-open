@@ -154,6 +154,11 @@ const playerEliminated = (playerId: string) => {
   return team ? !team.inFinals : false;
 };
 
+// Helper to sum points from a list of race results
+const getPhaseTotal = (results: any[]) => {
+  return results.reduce((sum, r) => sum + r.points, 0);
+};
+
 const tData = computed(() => tournament.value as Tournament);
 </script>
 
@@ -826,7 +831,7 @@ const tData = computed(() => tournament.value as Tournament);
         <div v-for="player in sortedPlayers" :key="player.id"
              class="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-indigo-500/50 transition-all flex flex-col h-full group">
 
-          <div class="flex justify-between items-start mb-4 pb-3 border-b border-slate-700/50">
+          <div class="flex justify-between items-start mb-2 pb-3 border-slate-700/50">
             <div>
               <div class="font-bold text-white text-lg leading-tight group-hover:text-indigo-300 transition-colors"
                    :style="{ color: getPlayerColor(player.id) }">{{ player.name }}</div>
@@ -840,19 +845,21 @@ const tData = computed(() => tournament.value as Tournament);
             </div>
           </div>
 
-          <div class="flex-1 flex flex-col gap-3">
+          <div class="flex-1 flex flex-col gap-2">
 
             <template v-for="results in [getSplitResults(player.id)]" :key="player.id">
 
-              <div v-if="results.groups.length === 0 && results.finals.length === 0" class="flex-1 flex items-center justify-center min-h-[60px]">
+              <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">
+                {{isSmallTournament ? 'Races' : 'Group Stage'}}
+                <div class="h-px bg-slate-700 flex-1"></div>
+                <span class="font-mono text-slate-400">{{ getPhaseTotal(results.groups) }} pts</span>
+              </div>
+
+              <div v-if="results.groups.length === 0" class="flex-1 flex items-center justify-center min-h-[60px]">
                 <span class="text-xs text-slate-600 italic">No races recorded yet</span>
               </div>
 
               <div v-if="results.groups.length > 0">
-                <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">
-                  Group Stage
-                  <div class="h-px bg-slate-700 flex-1"></div>
-                </div>
                 <div class="grid grid-cols-5 gap-2">
                   <div v-for="(result, idx) in results.groups" :key="'g'+idx" class="flex flex-col items-center gap-1">
                     <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110"
@@ -866,13 +873,20 @@ const tData = computed(() => tournament.value as Tournament);
                 </div>
               </div>
 
-              <div v-if="results.finals.length > 0">
+              <div v-if="!isSmallTournament && !playerEliminated(player.id)">
+
                 <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 mt-1 flex items-center gap-2">
-               <span :class="isSmallTournament ? 'text-slate-500' : 'text-amber-500'">
-                 {{ isSmallTournament ? 'Races' : 'Finals' }}
-               </span>
+              <span :class="isSmallTournament ? 'text-slate-500' : 'text-amber-500'">
+                Finals
+              </span>
                   <div class="h-px bg-slate-700 flex-1"></div>
+                  <span class="font-mono text-slate-400">{{ getPhaseTotal(results.finals) }} pts</span>
                 </div>
+
+                <div v-if="results.finals.length === 0" class="flex-1 flex items-center justify-center min-h-[60px]">
+                  <span class="text-xs text-slate-600 italic">No races recorded yet</span>
+                </div>
+
                 <div class="grid grid-cols-5 gap-2">
                   <div v-for="(result, idx) in results.finals" :key="'f'+idx" class="flex flex-col items-center gap-1">
                     <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110"
