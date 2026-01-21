@@ -6,9 +6,17 @@ export interface ChangeLogEntry {
     changes: { type: 'new' | 'fix' | 'improvement'; text: string }[];
 }
 
-export const APP_VERSION = '1.2.1'; // Update this manually when you deploy
+export const APP_VERSION = '1.2.2'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '1.2.2',
+        date: '2026-01-20',
+        title: 'Player Statistics visuals improved',
+        changes: [
+            { type: 'improvement', text: 'Player Statistics got an improved look!' },
+        ]
+    },
     {
         version: '1.2.1',
         date: '2026-01-20',

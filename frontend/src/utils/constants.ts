@@ -18,8 +18,6 @@ export const TEAM_COLORS = [
     '#f43f5e', // Rose
 ];
 
-export const HISHI_DURATION_MS = 8000;
-
 export const UMAS = ['Fine Motion', 'Christmas Oguri Cap', 'Christmas Biwa Hayahide', 'Mejiro Dober', 'Tosan Jordan',
     'Festival Symboli Rudolf', 'Festival Gold City', 'Manhattan Cafe', 'Kawakami Princess', 'Halloween Rice Shower',
     'Halloween Super Creek', 'Agnes Digital', 'Hishi Akebono', 'Full Armor Matikanefukukitaru', 'Eishin Flash',

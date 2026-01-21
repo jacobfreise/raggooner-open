@@ -494,7 +494,6 @@ export function useGameLogic(
         if (tied.length > 0) {
             tiebreakersNeeded.value = needed;
 
-            // FIX: Use [...spread] to create copies instead of references
             tiedTeams.value = [...tied];
             guaranteedIds.value = [...safe];
 
@@ -508,13 +507,6 @@ export function useGameLogic(
         if (!guaranteedIds.value.includes(winner.id)) {
             guaranteedIds.value.push(winner.id);
             tiebreakersNeeded.value--;
-
-            // --- REMOVED THIS BLOCK ---
-            // if (tiebreakersNeeded.value === 0) {
-            //    await finalizeFinals([...guaranteedIds.value]);
-            // }
-            // --------------------------
-
         } else {
             guaranteedIds.value.splice(guaranteedIds.value.indexOf(winner.id), 1);
             tiebreakersNeeded.value++;
