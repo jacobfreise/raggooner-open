@@ -831,18 +831,41 @@ const tData = computed(() => tournament.value as Tournament);
         <div v-for="player in sortedPlayers" :key="player.id"
              class="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-indigo-500/50 transition-all flex flex-col h-full group">
 
-          <div class="flex justify-between items-start mb-2 pb-3 border-slate-700/50">
+<!--          <div class="flex justify-between items-start mb-2 pb-3 border-slate-700/50">-->
+<!--            <div>-->
+<!--              <div class="font-bold text-white text-2xl leading-tight group-hover:text-indigo-300 transition-colors"-->
+<!--                   :style="{ color: getPlayerColor(player.id) }">{{ player.name }}</div>-->
+<!--              <div class="text-xs text-slate-500 mt-1" v-if="player.uma">{{ player.uma }}</div>-->
+<!--            </div>-->
+<!--            <div class="text-right">-->
+<!--              <div class="text-2xl font-mono font-bold text-indigo-400">-->
+<!--                {{ getTotalPoints(player.id) }}-->
+<!--              </div>-->
+<!--              <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Total Pts</div>-->
+<!--            </div>-->
+<!--          </div>-->
+          <div class="flex justify-between items-start mb-3 pb-3 border-b border-slate-700/50">
+
             <div>
-              <div class="font-bold font-mono text-white text-2xl leading-tight group-hover:text-indigo-300 transition-colors"
-                   :style="{ color: getPlayerColor(player.id) }">{{ player.name }}</div>
-              <div class="text-xs text-slate-500 mt-1" v-if="player.uma">{{ player.uma }}</div>
+              <div class="text-2xl font-bold leading-none group-hover:text-indigo-300 transition-colors"
+                   :style="{ color: getPlayerColor(player.id) }">
+                {{ player.name }}
+              </div>
+              <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 mt-1 h-3.5" v-if="player.uma">
+                {{ player.uma }}
+              </div>
+              <div v-else class="h-3.5 mt-1"></div>
             </div>
+
             <div class="text-right">
-              <div class="text-2xl font-mono font-bold text-indigo-400">
+              <div class="text-2xl font-bold leading-none text-indigo-400 tabular-nums">
                 {{ getTotalPoints(player.id) }}
               </div>
-              <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Total Pts</div>
+              <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 mt-1 h-3.5">
+                Total Pts
+              </div>
             </div>
+
           </div>
 
           <div class="flex-1 flex flex-col gap-2">
