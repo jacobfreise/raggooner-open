@@ -11,7 +11,7 @@ export const APP_VERSION = '1.2.2'; // Update this manually when you deploy
 export const changelogData: ChangeLogEntry[] = [
     {
         version: '1.2.2',
-        date: '2026-01-20',
+        date: '2026-01-21',
         title: 'Player Statistics visuals improved',
         changes: [
             { type: 'improvement', text: 'Player Statistics got an improved look!' },

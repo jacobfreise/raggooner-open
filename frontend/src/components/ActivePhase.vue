@@ -831,21 +831,7 @@ const tData = computed(() => tournament.value as Tournament);
         <div v-for="player in sortedPlayers" :key="player.id"
              class="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-indigo-500/50 transition-all flex flex-col h-full group">
 
-<!--          <div class="flex justify-between items-start mb-2 pb-3 border-slate-700/50">-->
-<!--            <div>-->
-<!--              <div class="font-bold text-white text-2xl leading-tight group-hover:text-indigo-300 transition-colors"-->
-<!--                   :style="{ color: getPlayerColor(player.id) }">{{ player.name }}</div>-->
-<!--              <div class="text-xs text-slate-500 mt-1" v-if="player.uma">{{ player.uma }}</div>-->
-<!--            </div>-->
-<!--            <div class="text-right">-->
-<!--              <div class="text-2xl font-mono font-bold text-indigo-400">-->
-<!--                {{ getTotalPoints(player.id) }}-->
-<!--              </div>-->
-<!--              <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Total Pts</div>-->
-<!--            </div>-->
-<!--          </div>-->
           <div class="flex justify-between items-start mb-3 pb-3 border-b border-slate-700/50">
-
             <div>
               <div class="text-2xl font-bold leading-none group-hover:text-indigo-300 transition-colors"
                    :style="{ color: getPlayerColor(player.id) }">
@@ -856,7 +842,6 @@ const tData = computed(() => tournament.value as Tournament);
               </div>
               <div v-else class="h-3.5 mt-1"></div>
             </div>
-
             <div class="text-right">
               <div class="text-2xl font-bold leading-none text-indigo-400 tabular-nums">
                 {{ getTotalPoints(player.id) }}
@@ -865,67 +850,111 @@ const tData = computed(() => tournament.value as Tournament);
                 Total Pts
               </div>
             </div>
-
           </div>
 
-          <div class="flex-1 flex flex-col gap-2">
+          <div class="flex-1 flex flex-col gap-4">
 
             <template v-for="results in [getSplitResults(player.id)]" :key="player.id">
 
-              <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">
-                {{isSmallTournament ? 'Races' : 'Group Stage'}}
-                <div class="h-px bg-slate-700 flex-1"></div>
-                <span class="font-mono text-slate-400">{{ getPhaseTotal(results.groups) }} pts</span>
-              </div>
-
-              <div v-if="results.groups.length === 0" class="flex-1 flex items-center justify-center min-h-[60px]">
-                <span class="text-xs text-slate-600 italic">No races recorded yet</span>
-              </div>
-
-              <div v-if="results.groups.length > 0">
-                <div class="grid grid-cols-5 gap-2">
-                  <div v-for="(result, idx) in results.groups" :key="'g'+idx" class="flex flex-col items-center gap-1">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110"
-                         :class="getPositionStyle(result.position, 'groups')">
-                      {{ result.position || '-' }}
-                    </div>
-                    <span class="text-[10px] font-mono text-slate-500">
-                      {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div v-if="!isSmallTournament && !playerEliminated(player.id)">
-                <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 mt-1 flex items-center gap-2">
-                  <span :class="isSmallTournament ? 'text-slate-500' : 'text-amber-500'">
-                    Finals
-                  </span>
+              <div v-if="isSmallTournament">
+                <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">
+                  Races
                   <div class="h-px bg-slate-700 flex-1"></div>
                   <span class="font-mono text-slate-400">{{ getPhaseTotal(results.finals) }} pts</span>
                 </div>
 
-                <div v-if="results.finals.length === 0" class="flex-1 flex items-center justify-center min-h-[60px]">
-                  <span class="text-xs text-slate-600 italic">No races recorded yet</span>
-                </div>
+                <div class="min-h-[60px] flex flex-col justify-center">
+                  <div v-if="results.finals.length === 0" class="flex items-center justify-center">
+                    <span class="text-xs text-slate-600 italic">No races recorded yet</span>
+                  </div>
 
-                <div class="grid grid-cols-5 gap-2">
-                  <div v-for="(result, idx) in results.finals" :key="'f'+idx" class="flex flex-col items-center gap-1">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110"
-                         :class="getPositionStyle(result.position, 'finals')">
-                      {{ result.position || '-' }}
+                  <div v-else class="grid grid-cols-5 gap-2">
+                    <div v-for="(result, idx) in results.finals" :key="'r'+idx" class="flex flex-col items-center gap-1">
+                      <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110"
+                           :class="getPositionStyle(result.position, 'finals')">
+                        {{ result.position || '-' }}
+                      </div>
+                      <span class="text-[10px] font-mono text-slate-500">
+                    {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
+                  </span>
                     </div>
-                    <span class="text-[10px] font-mono text-slate-500">
-                  {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
-                </span>
                   </div>
                 </div>
               </div>
 
-              <div v-else-if="playerEliminated(player.id)" class="mt-auto pt-2">
-                <div class="bg-slate-900/50 rounded-lg border border-slate-700 border-dashed p-3 text-center">
-                  <span class="text-xs text-slate-500 italic">Did not qualify for finals</span>
+
+              <div v-else class="contents">
+
+                <div>
+                  <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">
+                    Group Stage
+                    <div class="h-px bg-slate-700 flex-1"></div>
+                    <span class="font-mono text-slate-400">{{ getPhaseTotal(results.groups) }} pts</span>
+                  </div>
+
+                  <div class="min-h-[60px] flex flex-col justify-center">
+
+                    <div v-if="results.groups.length === 0" class="flex items-center justify-center">
+                      <span class="text-xs text-slate-600 italic">No races recorded yet</span>
+                    </div>
+
+                    <div v-else class="grid grid-cols-5 gap-2">
+                      <div v-for="(result, idx) in results.groups" :key="'g'+idx" class="flex flex-col items-center gap-1">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110"
+                             :class="getPositionStyle(result.position, 'groups')">
+                          {{ result.position || '-' }}
+                        </div>
+                        <span class="text-[10px] font-mono text-slate-500">
+                      {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
+                    </span>
+                      </div>
+                    </div>
+
+                  </div>
                 </div>
+
+                <div v-if="!playerEliminated(player.id) || results.finals.length > 0">
+                  <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 mt-1 flex items-center gap-2">
+                    <span class="text-amber-500">Finals</span>
+                    <div class="h-px bg-slate-700 flex-1"></div>
+                    <span class="font-mono text-slate-400">{{ getPhaseTotal(results.finals) }} pts</span>
+                  </div>
+
+                  <div class="min-h-[60px] flex flex-col justify-center">
+
+                    <div v-if="results.finals.length === 0" class="flex items-center justify-center">
+                      <span class="text-xs text-slate-600 italic">No races recorded yet</span>
+                    </div>
+
+                    <div v-else class="grid grid-cols-5 gap-2">
+                      <div v-for="(result, idx) in results.finals" :key="'f'+idx" class="flex flex-col items-center gap-1">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110"
+                             :class="getPositionStyle(result.position, 'finals')">
+                          {{ result.position || '-' }}
+                        </div>
+                        <span class="text-[10px] font-mono text-slate-500">
+                      {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
+                    </span>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                <div v-else-if="playerEliminated(player.id)" class="mt-auto">
+                  <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 mt-1 flex items-center gap-2">
+                    <span class="text-amber-500">Finals</span>
+                    <div class="h-px bg-slate-700 flex-1"></div>
+                    <span class="font-mono text-slate-400">{{ getPhaseTotal(results.finals) }} pts</span>
+                  </div>
+
+                  <div class="min-h-[60px] flex flex-col justify-center">
+                    <div class="bg-slate-900/50 rounded-lg border border-slate-700 border-dashed p-3 text-center">
+                      <span class="text-xs text-slate-500 italic">Did not qualify for finals</span>
+                    </div>
+                  </div>
+                </div>
+
               </div>
 
             </template>
