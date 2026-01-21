@@ -831,7 +831,7 @@ const tData = computed(() => tournament.value as Tournament);
         <div v-for="player in sortedPlayers" :key="player.id"
              class="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-indigo-500/50 transition-all flex flex-col h-full group">
 
-          <div class="flex justify-between items-start mb-3 pb-3 border-b border-slate-700/50">
+          <div class="flex justify-between items-start  pb-2 border-slate-700/50">
             <div>
               <div class="text-2xl font-bold leading-none group-hover:text-indigo-300 transition-colors"
                    :style="{ color: getPlayerColor(player.id) }">
