@@ -1219,9 +1219,11 @@ const tData = computed(() => tournament.value as Tournament);
           <div class="relative flex justify-center text-xs uppercase font-bold tracking-widest">
             <span class="px-3 bg-slate-900 whitespace-nowrap"
                   :class="tiebreakersNeeded === 0 ? 'text-emerald-400' : 'text-slate-500'">
-                {{ tiebreakersNeeded > 0
-                ? `Select ${tiebreakersNeeded} more to advance`
-                : 'Selection Complete' }}
+                {{
+                tiebreakersNeeded > 0
+                    ? `Select ${tiebreakersNeeded} more to advance`
+                    : tiebreakersNeeded === 0 ? 'Selection Complete' : `De-select ${tiebreakersNeeded*-1} more to advance`
+              }}
             </span>
           </div>
         </div>
