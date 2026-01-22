@@ -999,7 +999,8 @@ const tData = computed(() => tournament.value as Tournament);
     </div>
 
     <div v-if="showAdjustmentModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl">
+
+      <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full p-6 shadow-2xl">
 
         <h3 class="text-xl font-bold text-white mb-1">Adjust Points</h3>
         <p class="text-sm text-slate-400 mb-6">For team: <span class="text-indigo-400 font-bold">{{ activeTeamName }}</span></p>
@@ -1011,16 +1012,28 @@ const tData = computed(() => tournament.value as Tournament);
             <div class="flex flex-col sm:flex-row gap-2 mt-1">
 
               <div class="grid grid-cols-2 sm:flex gap-2">
-                <button @click="adjAmount -= 10" class="px-2 py-2 bg-slate-800 hover:bg-red-900/30 border border-slate-700 hover:border-red-500/50 text-red-400 rounded transition-colors font-bold flex justify-center items-center">-10</button>
-                <button @click="adjAmount -= 5" class="px-2 py-2 bg-slate-800 hover:bg-red-900/30 border border-slate-700 hover:border-red-500/50 text-red-400 rounded transition-colors font-bold flex justify-center items-center">-5</button>
+                <button @click="adjAmount -= 10"
+                        class="w-14 py-2 bg-slate-800 hover:bg-red-900/30 border border-slate-700 hover:border-red-500/50 text-red-400 rounded transition-colors font-bold flex justify-center items-center">
+                  -10
+                </button>
+                <button @click="adjAmount -= 5"
+                        class="w-14 py-2 bg-slate-800 hover:bg-red-900/30 border border-slate-700 hover:border-red-500/50 text-red-400 rounded transition-colors font-bold flex justify-center items-center">
+                  -5
+                </button>
               </div>
 
               <input v-model.number="adjAmount" type="number"
                      class="w-full sm:flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-2 text-white text-center font-bold focus:border-indigo-500 focus:outline-none">
 
               <div class="grid grid-cols-2 sm:flex gap-2">
-                <button @click="adjAmount += 5" class="px-2 py-2 bg-slate-800 hover:bg-emerald-900/30 border border-slate-700 hover:border-emerald-500/50 text-emerald-400 rounded transition-colors font-bold flex justify-center items-center">+5</button>
-                <button @click="adjAmount += 10" class="px-2 py-2 bg-slate-800 hover:bg-emerald-900/30 border border-slate-700 hover:border-emerald-500/50 text-emerald-400 rounded transition-colors font-bold flex justify-center items-center">+10</button>
+                <button @click="adjAmount += 5"
+                        class="w-14 py-2 bg-slate-800 hover:bg-emerald-900/30 border border-slate-700 hover:border-emerald-500/50 text-emerald-400 rounded transition-colors font-bold flex justify-center items-center">
+                  +5
+                </button>
+                <button @click="adjAmount += 10"
+                        class="w-14 py-2 bg-slate-800 hover:bg-emerald-900/30 border border-slate-700 hover:border-emerald-500/50 text-emerald-400 rounded transition-colors font-bold flex justify-center items-center">
+                  +10
+                </button>
               </div>
 
             </div>
