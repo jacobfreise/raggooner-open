@@ -709,7 +709,7 @@ export function useGameLogic(
     const winningTeams = computed(() => {
         if (!tournament.value || sortedFinalsTeams.value.length === 0) return [];
 
-        const topTeam = sortedFinalsTeams.value[0];
+        const topTeam = sortedFinalsTeams.value[0]!;
 
         // Filter the list for teams that are perfectly tied with the top team
         // Arg 3 (useIdFallback) = false: We want to know if they are actually tied, don't force a winner by ID
