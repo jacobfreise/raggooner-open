@@ -6,9 +6,18 @@ export interface ChangeLogEntry {
     changes: { type: 'new' | 'fix' | 'improvement'; text: string }[];
 }
 
-export const APP_VERSION = '1.2.2'; // Update this manually when you deploy
+export const APP_VERSION = '1.2.3'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '1.2.3',
+        date: '2026-01-23',
+        title: 'Wildcard Points and Discord Export',
+        changes: [
+            { type: 'fix', text: 'Wildcard Point calculation!' },
+            { type: 'fix', text: 'Discord Export now working with Point Adjustments!' },
+        ]
+    },
     {
         version: '1.2.2',
         date: '2026-01-21',

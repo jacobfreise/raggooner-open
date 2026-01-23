@@ -1,4 +1,4 @@
-import type {Player, Team, Tournament} from "../types.ts";
+import type {Player, Team, Tournament, Wildcard} from "../types.ts";
 import {POINTS_SYSTEM as DEFAULT_POINTS} from "./constants.ts";
 
 // Compare two teams (Returns positive if A is better, negative if B is better)
@@ -60,7 +60,7 @@ const getTeamPlacements = (team: Team, tournament: Tournament) => {
     return counts;
 };
 
-export const recalculateTournamentScores = (t: Tournament): { teams: Team[], players: Player[] } => {
+export const recalculateTournamentScores = (t: Tournament): { teams: Team[], players: Player[], wildcards: Wildcard[] } => {
     const activePointsSystem = t.pointsSystem || DEFAULT_POINTS;
 
     // 1. Clone arrays to avoid mutation issues
@@ -78,9 +78,15 @@ export const recalculateTournamentScores = (t: Tournament): { teams: Team[], pla
         finalsPoints: 0
     }));
 
+    const wildcards = t.wildcards ? t.wildcards.map(wildcard => ({
+        ...wildcard,
+        points: 0
+    })) : [];
+
     // Helper to find indices
     const findTeamIdx = (pid: string) => teams.findIndex(team => team.captainId === pid || team.memberIds.includes(pid));
     const findPlayerIdx = (pid: string) => players.findIndex(p => p.id === pid);
+    const findWildcardIdx = (wid: string) => wildcards.findIndex(wc => wc.playerId === wid);
 
     // 2. Process ALL Races
     t.races.forEach(race => {
@@ -110,6 +116,12 @@ export const recalculateTournamentScores = (t: Tournament): { teams: Team[], pla
                     players[pIdx]!.groupPoints = (players[pIdx]!.groupPoints || 0) + points;
                 }
             }
+
+            //Update Wildcard
+            const wIdx = findWildcardIdx(pid);
+            if (wIdx !== -1) {
+                wildcards[wIdx]!.points = (wildcards[wIdx]!.points || 0) + points;
+            }
         });
     });
 
@@ -126,7 +138,7 @@ export const recalculateTournamentScores = (t: Tournament): { teams: Team[], pla
         }
     });
 
-    return { teams, players };
+    return { teams, players, wildcards };
 };
 
 export const getStatusColor = (status: string) => {

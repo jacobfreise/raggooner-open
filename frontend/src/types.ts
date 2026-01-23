@@ -13,6 +13,7 @@ export interface Player {
 export interface Wildcard {
     playerId: string;
     group: 'A' | 'B' | 'C' | 'Finals';
+    points?: number;
 }
 
 export interface PointAdjustment {
