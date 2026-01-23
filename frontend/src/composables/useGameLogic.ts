@@ -249,14 +249,15 @@ export function useGameLogic(
             races: currentRaces
         };
 
-        const { teams: updatedTeams, players: updatedPlayers } = recalculateTournamentScores(tempTournament);
+        const { teams: updatedTeams, players: updatedPlayers, wildcards: updatedWildcards } = recalculateTournamentScores(tempTournament);
 
         try {
             // Save Races, Teams (with new points), and Players (with new stats)
             await secureUpdate({
                 races: currentRaces,
                 teams: updatedTeams,
-                players: updatedPlayers
+                players: updatedPlayers,
+                wildcards: updatedWildcards
             });
         } catch (e) {
             console.error(e);

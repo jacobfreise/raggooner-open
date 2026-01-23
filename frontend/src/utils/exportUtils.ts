@@ -1,5 +1,4 @@
-import type {Tournament, Team, Player, Race, Wildcard} from '../types'; // Adjust path if needed
-import {POINTS_SYSTEM} from "./constants.ts";
+import type {Tournament, Team, Player, Race, Wildcard} from '../types';
 
 export const generateDiscordReport = (t: Tournament): string => {
     const lines: string[] = [];
@@ -12,7 +11,7 @@ export const generateDiscordReport = (t: Tournament): string => {
     lines.push('');
 
     // ==========================================
-    // 1. GROUP STAGE (A & B)
+    // 1. GROUP STAGE (A & B & C)
     // ==========================================
     const groupNames = ['A', 'B', 'C'] as const;
 
@@ -28,17 +27,15 @@ export const generateDiscordReport = (t: Tournament): string => {
         // Check for wildcards in this group
         const groupWildcards = t.wildcards?.filter(w => w.group === groupName) || [];
 
-        // Only generate this section if data exists (Teams OR Wildcards + Races)
         const hasParticipants = groupTeams.length > 0 || groupWildcards.length > 0;
 
-        // Only generate this section if data exists
         if (groupRaces.length > 0 && hasParticipants) {
             lines.push(buildStageSection(
                 `Group ${groupName}`,
-                groupName, // Pass the ID ('A', 'B', etc)
+                groupName,
                 groupTeams,
                 groupRaces,
-                t.wildcards || [], // Pass all wildcards
+                t.wildcards || [],
                 playerMap
             ));
             lines.push('');
@@ -54,15 +51,13 @@ export const generateDiscordReport = (t: Tournament): string => {
 
     const finalsTeams = t.teams.filter(team => team.inFinals);
 
-    // Check for wildcards in finals
     const finalsWildcards = t.wildcards?.filter(w => w.group === 'Finals') || [];
-
     const hasFinalsParticipants = finalsTeams.length > 0 || finalsWildcards.length > 0;
 
     if (finalsRaces.length > 0 && hasFinalsParticipants) {
         lines.push(buildStageSection(
             'Finals',
-            'Finals', // Pass ID
+            'Finals',
             finalsTeams,
             finalsRaces,
             t.wildcards || [],
@@ -104,51 +99,58 @@ const buildStageSection = (
 
     sectionLines.push(`**${title}:**`);
 
-    // 1. Calculate Scores specific to ONLY these races
-    const scopedPlayerScores = calculatePlayerScoresForRaces(races);
+    const currentStage = groupIdentifier === 'Finals' ? 'finals' : 'groups';
 
-    // 2. Calculate Team Scores & Sort
+    // Prepare Teams for Sorting (Using stored points on Team object)
     const rankedTeams = teams.map(team => {
-        // Combine Captain + Members into one roster
+        // Use stored values as source of truth for Team Score
+        const totalScore = currentStage === 'finals' ? (team.finalsPoints || 0) : team.points;
+
+        // Sort roster by their stored individual points
         let fullRosterIds = [team.captainId, ...team.memberIds];
 
         fullRosterIds.sort((idA, idB) => {
-            const scoreA = scopedPlayerScores[idA] || 0;
-            const scoreB = scopedPlayerScores[idB] || 0;
+            const playerA = playerMap.get(idA);
+            const playerB = playerMap.get(idB);
+
+            const scoreA = currentStage === 'finals' ? (playerA?.finalsPoints || 0) : (playerA?.groupPoints || 0);
+            const scoreB = currentStage === 'finals' ? (playerB?.finalsPoints || 0) : (playerB?.groupPoints || 0);
+
             return scoreB - scoreA;
         });
 
-        // Sum up points for the whole team
-        const teamRoundScore = fullRosterIds.reduce((sum, pid) => {
-            return sum + (scopedPlayerScores[pid] || 0);
-        }, 0);
+        // Filter adjustments for display text only
+        const relevantAdjustments = team.adjustments?.filter(adj => adj.stage === currentStage) || [];
 
-        return { ...team, teamRoundScore, fullRosterIds };
-    }).sort((a, b) => b.teamRoundScore - a.teamRoundScore);
+        return {
+            ...team,
+            totalScore,
+            fullRosterIds,
+            relevantAdjustments
+        };
+    }).sort((a, b) => b.totalScore - a.totalScore);
 
-    // 3. Generate Ranking Text with Tie Handling
+    // Generate Ranking Text
     let currentRank = 1;
 
     rankedTeams.forEach((team, index) => {
-        // LOGIC: If this isn't the first team, check if score equals previous team
+        // Tie handling logic based on stored totalScore
         if (index > 0) {
             const prevTeam = rankedTeams[index - 1];
-            // If scores are different, the rank "jumps" to the current index + 1
-            // (e.g., 1st, 1st, 3rd)
-            if (team.teamRoundScore < prevTeam!.teamRoundScore) {
+            if (team.totalScore < prevTeam!.totalScore) {
                 currentRank = index + 1;
             }
-            // If scores are the same, 'currentRank' stays the same as the previous iteration
         } else {
             currentRank = 1;
         }
 
         const rankString = getOrdinal(currentRank);
 
-        // Generate text for the full roster
+        // Generate text for roster using stored Player points
         const membersText = team.fullRosterIds.map(pid => {
             const p = playerMap.get(pid);
-            const score = scopedPlayerScores[pid] || 0;
+            // Dynamic access based on stage
+            const score = currentStage === 'finals' ? (p?.finalsPoints || 0) : (p?.groupPoints || 0);
             return p ? `${p.name} (${score})` : 'Unknown';
         }).join(', ');
 
@@ -157,7 +159,17 @@ const buildStageSection = (
             return p ? (p.uma || 'Unknown') : 'Unknown';
         }).join(', ');
 
-        sectionLines.push(`**${rankString}:** ${team.name} - **${team.teamRoundScore} Points**`)
+        // Main Line
+        sectionLines.push(`**${rankString}:** ${team.name} - **${team.totalScore} Points**`);
+
+        // Adjustments Line
+        if (team.relevantAdjustments.length > 0) {
+            const adjText = team.relevantAdjustments
+                .map(adj => `${adj.amount > 0 ? '+' : ''}${adj.amount} (${adj.reason})`)
+                .join(', ');
+            sectionLines.push(`_Adjustments: ${adjText}_`);
+        }
+
         sectionLines.push(`${membersText}`);
         sectionLines.push(`> Umas - ${umasText}`);
     });
@@ -166,19 +178,18 @@ const buildStageSection = (
     const activeWildcards = wildcards.filter(w => w.group === groupIdentifier);
 
     if (activeWildcards.length > 0) {
-        sectionLines.push(''); // Spacing
+        sectionLines.push('');
         sectionLines.push(`**👻 Wildcards:**`);
 
-        // Map to objects with score for sorting
         const sortedWildcards = activeWildcards.map(w => {
             const p = playerMap.get(w.playerId);
-            const score = scopedPlayerScores[w.playerId] || 0;
+            const score = w.points || 0;
             return {
                 name: p?.name || 'Unknown',
                 uma: p?.uma || 'Unknown',
                 score: score
             };
-        }).sort((a, b) => b.score - a.score); // Sort High to Low
+        }).sort((a, b) => b.score - a.score);
 
         sortedWildcards.forEach(w => {
             sectionLines.push(`${w.name} (${w.score}) - ${w.uma}`);
@@ -190,9 +201,7 @@ const buildStageSection = (
     // 5. Generate Race Winners Text
     sectionLines.push(`**🏁 Race Winners:**`);
     races.forEach((race, index) => {
-        // Find the player ID who has placement: 1
         const winnerId = Object.keys(race.placements).find(pid => race.placements[pid] === 1);
-
         if (winnerId) {
             const winner = playerMap.get(winnerId);
             sectionLines.push(`Race ${index + 1}: ${winner?.name || 'Unknown'} - ${winner?.uma || 'Unknown'}`);
@@ -205,20 +214,6 @@ const buildStageSection = (
 };
 
 // --- Low Level Helpers ---
-
-// Calculates scores ONLY based on the array of races provided
-const calculatePlayerScoresForRaces = (races: Race[]): Record<string, number> => {
-    const scores: Record<string, number> = {};
-
-    races.forEach(race => {
-        Object.entries(race.placements).forEach(([playerId, position]) => {
-            const points = POINTS_SYSTEM[position] || 0;
-            scores[playerId] = (scores[playerId] || 0) + points;
-        });
-    });
-
-    return scores;
-};
 
 const getOrdinal = (n: number): string => {
     const s = ["th", "st", "nd", "rd"];
