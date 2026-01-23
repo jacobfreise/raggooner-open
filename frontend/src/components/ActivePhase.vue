@@ -56,6 +56,7 @@ const {
   tiedTeams,
   tiebreakersNeeded,
   guaranteedIds,
+  winningTeams,
   resolveManually,
   getVisualRankIndex,
   getProgressionStatus,
@@ -612,10 +613,17 @@ const tData = computed(() => tournament.value as Tournament);
 
         <div v-if="tournament.status === 'completed'" class="mt-8 flex flex-col text-center items-center p-6 bg-indigo-900/20 border border-indigo-500/30 rounded-xl">
           <h3 class="text-2xl font-bold text-indigo-300 mb-2">Tournament Complete</h3>
-          <p class="text-slate-300">Winner: <span class="font-bold text-white">{{ sortedFinalsTeams[0]?.name }}</span></p>
+
+          <p class="text-slate-300 mb-4">
+            <span class="mr-1">{{ winningTeams.length > 1 ? 'Winners:' : 'Winner:' }}</span>
+            <span class="font-bold text-white text-lg">
+      {{ winningTeams.map(t => t.name).join(' & ') }}
+    </span>
+          </p>
+
           <button
               @click="copyResults"
-              class="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold py-2 px-4 rounded flex items-center gap-2"
+              class="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold py-2 px-4 rounded flex items-center gap-2 transition-colors shadow-lg shadow-indigo-900/20"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />

@@ -706,6 +706,19 @@ export function useGameLogic(
         }
     };
 
+    const winningTeams = computed(() => {
+        if (!tournament.value || sortedFinalsTeams.value.length === 0) return [];
+
+        const topTeam = sortedFinalsTeams.value[0];
+
+        // Filter the list for teams that are perfectly tied with the top team
+        // Arg 3 (useIdFallback) = false: We want to know if they are actually tied, don't force a winner by ID
+        // Arg 5 (isFinals) = true: Use finals points/logic
+        return sortedFinalsTeams.value.filter(t =>
+            compareTeams(topTeam, t, false, tournament.value!, true) === 0
+        );
+    });
+
     /**
      * Returns the "Visual Rank Index" for a team.
      * If Team A (idx 0) and Team B (idx 1) are tied, this returns 0 for both.
@@ -748,6 +761,7 @@ export function useGameLogic(
         canEndTournament,
         canShowFinals,
         sortedPlayers,
+        winningTeams,
         // Actions
         updateRacePlacement,
         advanceToFinals,
