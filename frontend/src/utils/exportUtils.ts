@@ -183,7 +183,7 @@ const buildStageSection = (
 
         const sortedWildcards = activeWildcards.map(w => {
             const p = playerMap.get(w.playerId);
-            const score = w.points || 0;
+            const score = w.points || p.totalPoints || 0;
             return {
                 name: p?.name || 'Unknown',
                 uma: p?.uma || 'Unknown',
