@@ -862,7 +862,6 @@ const tData = computed(() => tournament.value as Tournament);
                 <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">
                   Races
                   <div class="h-px bg-slate-700 flex-1"></div>
-                  <span class="font-mono text-slate-400">{{ getPhaseTotal(results.finals) }} pts</span>
                 </div>
 
                 <div class="min-h-[60px] flex flex-col justify-center">
