@@ -37,6 +37,7 @@ const hasInitialViewLoaded = ref(false);
 const newTournamentName = ref('');
 const joinId = ref('');
 const currentUnsubscribe = ref<(() => void) | null>(null);
+const isCreating = ref(false);
 
 // --- NEW STATE FOR HOME PAGE ---
 const homeListLoading = ref(false);
@@ -185,58 +186,63 @@ const subscribeToTournament = (id: string) => {
 };
 
 const createTournament = async () => {
-  if (!auth.currentUser) await signInAnonymously(auth);
+  // 2. The Guard Clause: If already creating, stop immediately
+  if (isCreating.value) return;
 
-  const id = Math.random().toString(36).substring(2, 8).toUpperCase();
-  const password = Math.random().toString(36).substring(2, 6).toUpperCase();
-  const userId = auth.currentUser!.uid;
+  // 3. Lock the function
+  isCreating.value = true;
 
-  // 1. References
-  const batch = writeBatch(db);
+  try {
+    if (!auth.currentUser) await signInAnonymously(auth);
 
-  // Ref for Public Data
-  const tournamentRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', id);
-  // Ref for Secret Password
-  const secretRef = doc(db, 'artifacts', appId, 'public', 'data', 'secrets', id);
-  // Ref for Admin Slip (Automatically granting creator access)
-  const adminRef = doc(db, 'artifacts', appId, 'public', 'data', 'admins', `${id}_${userId}`);
+    const id = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const password = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const userId = auth.currentUser!.uid;
 
-  // 2. Data
-  const newTourney: Tournament = {
-    id,
-    name: newTournamentName.value,
-    status: 'registration',
-    stage: 'groups',
-    players: [],
-    teams: [],
-    races: [],
-    isSecured: true,
-    usePlacementTiebreaker: true,
-    pointsSystem: { ...POINTS_SYSTEM },
-    createdAt: new Date().toISOString(),
-  };
+    const batch = writeBatch(db);
 
-  // 3. Queue Operations
-  batch.set(tournamentRef, newTourney);
-  batch.set(secretRef, { password: password }); // Secret stored privately
-  batch.set(adminRef, {
-    tournamentId: id,
-    userId: userId,
-    password: password // Required for the validation rule, but stored in 'admins' collection
-  });
+    const tournamentRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', id);
+    const secretRef = doc(db, 'artifacts', appId, 'public', 'data', 'secrets', id);
+    const adminRef = doc(db, 'artifacts', appId, 'public', 'data', 'admins', `${id}_${userId}`);
 
-  // 4. Commit
-  await batch.commit();
+    const newTourney: Tournament = {
+      id,
+      name: newTournamentName.value,
+      status: 'registration',
+      stage: 'groups',
+      players: [],
+      teams: [],
+      races: [],
+      isSecured: true,
+      usePlacementTiebreaker: true,
+      pointsSystem: { ...POINTS_SYSTEM },
+      createdAt: new Date().toISOString(),
+    };
 
-  // 5. Local State
-  tournament.value = newTourney;
-  localAdminPassword.value = password;
+    batch.set(tournamentRef, newTourney);
+    batch.set(secretRef, { password: password });
+    batch.set(adminRef, {
+      tournamentId: id,
+      userId: userId,
+      password: password
+    });
 
-  // Save to local storage so they don't lose it on refresh
-  localStorage.setItem(`admin_pwd_${id}`, password);
+    await batch.commit();
 
-  subscribeToTournament(id);
-  window.history.pushState({}, '', `?tid=${id}`);
+    tournament.value = newTourney;
+    localAdminPassword.value = password;
+    localStorage.setItem(`admin_pwd_${id}`, password);
+
+    subscribeToTournament(id);
+    window.history.pushState({}, '', `?tid=${id}`);
+
+  } catch (error) {
+    console.error("Failed to create tournament:", error);
+    alert("Error creating tournament. Please try again.");
+  } finally {
+    // 4. Unlock the function (always runs, success or fail)
+    isCreating.value = false;
+  }
 };
 
 const joinTournament = () => {
@@ -401,9 +407,30 @@ onMounted(() => {
           <div class="space-y-4">
             <h2 class="text-2xl font-bold text-white mb-4">Create New Tournament</h2>
             <div class="space-y-3">
-              <input v-model="newTournamentName" type="text" placeholder="Tournament Name" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all">
-              <button @click="createTournament" :disabled="!newTournamentName" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg transition-all shadow-lg shadow-indigo-900/30 flex items-center justify-center gap-2">
-                <i class="ph-bold ph-plus-circle"></i> Start
+              <input v-model="newTournamentName"
+                     @keydown.enter="createTournament"
+                     :disabled="isCreating"
+                     type="text"
+                     placeholder="Tournament Name"
+                     class="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all disabled:opacity-50">
+
+              <button @click="createTournament"
+                      :disabled="!newTournamentName || isCreating"
+                      class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg transition-all shadow-lg shadow-indigo-900/30 flex items-center justify-center gap-2">
+
+                <template v-if="isCreating">
+                  <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Creating...</span>
+                </template>
+
+                <template v-else>
+                  <i class="ph-bold ph-plus-circle"></i>
+                  <span>Start</span>
+                </template>
+
               </button>
             </div>
 
