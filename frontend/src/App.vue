@@ -147,7 +147,7 @@ const {
   currentView,
 } = useGameLogic(tournament, secureUpdate);
 
-const { showHishiOverlay } = useEasterEgg(tournament);
+const { activeVisualEgg } = useEasterEgg(tournament);
 
 const subscribeToTournament = (id: string) => {
   // 1. If we are already listening to a tournament, stop listening!
@@ -346,7 +346,7 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen flex flex-col"
-       :class="{ 'hishi-quake': showHishiOverlay }">
+       :class="activeVisualEgg?.visual?.rootClass">
     <header class="border-b border-slate-700 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between relative">
         <div class="flex items-center gap-2 text-indigo-500 cursor-pointer z-10" @click="exitTournament">
@@ -752,10 +752,20 @@ onMounted(() => {
     </div>
 
   </div>
-  <div v-if="showHishiOverlay" class="hishi-overlay flex items-center justify-center">
-    <h1 class="text-9xl font-black text-red-500/50 uppercase tracking-widest animate-pulse rotate-12 select-none drop-shadow-2xl">
-      BONO!
+  <div v-if="activeVisualEgg"
+       :class="activeVisualEgg.visual?.overlayClass"
+       class="flex items-center justify-center fixed inset-0 pointer-events-none z-[9999]">
+
+    <h1 v-if="activeVisualEgg.visual?.text"
+        class="text-9xl font-black text-red-500/50 uppercase tracking-widest animate-pulse rotate-12 select-none drop-shadow-2xl">
+      {{ activeVisualEgg.visual.text }}
     </h1>
+
+    <img v-if="activeVisualEgg.visual?.image"
+         :src="activeVisualEgg.visual.image"
+         :class="activeVisualEgg.visual.imageClass"
+         alt="Easter Egg Visual"
+         class="max-w-full max-h-screen object-contain" />
   </div>
 
   <Transition enter-active-class="duration-200 ease-out" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="duration-150 ease-in" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">

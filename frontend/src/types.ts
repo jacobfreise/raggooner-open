@@ -69,3 +69,18 @@ export interface Tournament {
 export type FirestoreUpdate<T> = {
     [K in keyof T]?: T[K] | FieldValue;
 };
+
+export interface EggConfig {
+    id: string;                    // Unique key for this egg
+    check: (race: any, players: any[], tournament: Tournament) => boolean; // Logic to determine if egg triggers
+    audio?: string;                // Path to sound file (optional)
+    volume?: number;               // 0.0 to 1.0
+    duration?: number;             // How long visuals stay on screen (ms)
+    visual?: {
+        overlayClass: string;  // Class for the popup/overlay (e.g. 'hishi-overlay')
+        rootClass?: string;    // Class for the main app div (e.g. 'hishi-quake')
+        text?: string;
+        image?: string;       // Path to the file (e.g., '/gifs/dance.gif')
+        imageClass?: string;
+    }
+}
