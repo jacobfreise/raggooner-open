@@ -55,7 +55,7 @@ export const getRaceWinnerGif = (race: any, players: any[]): string | undefined 
     let path: string;
 
     if (SPECIAL_CASE_MAP[winner.uma]) {
-        path = SPECIAL_CASE_MAP[winner.uma];
+        path = SPECIAL_CASE_MAP[winner.uma]!;
     } else {
         const cleanName = winner.uma.trim().toLowerCase().replace(/\s+/g, '-');
         path = `/gifs/${cleanName}.gif`;
