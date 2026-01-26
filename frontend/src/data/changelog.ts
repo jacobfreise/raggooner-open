@@ -6,9 +6,17 @@ export interface ChangeLogEntry {
     changes: { type: 'new' | 'fix' | 'improvement'; text: string }[];
 }
 
-export const APP_VERSION = '1.2.3'; // Update this manually when you deploy
+export const APP_VERSION = '1.2.4'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '1.2.4',
+        date: '2026-01-23',
+        title: 'Race Winner GIFs!',
+        changes: [
+            { type: 'new', text: 'show a GIF for each Race Winner' },
+        ]
+    },
     {
         version: '1.2.3',
         date: '2026-01-23',
