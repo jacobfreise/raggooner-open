@@ -36,7 +36,7 @@
 // Optional: Keep this if you have weird filenames that don't match the rule
 // e.g. "Silence Suzuka" -> "suzuka_scream.gif"
 const SPECIAL_CASE_MAP: Record<string, string> = {
-    'Gold Ship': '/gifs/golshi_peace.gif', // Custom override example
+    // 'Gold Ship': '/gifs/golshi_peace.gif', // Custom override example
 };
 
 export const getRaceWinnerGif = (race: any, players: any[]): string | undefined => {
