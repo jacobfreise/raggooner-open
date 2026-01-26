@@ -138,17 +138,36 @@ export function useEasterEgg(tournament: Ref<Tournament | null>) {
 
     // --- WATCHER ---
     watch(
-        () => tournament.value,
-        (newVal) => {
-            if (newVal) {
+        () => tournament.value?.id, // Watch the ID, not just the object
+        (newId, oldId) => {
+            // 1. If we switched tournaments (or closed one), RESET everything
+            if (newId !== oldId) {
+                playedHistory.value.clear();
+                isFirstLoad.value = true;
+                activeVisualEgg.value = null; // Clear any lingering overlays
+            }
+
+            // 2. If we have a valid tournament, run the logic
+            if (tournament.value) {
                 if (isFirstLoad.value) {
-                    // Pass true to mark existing conditions as "played" without noise
-                    processRaces(true);
+                    processRaces(true); // Silent catch-up
                     isFirstLoad.value = false;
                 } else {
-                    // Pass false to actually play new occurrences
-                    processRaces(false);
+                    processRaces(false); // Loud updates
                 }
+            }
+        },
+        { immediate: true } // Run immediately in case data is already there
+    );
+
+    // You also need a separate watcher for DEEP changes (live updates within the SAME tournament)
+    watch(
+        () => tournament.value,
+        (newVal) => {
+            // Only run if we are NOT in the middle of a first-load reset
+            // and we actually have data
+            if (newVal && !isFirstLoad.value) {
+                processRaces(false);
             }
         },
         { deep: true }
