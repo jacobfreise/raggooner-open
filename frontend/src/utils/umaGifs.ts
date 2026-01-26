@@ -38,25 +38,29 @@
 const SPECIAL_CASE_MAP: Record<string, string> = {
     // 'Gold Ship': '/gifs/golshi_peace.gif', // Custom override example
 };
+// src/utils/umaGifs.ts
+
+// 1. Define a global version number.
+// Whenever you upload new GIFs and redeploy, simply change this number (e.g. to '2', '3', etc.)
+const GIF_VERSION = '1';
 
 export const getRaceWinnerGif = (race: any, players: any[]): string | undefined => {
-    // 1. Find the winner ID
     const winnerId = Object.keys(race.placements).find(pid => race.placements[pid] === 1);
     if (!winnerId) return undefined;
 
-    // 2. Find the player object
     const winner = players.find(p => p.id === winnerId);
     if (!winner || !winner.uma) return undefined;
 
-    // 3. Check for specific override first
+    // BASE PATH LOGIC
+    let path: string;
+
     if (SPECIAL_CASE_MAP[winner.uma]) {
-        return SPECIAL_CASE_MAP[winner.uma];
+        path = SPECIAL_CASE_MAP[winner.uma];
+    } else {
+        const cleanName = winner.uma.trim().toLowerCase().replace(/\s+/g, '-');
+        path = `/gifs/${cleanName}.gif`;
     }
 
-    // 4. Generate the kebab-case filename
-    // "Special Week" -> "special-week"
-    const cleanName = winner.uma.trim().toLowerCase().replace(/\s+/g, '-');
-
-    // Return the path
-    return `/gifs/${cleanName}.gif`;
+    // 2. Append the version tag to the result
+    return `${path}?v=${GIF_VERSION}`;
 };
