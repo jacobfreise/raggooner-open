@@ -64,6 +64,7 @@ export interface Tournament {
     isSecured?: boolean;
     usePlacementTiebreaker?: boolean;
     pointsSystem?: Record<number, number>;
+    banTimerStart?: string;
 }
 
 export type FirestoreUpdate<T> = {
