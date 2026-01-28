@@ -6,9 +6,17 @@ export interface ChangeLogEntry {
     changes: { type: 'new' | 'fix' | 'improvement'; text: string }[];
 }
 
-export const APP_VERSION = '1.2.4'; // Update this manually when you deploy
+export const APP_VERSION = '1.2.5'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '1.2.5',
+        date: '2026-01-29',
+        title: 'Ban Phase Timer!',
+        changes: [
+            { type: 'new', text: 'Added a timer to the ban phase!' },
+        ]
+    },
     {
         version: '1.2.4',
         date: '2026-01-23',

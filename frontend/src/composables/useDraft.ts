@@ -101,6 +101,7 @@ export function useDraft(
 
         if (nextIdx >= draft.order.length) {
             updates.status = 'ban';
+            updates.banTimerStart = new Date().toISOString()
         }
 
         await secureUpdate(updates);

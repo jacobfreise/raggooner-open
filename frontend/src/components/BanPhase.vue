@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { toRef, ref, computed } from 'vue';
+import { toRef, ref, computed, onMounted, onUnmounted } from 'vue';
 import type { Tournament, FirestoreUpdate } from '../types';
 import { useDraft } from '../composables/useDraft';
 import { useGameLogic } from '../composables/useGameLogic';
 import { UMAS } from '../utils/constants';
 import { getPlayerName } from '../utils/utils';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const props = defineProps<{
   tournament: Tournament;
@@ -29,10 +31,94 @@ const filteredUmas = computed(() => {
   const query = banSearch.value.toLowerCase();
   return [...UMAS].sort().filter(u => u.toLowerCase().includes(query));
 });
+
+// --- TIMER LOGIC ---
+const now = ref(Date.now());
+let timerInterval: number | null = null;
+
+// Action: Start the Timer (Admin Only)
+const startBanTimer = async () => {
+  if (!props.tournament.id) return;
+  const tRef = doc(db, 'artifacts', 'default-app', 'public', 'data', 'tournaments', props.tournament.id);
+
+  await updateDoc(tRef, {
+    banTimerStart: new Date().toISOString()
+  });
+};
+
+onMounted(() => {
+  // 1. Start the local ticking for UI updates
+  timerInterval = window.setInterval(() => {
+    now.value = Date.now();
+  }, 1000);
+});
+
+onUnmounted(() => {
+  if (timerInterval) clearInterval(timerInterval);
+});
+
+// Calculate Elapsed Time
+const elapsedSeconds = computed(() => {
+  if (!props.tournament.banTimerStart) return 0;
+  const start = new Date(props.tournament.banTimerStart).getTime();
+  return Math.floor((now.value - start) / 1000);
+});
+
+// Format as MM:SS
+const formattedTime = computed(() => {
+  const total = elapsedSeconds.value;
+  // Prevent negative numbers if client clock is slightly off server time
+  if (total < 0) return "00:00";
+  const m = Math.floor(total / 60).toString().padStart(2, '0');
+  const s = (total % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+});
+
+// Action: Reset Timer (Optional, if they messed up)
+const resetBanTimer = async () => {
+  if (!props.tournament.id) return;
+  const tRef = doc(db, 'artifacts', 'default-app', 'public', 'data', 'tournaments', props.tournament.id);
+
+  // Use Firestore deleteField() or just set to null/undefined
+  await updateDoc(tRef, {
+    banTimerStart: null
+  });
+};
 </script>
 
 <template>
   <div class="space-y-6">
+    <div class="flex flex-col items-center justify-center py-8">
+
+      <div v-if="tournament.banTimerStart || isAdminRef" class="text-center relative group">
+
+        <div class="text-8xl md:text-9xl font-black font-mono tracking-widest tabular-nums leading-none transition-colors duration-500"
+             :class="{
+            'text-white': elapsedSeconds < 180,
+            'text-amber-400': elapsedSeconds >= 180 && elapsedSeconds < 300,
+            'text-red-500 animate-pulse': elapsedSeconds >= 300
+         }">
+          {{ formattedTime }}
+        </div>
+
+        <button v-if="isAdminRef"
+                @click="tournament.banTimerStart ? resetBanTimer() : startBanTimer()"
+                :title="tournament.banTimerStart ? 'Reset Timer' : 'Start Timer'"
+                class="absolute -right-16 top-1/2 -translate-y-1/2 p-2 transition-all opacity-0 group-hover:opacity-100 hover:scale-110"
+                :class="tournament.banTimerStart ? 'text-slate-600 hover:text-red-400' : 'text-slate-600 hover:text-emerald-400'">
+
+          <i class="ph-bold text-3xl"
+             :class="tournament.banTimerStart ? 'ph-arrow-counter-clockwise' : 'ph-play-circle'"></i>
+
+        </button>
+      </div>
+
+      <div v-else class="text-center p-8 border-2 border-dashed border-slate-800 rounded-xl">
+        <h3 class="text-xl font-bold text-slate-500 animate-pulse">Waiting for Ban Phase...</h3>
+      </div>
+
+    </div>
+
     <div class="sticky top-20 z-30 bg-slate-900/90 backdrop-blur-md p-4 rounded-xl border border-slate-700 shadow-xl flex flex-col sm:flex-row justify-between items-center gap-4">
       <div>
         <h2 class="text-3xl font-bold text-white flex items-center gap-3">

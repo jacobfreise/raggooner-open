@@ -627,7 +627,11 @@ export function useGameLogic(
         if (!tournament.value) return;
         const isSmallTournament = tournament.value.teams.length < 6;
         const nextStage = isSmallTournament ? 'finals' : 'groups';
-        await secureUpdate({ status: 'active', stage: nextStage });
+        await secureUpdate({
+            status: 'active',
+            stage: nextStage,
+            banTimerStart: null
+        });
 
         currentView.value = nextStage;
     };
