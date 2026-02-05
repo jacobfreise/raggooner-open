@@ -19,7 +19,7 @@ export const TEAM_COLORS = [
 ];
 
 export const UMAS = [
-    'New Year TM Opera O', 'New Year Haru Urara',
+    'Valentine Mihono Bourbon', 'Valentine Eishin Flash', 'Sakura Chiyono O', 'New Year TM Opera O', 'New Year Haru Urara',
     'Tamamo Cross', 'Fine Motion', 'Christmas Oguri Cap', 'Christmas Biwa Hayahide', 'Mejiro Dober', 'Tosan Jordan',
     'Festival Symboli Rudolf', 'Festival Gold City', 'Manhattan Cafe', 'Kawakami Princess', 'Halloween Rice Shower',
     'Halloween Super Creek', 'Agnes Digital', 'Hishi Akebono', 'Full Armor Matikanefukukitaru', 'Eishin Flash',
