@@ -3,12 +3,24 @@ export interface ChangeLogEntry {
     date: string;
     title: string;
     // Categories: 'new' | 'fix' | 'improvement'
-    changes: { type: 'new' | 'fix' | 'improvement'; text: string }[];
+    changes: {
+        type: 'new' | 'fix' | 'improvement';
+        text: string
+    }[];
 }
 
-export const APP_VERSION = '1.2.5'; // Update this manually when you deploy
+export const APP_VERSION = '1.2.6'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '1.2.6',
+        date: '2026-02-06',
+        title: 'Advanced Sorting',
+        changes: [
+            { type: 'new', text: 'Added sorting and grouping options to the Player Statistics!' },
+            { type: 'improvement', text: 'You can now sort players by Points, Name, or Uma, and group them by Team.' },
+        ]
+    },
     {
         version: '1.2.5',
         date: '2026-01-29',
