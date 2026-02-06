@@ -29,6 +29,8 @@ const selectedTeamId = ref('');
 const adjAmount = ref(0);
 const adjReason = ref('');
 
+const isDev = import.meta.env.DEV;
+
 // Initialize Game Logic locally
 // This keeps 'currentView' (Groups vs Finals) state inside this component
 const {
@@ -999,7 +1001,7 @@ const tData = computed(() => tournament.value as Tournament);
       </div>
     </div>
 
-    <div class="mt-12 pt-8 border-t border-slate-700">
+    <div class="mt-12 pt-8 border-t border-slate-700" v-if="isDev">
       <h3 class="text-2xl font-bold text-white mb-6">Race History Log</h3>
 
       <div v-if="sortedRaces.length === 0" class="text-center py-8 text-slate-500 italic bg-slate-800/50 rounded-lg">
