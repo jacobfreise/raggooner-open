@@ -843,7 +843,7 @@ const tData = computed(() => tournament.value as Tournament);
                   <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold"
                        :class="getPositionStyle(pos)">{{ pos }}</div>
                   <select
-                      :disabled="!isAdminRef || tournament.stage !== 'finals'"
+                      :disabled="!isAdminRef || !(tournament.stage === 'finals' && tournament.status === 'active')"
                       :value="getPlayerAtPosition('Finals',raceNum,pos,tournament,currentView)"
                       @change="updateRacePlacement('Finals', raceNum, pos, ($event.target as HTMLSelectElement).value)"
                       :style="{ color: getPlayerColor(getPlayerAtPosition('Finals',raceNum,pos,tournament,currentView)) }"
