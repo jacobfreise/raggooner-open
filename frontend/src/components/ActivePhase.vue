@@ -226,37 +226,80 @@ const structuredPlayerStats = computed(() => {
   if (!tournament.value) return [];
   const players = [...tournament.value.players]; // Copy
 
-  // 1. If Group By Team
+  // 1. If Group By Team is ACTIVE
   if (groupByTeam.value) {
-    // Get all teams
     const teams = tournament.value.teams;
-    // Find unassigned players (if any, unlikely but good for safety)
     const assignedIds = new Set(teams.flatMap(t => [t.captainId, ...t.memberIds]));
     const unassigned = players.filter(p => !assignedIds.has(p.id));
 
+    // A. Create the Sections (Teams)
     const sections = teams.map(team => {
-      // Find player objects for this team
+      // Get players for this team
       const teamPlayers = players.filter(p => p.id === team.captainId || team.memberIds.includes(p.id));
-      // Sort them
+
+      // Sort players INSIDE the team (Inner Sort)
       teamPlayers.sort(sortFunction);
+
+      // Calculate Team Aggregate for OUTER sorting
+      let teamAggregate = 0;
+
+      // If sorting by points, sum them up
+      if (['total', 'group', 'finals'].includes(sortBy.value)) {
+        teamAggregate = teamPlayers.reduce((sum, p) => sum + getPlayerSortPoints(p.id, sortBy.value as any), 0);
+      }
+
       return {
         id: team.id,
         title: team.name,
         color: team.color,
-        players: teamPlayers
+        players: teamPlayers,
+        // Store sorting metrics on the section object itself
+        sortNumeric: teamAggregate,
+        sortString: team.name
       };
     });
 
-    // Add unassigned section if needed
+    // B. Add Wildcards Section (if needed)
     if (unassigned.length > 0) {
       unassigned.sort(sortFunction);
-      sections.push({ id: 'wildcards', title: 'Wildcards / Unassigned', color: '#94a3b8', players: unassigned });
+
+      let wcAggregate = 0;
+      if (['total', 'group', 'finals'].includes(sortBy.value)) {
+        wcAggregate = unassigned.reduce((sum, p) => sum + getPlayerSortPoints(p.id, sortBy.value as any), 0);
+      }
+
+      sections.push({
+        id: 'wildcards',
+        title: 'Wildcards / Unassigned',
+        color: '#94a3b8',
+        players: unassigned,
+        sortNumeric: wcAggregate,
+        sortString: 'Wildcards'
+      });
     }
+
+    // C. Sort the SECTIONS (Outer Sort)
+    // We sort the groups based on the same criteria as the players
+    sections.sort((a, b) => {
+      let result: number;
+
+      // If sorting by Name or Uma, we sort teams alphabetically by Team Name
+      // (Since you can't really sum up "Uma Names")
+      if (sortBy.value === 'name' || sortBy.value === 'uma') {
+        result = a.sortString.localeCompare(b.sortString);
+      } else {
+        // For Point modes, sort by the Team Sum
+        result = a.sortNumeric - b.sortNumeric;
+      }
+
+      // Apply the same Ascending/Descending flag
+      return sortDesc.value ? result * -1 : result;
+    });
 
     return sections;
   }
 
-  // 2. If Flat List
+  // 2. If Flat List (Standard Behavior)
   players.sort(sortFunction);
   return [{ id: 'all', title: null, color: null, players }];
 });
