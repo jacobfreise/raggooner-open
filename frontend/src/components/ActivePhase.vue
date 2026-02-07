@@ -222,9 +222,11 @@ const sortFunction = (a: any, b: any) => {
   return sortDesc.value ? result * -1 : result;
 };
 
+// src/components/ActivePhase.vue
+
 const structuredPlayerStats = computed(() => {
   if (!tournament.value) return [];
-  const players = [...tournament.value.players]; // Copy
+  const players = [...tournament.value.players];
 
   // 1. If Group By Team is ACTIVE
   if (groupByTeam.value) {
@@ -234,18 +236,19 @@ const structuredPlayerStats = computed(() => {
 
     // A. Create the Sections (Teams)
     const sections = teams.map(team => {
-      // Get players for this team
+      // Get players
       const teamPlayers = players.filter(p => p.id === team.captainId || team.memberIds.includes(p.id));
 
-      // Sort players INSIDE the team (Inner Sort)
+      // Sort players INSIDE the team
       teamPlayers.sort(sortFunction);
 
-      // Calculate Team Aggregate for OUTER sorting
-      let teamAggregate = 0;
-
-      // If sorting by points, sum them up
+      // Calculate Aggregate Score
+      let teamAggregate: number;
       if (['total', 'group', 'finals'].includes(sortBy.value)) {
         teamAggregate = teamPlayers.reduce((sum, p) => sum + getPlayerSortPoints(p.id, sortBy.value as any), 0);
+      } else {
+        // Fallback for Name/Uma sort (count players or just 0)
+        teamAggregate = teamPlayers.length;
       }
 
       return {
@@ -253,16 +256,14 @@ const structuredPlayerStats = computed(() => {
         title: team.name,
         color: team.color,
         players: teamPlayers,
-        // Store sorting metrics on the section object itself
-        sortNumeric: teamAggregate,
+        sortNumeric: teamAggregate, // Store for display and sorting
         sortString: team.name
       };
     });
 
-    // B. Add Wildcards Section (if needed)
+    // B. Add Wildcards Section
     if (unassigned.length > 0) {
       unassigned.sort(sortFunction);
-
       let wcAggregate = 0;
       if (['total', 'group', 'finals'].includes(sortBy.value)) {
         wcAggregate = unassigned.reduce((sum, p) => sum + getPlayerSortPoints(p.id, sortBy.value as any), 0);
@@ -278,30 +279,23 @@ const structuredPlayerStats = computed(() => {
       });
     }
 
-    // C. Sort the SECTIONS (Outer Sort)
-    // We sort the groups based on the same criteria as the players
+    // C. Sort the Groups themselves
     sections.sort((a, b) => {
       let result: number;
-
-      // If sorting by Name or Uma, we sort teams alphabetically by Team Name
-      // (Since you can't really sum up "Uma Names")
       if (sortBy.value === 'name' || sortBy.value === 'uma') {
         result = a.sortString.localeCompare(b.sortString);
       } else {
-        // For Point modes, sort by the Team Sum
         result = a.sortNumeric - b.sortNumeric;
       }
-
-      // Apply the same Ascending/Descending flag
       return sortDesc.value ? result * -1 : result;
     });
 
     return sections;
   }
 
-  // 2. If Flat List (Standard Behavior)
+  // 2. Flat List
   players.sort(sortFunction);
-  return [{ id: 'all', title: null, color: null, players }];
+  return [{ id: 'all', title: null, color: null, players, sortNumeric: 0, sortString: '' }];
 });
 </script>
 
@@ -1161,13 +1155,19 @@ const structuredPlayerStats = computed(() => {
 
           <div v-if="groupByTeam && section.id !== 'all'" class="flex items-center gap-3 mb-4">
             <div class="h-px bg-slate-700 flex-1"></div>
-            <span class="text-sm font-bold uppercase tracking-widest px-3 py-1 rounded border bg-slate-800/50"
-                  :style="{
-                      color: section.color || '#fff',
-                      borderColor: (section.color || '#fff') + '40'
-                  }">
-              {{ section.title }}
-            </span>
+
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-bold uppercase tracking-widest px-3 py-1 rounded border bg-slate-800/50"
+                    :style="{ color: section.color || '#fff', borderColor: (section.color || '#fff') + '40' }">
+                {{ section.title }}
+              </span>
+
+              <span v-if="['total', 'group', 'finals'].includes(sortBy)"
+                    class="text-xs font-mono font-bold text-slate-400 bg-slate-900 px-2 py-1 rounded border border-slate-800 shadow-sm">
+                    {{ section.sortNumeric }} pts
+              </span>
+            </div>
+
             <div class="h-px bg-slate-700 flex-1"></div>
           </div>
 
