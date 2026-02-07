@@ -15,7 +15,7 @@ export const changelogData: ChangeLogEntry[] = [
     {
         version: '1.2.6',
         date: '2026-02-06',
-        title: 'Advanced Sorting',
+        title: 'Sorting and Grouping',
         changes: [
             { type: 'new', text: 'Added sorting and grouping options to the Player Statistics!' },
             { type: 'improvement', text: 'You can now sort players by Points, Name, or Uma, and group them by Team.' },
