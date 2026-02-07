@@ -1154,21 +1154,24 @@ const structuredPlayerStats = computed(() => {
         <div v-for="section in structuredPlayerStats" :key="section.id">
 
           <div v-if="groupByTeam && section.id !== 'all'" class="flex items-center gap-3 mb-4">
+
             <div class="h-px bg-slate-700 flex-1"></div>
 
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-bold uppercase tracking-widest px-3 py-1 rounded border bg-slate-800/50"
-                    :style="{ color: section.color || '#fff', borderColor: (section.color || '#fff') + '40' }">
-                {{ section.title }}
-              </span>
+            <span class="text-sm font-bold uppercase tracking-widest px-3 py-1 rounded border bg-slate-800/50 whitespace-nowrap"
+                  :style="{ color: section.color || '#fff', borderColor: (section.color || '#fff') + '40' }">
+              {{ section.title }}
+            </span>
+
+            <div class="flex-1 flex items-center gap-3">
 
               <span v-if="['total', 'group', 'finals'].includes(sortBy)"
-                    class="text-xs font-mono font-bold text-slate-400 bg-slate-900 px-2 py-1 rounded border border-slate-800 shadow-sm">
-                    {{ section.sortNumeric }} pts
+                    class="whitespace-nowrap text-xs font-mono font-bold text-slate-400 bg-slate-900 px-2 py-1 rounded border border-slate-800 shadow-sm">
+                {{ section.sortNumeric }} pts
               </span>
+
+              <div class="h-px bg-slate-700 flex-1"></div>
             </div>
 
-            <div class="h-px bg-slate-700 flex-1"></div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
