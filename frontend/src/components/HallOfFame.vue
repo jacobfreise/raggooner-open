@@ -85,7 +85,7 @@ const categories: FameCategory[] = [
   },
   {
     id: 'choker',
-    title: 'The Choker',
+    title: 'The Group Stage Merchant',
     description: 'Biggest performance drop-off in Finals.',
     icon: 'ph-skull', // or ph-warning-circle
     color: 'text-rose-500', // Distinct red for "Danger"
@@ -164,6 +164,85 @@ const categories: FameCategory[] = [
         value: maxDev.toFixed(2),
         subtext: 'Std Dev'
       } : null;
+    }
+  },
+  {
+    id: 'the_yoyo',
+    title: 'The YOYO',
+    description: 'Most immediate jumps between Top 3 and Bottom 3.',
+    icon: 'ph-arrows-vertical',
+    color: 'text-fuchsia-400',
+    gradient: 'from-fuchsia-500/20',
+    calculate: (t: Tournament) => {
+      let maxYoyos = 0;
+      let winner: Player | null = null;
+
+      t.players.forEach(p => {
+        // 1. Get ONLY the races this player actually raced in
+        const myRaces = t.races.filter(r => r.placements[p.id] !== undefined);
+
+        // 2. Sort them Chronologically: Groups First, then by Race Number
+        myRaces.sort((a, b) => {
+          // If stages are different, 'groups' always comes before 'finals'
+          if (a.stage !== b.stage) {
+            return a.stage === 'groups' ? -1 : 1;
+          }
+          // If stages are the same, sort by race number (1, 2, 3...)
+          return a.raceNumber - b.raceNumber;
+        });
+
+        // 3. Calculate Yoyos
+        let yoyoCount = 0;
+        let lastZone: 'top' | 'bottom' | 'mid' | null = null;
+
+        myRaces.forEach(r => {
+          const pos = r.placements[p.id]!;
+
+          // Determine Field Size (e.g. 12)
+          // We use 'max' to find the last place position, even if someone disconnected
+          const placements = Object.values(r.placements);
+          if (placements.length === 0) return;
+          const fieldSize = Math.max(...placements);
+
+          if (fieldSize < 6) return; // Skip tiny lobbies
+
+          // Determine Current Zone
+          let currentZone: 'top' | 'bottom' | 'mid' = 'mid';
+
+          if (pos <= 3) {
+            currentZone = 'top';
+          } else if (pos >= fieldSize - 2) {
+            // Dynamic Bottom 3:
+            // 12 players -> pos 10, 11, 12
+            // 9 players -> pos 7, 8, 9
+            currentZone = 'bottom';
+          }
+
+          // Check for YOYO (Direct swap between Top and Bottom)
+          // We ignore 'mid' to ensure it's a violent swing
+          if ((lastZone === 'top' && currentZone === 'bottom') || (lastZone === 'bottom' && currentZone === 'top')) {
+            yoyoCount++;
+          }
+
+          // Update state
+          // Note: We update lastZone even if it was 'mid', because
+          // 1st -> 6th -> 12th is a slide, NOT a Yoyo.
+          lastZone = currentZone;
+        });
+
+        if (yoyoCount > maxYoyos) {
+          maxYoyos = yoyoCount;
+          winner = p;
+        }
+      });
+
+      if (!winner || maxYoyos < 3) return null;
+
+      return {
+        player: winner,
+        value: maxYoyos,
+        subtext: maxYoyos === 1 ? 'Whiplash' : 'Whiplashes'
+      };
     }
   },
   {
