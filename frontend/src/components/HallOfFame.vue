@@ -9,6 +9,126 @@ const props = defineProps<{
 // --- 2. The Configuration (Add new stats here!) ---
 const categories: FameCategory[] = [
   {
+    id: 'highscorer',
+    title: 'The Highscorer',
+    description: 'Highest total points across all stages.',
+    icon: 'ph-trophy',
+    color: 'text-yellow-400', // Gold for the winner
+    gradient: 'from-yellow-500/20',
+    calculate: (t: Tournament) => {
+      let maxPoints = -999;
+      let winner: Player | null = null;
+
+      t.players.forEach(p => {
+        const points = p.totalPoints || 0;
+        if (points > maxPoints) {
+          maxPoints = points;
+          winner = p;
+        }
+      });
+
+      if (!winner || maxPoints < 10) return null;
+
+      return {
+        player: winner,
+        value: maxPoints,
+        subtext: 'Total Pts'
+      };
+    }
+  },
+  {
+    id: 'clutcher',
+    title: 'The Clutcher',
+    description: 'Biggest performance boost in Finals vs Groups.',
+    icon: 'ph-snowflake', // "Ice in their veins"
+    color: 'text-cyan-400',
+    gradient: 'from-cyan-500/20',
+    calculate: (t: Tournament) => {
+      let maxImprovement = -999;
+      let winner: Player | null = null;
+
+      t.players.forEach(p => {
+        // 1. Get Placements for each stage
+        const groupPlaces = t.races
+            .filter(r => r.stage === 'groups' && r.placements[p.id] !== undefined)
+            .map(r => r.placements[p.id]!);
+
+        const finalsPlaces = t.races
+            .filter(r => r.stage === 'finals' && r.placements[p.id] !== undefined)
+            .map(r => r.placements[p.id]!);
+
+        // Must have played at least 1 race in BOTH stages to qualify
+        if (groupPlaces.length === 0 || finalsPlaces.length === 0) return;
+
+        // 2. Calculate Averages
+        const groupAvg = groupPlaces.reduce((a,b)=>a+b,0) / groupPlaces.length;
+        const finalsAvg = finalsPlaces.reduce((a,b)=>a+b,0) / finalsPlaces.length;
+
+        // 3. Calculate Improvement (Positive = Lower/Better placement number)
+        // e.g. Group 6.0 - Finals 2.0 = +4.0 Improvement
+        const diff = groupAvg - finalsAvg;
+
+        if (diff > maxImprovement && diff > 0 && diff >= 1.5) {
+          maxImprovement = diff;
+          winner = p;
+        }
+      });
+
+      if (!winner) return null;
+
+      return {
+        player: winner,
+        value: `+${maxImprovement.toFixed(1)}`,
+        subtext: 'Place Improv.'
+      };
+    }
+  },
+  {
+    id: 'choker',
+    title: 'The Choker',
+    description: 'Biggest performance drop-off in Finals.',
+    icon: 'ph-skull', // or ph-warning-circle
+    color: 'text-rose-500', // Distinct red for "Danger"
+    gradient: 'from-rose-600/20',
+    calculate: (t: Tournament) => {
+      let maxDropoff = -999;
+      let victim: Player | null = null;
+
+      t.players.forEach(p => {
+        const groupPlaces = t.races
+            .filter(r => r.stage === 'groups' && r.placements[p.id] !== undefined)
+            .map(r => r.placements[p.id]!);
+
+        const finalsPlaces = t.races
+            .filter(r => r.stage === 'finals' && r.placements[p.id] !== undefined)
+            .map(r => r.placements[p.id]!);
+
+        if (groupPlaces.length === 0 || finalsPlaces.length === 0) return;
+
+        const groupAvg = groupPlaces.reduce((a,b)=>a+b,0) / groupPlaces.length;
+        const finalsAvg = finalsPlaces.reduce((a,b)=>a+b,0) / finalsPlaces.length;
+
+        // 3. Calculate Dropoff (Positive = Higher/Worse placement number)
+        // e.g. Finals 8.0 - Group 2.0 = +6.0 Dropoff
+        const dropoff = finalsAvg - groupAvg;
+
+        // Threshold: Must have dropped at least 1.5 places on average to count
+        if (dropoff > maxDropoff && dropoff >= 1.5) {
+          maxDropoff = dropoff;
+          victim = p;
+        }
+      });
+
+      if (!victim) return null;
+
+      return {
+        player: victim,
+        value: `-${maxDropoff.toFixed(1)}`,
+        subtext: 'Place Drop'
+      };
+    }
+  },
+  {
     id: 'volatility',
     title: 'The Coinflip',
     description: 'Most inconsistent placements (High Variance)',
