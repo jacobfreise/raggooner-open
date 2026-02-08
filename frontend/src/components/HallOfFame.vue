@@ -11,7 +11,7 @@ const categories: FameCategory[] = [
   {
     id: 'mvp',
     title: 'The MVP',
-    description: 'Highest total points across all stages.',
+    description: 'Highest total points across all stages',
     icon: 'ph-trophy',
     color: 'text-yellow-400', // Gold for the winner
     gradient: 'from-yellow-500/20',
@@ -39,7 +39,7 @@ const categories: FameCategory[] = [
   {
     id: 'inevitable',
     title: 'The Inevitable',
-    description: 'Finished Top 3 in every single race participated.',
+    description: 'Finished Top 3 in every single race participated',
     icon: 'ph-medal',
     color: 'text-yellow-500', // Deep Gold
     gradient: 'from-yellow-600/20',
@@ -114,7 +114,7 @@ const categories: FameCategory[] = [
   {
     id: 'clutcher',
     title: 'The Clutcher',
-    description: 'Biggest performance boost in Finals vs Groups.',
+    description: 'Biggest performance boost in Finals vs Groups',
     icon: 'ph-snowflake', // "Ice in their veins"
     color: 'text-cyan-400',
     gradient: 'from-cyan-500/20',
@@ -161,7 +161,7 @@ const categories: FameCategory[] = [
   {
     id: 'choker',
     title: 'The Choker',
-    description: 'Biggest performance drop-off in Finals.',
+    description: 'Biggest performance drop-off in Finals',
     icon: 'ph-skull', // or ph-warning-circle
     color: 'text-rose-500', // Distinct red for "Danger"
     gradient: 'from-rose-600/20',
@@ -302,7 +302,7 @@ const categories: FameCategory[] = [
   {
     id: 'the_yoyo',
     title: 'The YOYO',
-    description: 'Most immediate jumps between Top 3 and Bottom 3.',
+    description: 'Most immediate jumps between Top 3 and Bottom 3',
     icon: 'ph-arrows-vertical',
     color: 'text-fuchsia-400',
     gradient: 'from-fuchsia-500/20',
@@ -462,7 +462,7 @@ const categories: FameCategory[] = [
   {
     id: 'the_npc',
     title: 'The NPC',
-    description: 'Closest to the exact middle of the pack.',
+    description: 'Closest to the exact middle of the pack',
     icon: 'ph-robot',
     color: 'text-gray-400',
     gradient: 'from-gray-500/20',
@@ -525,7 +525,7 @@ const categories: FameCategory[] = [
   {
     id: 'rising_star',
     title: 'The Rising Star',
-    description: 'Best improvement trend across the entire tournament.',
+    description: 'Best improvement trend across the entire tournament',
     icon: 'ph-chart-line-up',
     color: 'text-green-400',
     gradient: 'from-green-500/20',
@@ -711,7 +711,7 @@ const categories: FameCategory[] = [
   {
     id: 'pacifist',
     title: 'The Pacifist',
-    description: 'Best average placement... with ZERO wins.',
+    description: 'Best average placement... with ZERO wins',
     icon: 'ph-hand-peace',
     color: 'text-blue-400',
     gradient: 'from-blue-500/20',
