@@ -18,6 +18,7 @@ import BanPhase from "./components/BanPhase.vue";
 import ActivePhase from './components/ActivePhase.vue';
 import ChangelogModal from './components/ChangelogModal.vue';
 import {POINTS_SYSTEM} from "./utils/constants.ts";
+import Migrate from "./components/Migrate.vue";
 
 // Config
 const appId = 'default-app';
@@ -392,6 +393,8 @@ onMounted(() => {
 
     <main class="flex-grow p-4 md:p-6 max-w-7xl mx-auto w-full">
 
+
+      <Migrate></Migrate>
       <div v-if="!loading && !tournament" class="max-w-lg mx-auto mt-8 space-y-12">
 
         <div class="text-center space-y-4">
