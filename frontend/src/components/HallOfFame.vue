@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import {computed} from 'vue';
 import type {FameCategory, Player, Tournament} from '../types'; // Import your types
 
 const props = defineProps<{
@@ -81,6 +81,8 @@ const categories: FameCategory[] = [
         }
       });
 
+      if (maxLasts < 2) return null;
+
       return victim ? {
         player: victim,
         value: maxLasts,
@@ -115,6 +117,8 @@ const categories: FameCategory[] = [
           runnerUp = t.players.find(p => p.id === pid) || null;
         }
       });
+
+      if (maxSeconds < 2) return null;
 
       return runnerUp ? {
         player: runnerUp,
@@ -279,7 +283,7 @@ const categories: FameCategory[] = [
   {
     id: 'consistency',
     title: 'The Machine',
-    description: 'Best average placement (min 3 races).',
+    description: 'Best average placement',
     icon: 'ph-trend-up',
     color: 'text-emerald-400',
     gradient: 'from-emerald-500/20',
@@ -347,7 +351,54 @@ const categories: FameCategory[] = [
         subtext: 'Avg Place'
       } : null;
     }
-  }
+  },
+  {
+    id: 'liability',
+    title: 'The Liability',
+    description: 'Lowest % contribution to team score',
+    icon: 'ph-warning-octagon', // A warning sign fits perfectly
+    color: 'text-orange-400',
+    gradient: 'from-orange-500/20',
+    calculate: (t: Tournament) => {
+      let minPct = 1.0; // Start at 100% and go down
+      let liability: Player | null = null;
+
+      t.teams.forEach(team => {
+        const teamTotal = (team.points || 0) + (team.finalsPoints || 0);
+        if (teamTotal === 0) return; // Skip teams with 0 points
+
+        // Identify team members
+        const members = t.players.filter(p =>
+            p.id === team.captainId || team.memberIds.includes(p.id)
+        );
+
+        members.forEach(p => {
+          // 1. Check Race Count (Don't shame people who haven't played yet)
+          const racesPlayed = t.races.filter(r => r.placements[p.id] !== undefined).length;
+          if (racesPlayed < 3) return;
+
+          // 2. Calculate Percentage
+          const pPoints = (p.totalPoints || 0);
+          const pct = pPoints / teamTotal;
+
+          // 3. Find the lowest
+          if (pct < minPct) {
+            minPct = pct;
+            liability = p;
+          }
+        });
+      });
+
+      // Safety check: if minPct is still 1.0, nobody qualified
+      if (!liability || minPct > 0.12) return null;
+
+      return {
+        player: liability,
+        value: (minPct * 100).toFixed(1) + '%',
+        subtext: 'Contribution'
+      };
+    }
+  },
 ];
 
 // --- 3. The Computation ---
@@ -391,32 +442,32 @@ const activeStats = computed(() => {
             </div>
 
             <div class="flex-1 min-w-0">
-              <div class="text-sm font-black uppercase tracking-widest text-slate-100 truncate group-hover:text-white transition-colors">
+              <div class="text-sm font-black uppercase tracking-widest text-slate-100 group-hover:text-white transition-colors leading-tight">
                 {{ stat.title }}
               </div>
-              <div class="text-[10px] font-medium text-slate-500 truncate leading-tight mt-0.5">
+              <div class="text-[10px] font-medium text-slate-500 leading-tight mt-1 line-clamp-2">
                 {{ stat.description }}
               </div>
             </div>
           </div>
 
-          <div class="mt-auto pl-1">
-            <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+          <div class="flex flex-col gap-2 mt-auto pl-1">
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">
               Winner
             </div>
 
-            <div class="flex items-end justify-between gap-2">
-              <div class="text-lg font-bold text-white truncate group-hover:text-amber-50 leading-none pb-0.5">
+            <div class="flex items-center justify-between gap-2 w-full">
+              <div class="text-lg font-bold text-white group-hover:text-amber-50 leading-tight break-words min-w-0">
                 {{ stat.result?.player.name }}
               </div>
 
-              <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700/80 backdrop-blur-sm group-hover:border-slate-600 transition-colors">
-                 <span class="text-xs font-bold text-white">
-                   {{ stat.result?.value }}
-                 </span>
-                <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                   {{ stat.result?.subtext }}
-                 </span>
+              <div class="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700/80 backdrop-blur-sm group-hover:border-slate-600 transition-colors">
+                <span class="text-xs font-bold text-white whitespace-nowrap">
+                  {{ stat.result?.value }}
+                </span>
+                <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">
+                  {{ stat.result?.subtext }}
+                </span>
               </div>
             </div>
           </div>
