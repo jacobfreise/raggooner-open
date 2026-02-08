@@ -414,67 +414,68 @@ const activeStats = computed(() => {
 
 <template>
   <div v-if="activeStats.length > 0" class="animate-fade-in">
-
-    <div class="flex items-center gap-3 mb-6">
-      <div class="h-8 w-1.5 bg-amber-500 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.6)]"></div>
-      <div>
-        <h2 class="text-xl font-bold text-white uppercase tracking-widest">Hall of Fame</h2>
-        <p class="text-xs text-slate-400 font-medium">Tournament Records & Superlatives</p>
-      </div>
-    </div>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-
-      <div v-for="stat in activeStats" :key="stat.id"
-           class="group relative bg-slate-800 rounded-xl border border-slate-700 p-4 overflow-hidden hover:border-slate-600 transition-all hover:shadow-xl hover:-translate-y-1">
-
-        <div class="absolute inset-0 bg-gradient-to-br to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-             :class="stat.gradient"></div>
-
-        <i :class="[stat.icon, stat.color]"
-           class="ph-fill absolute -right-6 -bottom-6 text-9xl opacity-[0.03] group-hover:opacity-[0.08] group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 ease-out pointer-events-none"></i>
-
-        <div class="relative z-10 flex flex-col h-full">
-
-          <div class="flex items-center gap-3 mb-6">
-            <div class="h-12 w-12 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-300">
-              <i :class="[stat.icon, stat.color]" class="ph-fill text-2xl drop-shadow-lg"></i>
-            </div>
-
-            <div class="flex-1 min-w-0">
-              <div class="text-sm font-black uppercase tracking-widest text-slate-100 group-hover:text-white transition-colors leading-tight">
-                {{ stat.title }}
-              </div>
-              <div class="text-[10px] font-medium text-slate-500 leading-tight mt-1 line-clamp-2">
-                {{ stat.description }}
-              </div>
-            </div>
-          </div>
-
-          <div class="flex flex-col gap-2 mt-auto pl-1">
-            <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">
-              Winner
-            </div>
-
-            <div class="flex items-center justify-between gap-2 w-full">
-              <div class="text-lg font-bold text-white group-hover:text-amber-50 leading-tight break-words min-w-0">
-                {{ stat.result?.player.name }}
-              </div>
-
-              <div class="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700/80 backdrop-blur-sm group-hover:border-slate-600 transition-colors">
-                <span class="text-xs font-bold text-white whitespace-nowrap">
-                  {{ stat.result?.value }}
-                </span>
-                <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">
-                  {{ stat.result?.subtext }}
-                </span>
-              </div>
-            </div>
-          </div>
-
+    <div class="mt-12 pt-8 border-t border-slate-700">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="h-8 w-1.5 bg-amber-500 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.6)]"></div>
+        <div>
+          <h2 class="text-xl font-bold text-white uppercase tracking-widest">Hall of Fame</h2>
+          <p class="text-xs text-slate-400 font-medium">Tournament Records & Superlatives</p>
         </div>
       </div>
 
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <div v-for="stat in activeStats" :key="stat.id"
+             class="group relative bg-slate-800 rounded-xl border border-slate-700 p-4 overflow-hidden hover:border-slate-600 transition-all hover:shadow-xl hover:-translate-y-1">
+
+          <div class="absolute inset-0 bg-gradient-to-br to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+               :class="stat.gradient"></div>
+
+          <i :class="[stat.icon, stat.color]"
+             class="ph-fill absolute -right-6 -bottom-6 text-9xl opacity-[0.03] group-hover:opacity-[0.08] group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 ease-out pointer-events-none"></i>
+
+          <div class="relative z-10 flex flex-col h-full">
+
+            <div class="flex items-center gap-3 mb-6">
+              <div class="h-12 w-12 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-300">
+                <i :class="[stat.icon, stat.color]" class="ph-fill text-2xl drop-shadow-lg"></i>
+              </div>
+
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-black uppercase tracking-widest text-slate-100 group-hover:text-white transition-colors leading-tight">
+                  {{ stat.title }}
+                </div>
+                <div class="text-[10px] font-medium text-slate-500 leading-tight mt-1 line-clamp-2">
+                  {{ stat.description }}
+                </div>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-2 mt-auto pl-1">
+              <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+                Winner
+              </div>
+
+              <div class="flex items-center justify-between gap-2 w-full">
+                <div class="text-lg font-bold text-white group-hover:text-amber-50 leading-tight break-words min-w-0">
+                  {{ stat.result?.player.name }}
+                </div>
+
+                <div class="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700/80 backdrop-blur-sm group-hover:border-slate-600 transition-colors">
+                  <span class="text-xs font-bold text-white whitespace-nowrap">
+                    {{ stat.result?.value }}
+                  </span>
+                  <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">
+                    {{ stat.result?.subtext }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 </template>

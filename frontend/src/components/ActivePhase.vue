@@ -972,6 +972,8 @@ const structuredPlayerStats = computed(() => {
       </div>
     </div>
 
+    <HallOfFame :tournament="tournament"></HallOfFame>
+
     <div class="mt-12 pt-8 border-t border-slate-700">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div class="flex items-center gap-3 mb-6">
@@ -1160,10 +1162,6 @@ const structuredPlayerStats = computed(() => {
           </div>
         </div>
       </div>
-    </div>
-
-    <div class="mt-12 pt-8 border-t border-slate-700">
-      <HallOfFame :tournament="tournament"></HallOfFame>
     </div>
 
     <div class="mt-12 pt-8 border-t border-slate-700" v-if="isDev">
