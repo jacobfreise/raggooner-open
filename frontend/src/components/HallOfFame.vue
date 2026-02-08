@@ -207,7 +207,7 @@ const categories: FameCategory[] = [
     id: 'volatility',
     title: 'The Coinflip',
     description: 'Most inconsistent placements (High Variance)',
-    icon: 'ph-dice-five',
+    icon: 'ph-coin-vertical',
     color: 'text-purple-400',
     gradient: 'from-violet-500/20',
     calculate: (t: Tournament) => {
