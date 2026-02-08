@@ -37,6 +37,81 @@ const categories: FameCategory[] = [
     }
   },
   {
+    id: 'medalist',
+    title: 'The Medalist',
+    description: 'Finished Top 3 in every single race participated.',
+    icon: 'ph-medal',
+    color: 'text-yellow-500', // Deep Gold
+    gradient: 'from-yellow-600/20',
+    calculate: (t: Tournament) => {
+      let bestCandidate: Player | null = null;
+      // Track best stats for comparison
+      let bestStats = { count: 0, g: 0, s: 0, b: 0 };
+
+      t.players.forEach(p => {
+        let g = 0, s = 0, b = 0;
+        let valid = true;
+        let count = 0;
+
+        // 1. Analyze every race this player ran
+        for (const r of t.races) {
+          const pos = r.placements[p.id];
+          if (pos === undefined) continue; // Didn't play, doesn't count against them
+
+          count++;
+
+          if (pos === 1) g++;
+          else if (pos === 2) s++;
+          else if (pos === 3) b++;
+          else {
+            valid = false; // They got 4th or worse. Disqualified.
+            break;
+          }
+        }
+
+        // 2. Minimum Criteria (e.g. 3 races)
+        if (!valid || count < 3) return;
+
+        // 3. The "Olympic" Tiebreaker Logic
+        let isBetter = false;
+
+        if (count > bestStats.count) {
+          isBetter = true; // More races played = Automatic win
+        } else if (count === bestStats.count) {
+          // Tiebreaker 1: Golds
+          if (g > bestStats.g) {
+            isBetter = true;
+          } else if (g === bestStats.g) {
+            // Tiebreaker 2: Silvers
+            if (s > bestStats.s) {
+              isBetter = true;
+            } else if (s === bestStats.s) {
+              // Tiebreaker 3: Bronzes
+              if (b > bestStats.b) {
+                isBetter = true;
+              }
+            }
+          }
+        }
+
+        // 4. Update the King of the Hill
+        if (isBetter) {
+          bestStats = { count, g, s, b };
+          bestCandidate = p;
+        }
+      });
+
+      if (!bestCandidate) return null;
+
+      // 5. Format Output: "3G 1S 0B"
+      return {
+        player: bestCandidate,
+        value: `${bestStats.g}G ${bestStats.s}S ${bestStats.b}B`,
+        subtext: `in ${bestStats.count} Races`
+      };
+    }
+  },
+  {
     id: 'clutcher',
     title: 'The Clutcher',
     description: 'Biggest performance boost in Finals vs Groups.',
