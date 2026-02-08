@@ -390,6 +390,74 @@ const categories: FameCategory[] = [
     }
   },
   {
+    id: 'rising_star',
+    title: 'The Rising Star',
+    description: 'Best improvement trend across the entire tournament.',
+    icon: 'ph-chart-line-up',
+    color: 'text-green-400',
+    gradient: 'from-green-500/20',
+    calculate: (t: Tournament) => {
+      let bestSlope = 0; // We are looking for the most NEGATIVE number
+      let winner: Player | null = null;
+
+      // Helper for stage order
+      const stageOrder: Record<string, number> = { 'groups': 1, 'finals': 2 };
+
+      t.players.forEach(p => {
+        // 1. Get Chronological Races
+        const myRaces = t.races
+            .filter(r => r.placements[p.id] !== undefined)
+            .sort((a, b) => {
+              const sA = stageOrder[a.stage.toLowerCase()] || 99;
+              const sB = stageOrder[b.stage.toLowerCase()] || 99;
+              return sA !== sB ? sA - sB : a.raceNumber - b.raceNumber;
+            });
+
+        // Minimum 4 races needed to establish a trend line
+        const n = myRaces.length;
+        if (n < 4) return;
+
+        // 2. Prepare Data Points for Linear Regression
+        // x = Race Index (0, 1, 2...), y = Placement
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+
+        myRaces.forEach((r, index) => {
+          const x = index;
+          const y = r.placements[p.id]!;
+
+          sumX += x;
+          sumY += y;
+          sumXY += (x * y);
+          sumXX += (x * x);
+        });
+
+        // 3. Calculate Slope (m)
+        // Formula: (N * ΣXY - ΣX * ΣY) / (N * ΣX² - (ΣX)²)
+        const numerator = (n * sumXY) - (sumX * sumY);
+        const denominator = (n * sumXX) - (sumX * sumX);
+
+        if (denominator === 0) return; // Avoid division by zero
+
+        const slope = numerator / denominator;
+
+        // 4. Check for best improvement (Most negative slope wins)
+        // We set a threshold (e.g. -0.5) to ensure it's actual improvement, not just noise
+        if (slope < bestSlope && slope < -0.3) {
+          bestSlope = slope;
+          winner = p;
+        }
+      });
+
+      if (!winner) return null;
+
+      return {
+        player: winner,
+        value: Math.abs(bestSlope).toFixed(2), // Show as positive number for display
+        subtext: 'Places / Race' // e.g. "1.50 Places / Race"
+      };
+    }
+  },
+  {
     id: 'hard_carry',
     title: 'The Carry',
     description: 'Highest % of their Team\'s total points',
