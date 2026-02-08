@@ -79,7 +79,7 @@ const categories: FameCategory[] = [
       return {
         player: winner,
         value: `+${maxImprovement.toFixed(1)}`,
-        subtext: 'Place Improv.'
+        subtext: 'avg Place Improv.'
       };
     }
   },
@@ -124,7 +124,7 @@ const categories: FameCategory[] = [
       return {
         player: victim,
         value: `-${maxDropoff.toFixed(1)}`,
-        subtext: 'Place Drop'
+        subtext: 'avg Place Drop'
       };
     }
   },
