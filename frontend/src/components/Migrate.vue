@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase'; // Adjust path to your firebase config
 import { recalculateTournamentScores } from '../utils/utils'; // Adjust path to your utils
 import type { Tournament } from '../types';
