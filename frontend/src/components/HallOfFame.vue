@@ -126,45 +126,64 @@ const categories: FameCategory[] = [
   {
     id: 'the_npc',
     title: 'The NPC',
-    description: 'Closest to the exact middle of the pack',
+    description: 'Closest to the exact middle of the pack.',
     icon: 'ph-robot',
     color: 'text-gray-400',
     gradient: 'from-gray-500/20',
     calculate: (t: Tournament) => {
-      let bestDiff = 999; // Lower is better (closer to middle)
-      let npc: Player | null = null;
-      let npcAvg = 0;
-
-      // Assuming standard 12 player races? Or calculate per race?
-      // Let's assume generic "Middle" is position 6 or 7.
-      // Better: Compare to the average of ALL players.
-
-      const allPlacements = t.races.flatMap(r => Object.values(r.placements));
-      if (allPlacements.length === 0) return null;
-      const globalAvg = allPlacements.reduce((a,b)=>a+b,0) / allPlacements.length;
+      // 1. Set Cutoff: Deviation must be <= 1.0 position to qualify
+      let bestDev = 1.6;
+      let winner: Player | null = null;
+      let winnerAvgMiddle = 0;
 
       t.players.forEach(p => {
-        const places = t.races
-            .map(r => r.placements[p.id])
-            .filter(pos => pos !== undefined);
+        let totalDev = 0;
+        let totalMiddle = 0;
+        let raceCount = 0;
 
-        if (places.length < 3) return;
+        t.races.forEach(r => {
+          const pos = r.placements[p.id];
+          // Skip if player didn't race
+          if (pos === undefined) return;
 
-        const pAvg = places.reduce((a,b)=>a+b,0) / places.length;
-        const diff = Math.abs(pAvg - globalAvg);
+          // Get all positions to find the true "Last Place"
+          const allPositions = Object.values(r.placements);
+          if (allPositions.length === 0) return;
 
-        if (diff < bestDiff) {
-          bestDiff = diff;
-          npc = p;
-          npcAvg = pAvg;
+          // CHANGE: Field size is now determined by the highest placement number
+          const fieldSize = Math.max(...allPositions);
+
+          // Calculate the specific middle for this race (e.g. Max 12 -> Middle 6.5)
+          const mid = (fieldSize + 1) / 2;
+
+          // Calculate how far this player was from that middle
+          totalDev += Math.abs(pos - mid);
+          totalMiddle += mid;
+          raceCount++;
+        });
+
+        // Minimum 3 races to qualify
+        if (raceCount < 3) return;
+
+        const avgDev = totalDev / raceCount;
+
+        // Check if this is the new lowest deviation (closer to 0 is better)
+        if (avgDev < bestDev) {
+          bestDev = avgDev;
+          winner = p;
+          winnerAvgMiddle = totalMiddle / raceCount;
         }
       });
 
-      return npc ? {
-        player: npc,
-        value: npcAvg.toFixed(2),
-        subtext: 'Avg Place'
-      } : null;
+      if (!winner) return null;
+
+      return {
+        player: winner,
+        // e.g. "0.50 Dev"
+        value: `${bestDev.toFixed(2)} Dev`,
+        // e.g. "from Middle 6.5"
+        subtext: `from Middle ${winnerAvgMiddle.toFixed(1)}`
+      };
     }
   },
   {
@@ -194,6 +213,10 @@ const categories: FameCategory[] = [
           if (pct > highestPercentage) {
             highestPercentage = pct;
             bestPlayer = p;
+          } else if (pct === highestPercentage) {
+            if (!bestPlayer || p.totalPoints! > bestPlayer?.totalPoints!) {
+              bestPlayer = p;
+            }
           }
         });
       });
