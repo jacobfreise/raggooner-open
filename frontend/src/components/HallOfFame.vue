@@ -662,7 +662,7 @@ const categories: FameCategory[] = [
       return {
         player: liability,
         value: (minPct * 100).toFixed(1) + '%',
-        subtext: 'Contribution'
+        subtext: 'of team pts'
       };
     }
   },
