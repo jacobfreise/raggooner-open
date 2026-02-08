@@ -460,7 +460,7 @@ const categories: FameCategory[] = [
   {
     id: 'hard_carry',
     title: 'The Carry',
-    description: 'Highest % of their Team\'s total points',
+    description: 'Highest % contribution to team score',
     icon: 'ph-backpack',
     color: 'text-rose-400',
     gradient: 'from-rose-500/20',
