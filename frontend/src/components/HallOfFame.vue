@@ -242,6 +242,64 @@ const categories: FameCategory[] = [
     }
   },
   {
+    id: 'metronome',
+    title: 'The Metronome', // or 'The Machine'
+    description: 'Most consistent placements (Low Variance)',
+    icon: 'ph-wave-sine', // Represents the frequency/consistency
+    color: 'text-indigo-400',
+    gradient: 'from-indigo-500/20',
+    calculate: (t: Tournament) => {
+      let minStdDev = 999;
+      let winner: Player | null = null;
+      let winnerAvg = 0;
+
+      t.players.forEach(p => {
+        // 1. Collect all placements
+        const placements: number[] = [];
+        t.races.forEach(r => {
+          const pos = r.placements[p.id];
+          if (pos !== undefined) placements.push(pos);
+        });
+
+        // 2. Minimum Sample Size (e.g. 5 races)
+        // Standard deviation is meaningless with too few data points
+        if (placements.length < 5) return;
+
+        // 3. Calculate Mean (Average)
+        const n = placements.length;
+        const mean = placements.reduce((a, b) => a + b, 0) / n;
+
+        // 4. Calculate Variance
+        // Sum of squared differences from the mean
+        const sumSquaredDiffs = placements.reduce((sum, val) => {
+          const diff = val - mean;
+          return sum + (diff * diff);
+        }, 0);
+
+        const variance = sumSquaredDiffs / n;
+
+        // 5. Calculate Standard Deviation
+        const stdDev = Math.sqrt(variance);
+
+        // 6. Find the Lowest
+        if (stdDev < minStdDev) {
+          minStdDev = stdDev;
+          winner = p;
+          winnerAvg = mean;
+        }
+      });
+
+      if (!winner) return null;
+
+      return {
+        player: winner,
+        value: `±${minStdDev.toFixed(2)}`,
+        // Shows their "usual" spot (e.g. "Avg Place 2.5")
+        subtext: `Avg Place ${winnerAvg.toFixed(1)}`
+      };
+    }
+  },
+  {
     id: 'the_yoyo',
     title: 'The YOYO',
     description: 'Most immediate jumps between Top 3 and Bottom 3.',
