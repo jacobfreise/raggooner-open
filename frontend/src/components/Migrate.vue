@@ -35,7 +35,7 @@ const migrateAll = async (commit: boolean) => {
       // We explicitly check if the data actually changed to avoid useless writes,
       // but strictly speaking, we want to ensure the DB matches the code's truth.
 
-      const ref = doc(db, 'tournaments', t.id);
+      const ref = docSnap.ref;
 
       if (commit) {
         batch.update(ref, {
