@@ -9,8 +9,8 @@ const props = defineProps<{
 // --- 2. The Configuration (Add new stats here!) ---
 const categories: FameCategory[] = [
   {
-    id: 'highscorer',
-    title: 'The Highscorer',
+    id: 'mvp',
+    title: 'The MVP',
     description: 'Highest total points across all stages.',
     icon: 'ph-trophy',
     color: 'text-yellow-400', // Gold for the winner
