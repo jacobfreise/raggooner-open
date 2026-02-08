@@ -1157,21 +1157,16 @@ const structuredPlayerStats = computed(() => {
 
             <div class="h-px bg-slate-700 flex-1"></div>
 
-            <span class="text-sm font-bold uppercase tracking-widest px-3 py-1 rounded border bg-slate-800/50 whitespace-nowrap"
+            <span class="flex items-center gap-2 text-sm font-bold uppercase tracking-widest px-3 py-1 rounded border bg-slate-800/50 whitespace-nowrap"
                   :style="{ color: section.color || '#fff', borderColor: (section.color || '#fff') + '40' }">
               {{ section.title }}
-            </span>
-
-            <div class="flex-1 flex items-center gap-3">
-
               <span v-if="['total', 'group', 'finals'].includes(sortBy)"
-                    class="whitespace-nowrap text-xs font-mono font-bold text-slate-400 bg-slate-900 px-2 py-1 rounded border border-slate-800 shadow-sm">
+                    class="whitespace-nowrap text-xs font-mono font-bold text-slate-400 bg-slate-900 px-2 rounded border border-slate-800 shadow-sm">
                 {{ section.sortNumeric }} pts
               </span>
+            </span>
 
-              <div class="h-px bg-slate-700 flex-1"></div>
-            </div>
-
+            <div class="h-px bg-slate-700 flex-1"></div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
