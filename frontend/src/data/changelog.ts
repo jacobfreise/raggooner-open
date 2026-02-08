@@ -9,9 +9,17 @@ export interface ChangeLogEntry {
     }[];
 }
 
-export const APP_VERSION = '1.2.6'; // Update this manually when you deploy
+export const APP_VERSION = '1.3.0'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '1.3.0',
+        date: '2026-02-08',
+        title: 'Fame and Glory!',
+        changes: [
+            { type: 'new', text: 'Added a Hall of Fame with some interesting titles and stats!' },
+        ]
+    },
     {
         version: '1.2.6',
         date: '2026-02-06',

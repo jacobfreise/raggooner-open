@@ -1,0 +1,406 @@
+<script setup lang="ts">
+import { computed } from 'vue';
+import type {FameCategory, Player, Tournament} from '../types'; // Import your types
+
+const props = defineProps<{
+  tournament: Tournament;
+}>();
+
+// --- 2. The Configuration (Add new stats here!) ---
+const categories: FameCategory[] = [
+  {
+    id: 'volatility',
+    title: 'The Coinflip',
+    description: 'Most inconsistent placements (High Variance)',
+    icon: 'ph-dice-five',
+    color: 'text-purple-400',
+    gradient: 'from-violet-500/20',
+    calculate: (t: Tournament) => {
+      let maxDev = 0;
+      let candidate: Player | null = null;
+
+      t.players.forEach(p => {
+        // 1. Get all placements for this player
+        const places: number[] = [];
+        t.races.forEach(r => {
+          if (r.placements[p.id]) places.push(r.placements[p.id]!);
+        });
+
+        if (places.length < 3) return; // Need data for deviation
+
+        // 2. Calculate Standard Deviation
+        const mean = places.reduce((a, b) => a + b, 0) / places.length;
+        const variance = places.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / places.length;
+        const stdDev = Math.sqrt(variance);
+
+        if (stdDev > maxDev) {
+          maxDev = stdDev;
+          candidate = p;
+        }
+      });
+
+      return candidate ? {
+        player: candidate,
+        value: maxDev.toFixed(2),
+        subtext: 'Std Dev'
+      } : null;
+    }
+  },
+  {
+    id: 'the_anchor',
+    title: 'The Anchor',
+    description: 'Most last place finishes',
+    icon: 'ph-anchor',
+    color: 'text-slate-500', // Grey for shame
+    gradient: 'from-rose-500/20',
+    calculate: (t: Tournament) => {
+      const lastCounts: Record<string, number> = {};
+
+      t.races.forEach(race => {
+        // Find the worst position in this specific race
+        const positions = Object.values(race.placements);
+        if (positions.length === 0) return;
+        const lastPlace = Math.max(...positions);
+
+        // Find who got it
+        const victimId = Object.keys(race.placements).find(
+            pid => race.placements[pid] === lastPlace
+        );
+        if (victimId) {
+          lastCounts[victimId] = (lastCounts[victimId] || 0) + 1;
+        }
+      });
+
+      // Find max
+      let maxLasts = 0;
+      let victim: Player | null = null;
+      Object.entries(lastCounts).forEach(([pid, count]) => {
+        if (count > maxLasts) {
+          maxLasts = count;
+          victim = t.players.find(p => p.id === pid) || null;
+        }
+      });
+
+      return victim ? {
+        player: victim,
+        value: maxLasts,
+        subtext: 'Last Places'
+      } : null;
+    }
+  },
+  {
+    id: 'bridesmaid',
+    title: 'Always the Bridesmaid',
+    description: 'Most 2nd place finishes',
+    icon: 'ph-heart-break',
+    color: 'text-pink-400',
+    gradient: 'from-pink-500/20',
+    calculate: (t: Tournament) => {
+      const seconds: Record<string, number> = {};
+
+      t.races.forEach(r => {
+        Object.entries(r.placements).forEach(([pid, pos]) => {
+          if (pos === 2) {
+            seconds[pid] = (seconds[pid] || 0) + 1;
+          }
+        });
+      });
+
+      let maxSeconds = 0;
+      let runnerUp: Player | null = null;
+
+      Object.entries(seconds).forEach(([pid, count]) => {
+        if (count > maxSeconds) {
+          maxSeconds = count;
+          runnerUp = t.players.find(p => p.id === pid) || null;
+        }
+      });
+
+      return runnerUp ? {
+        player: runnerUp,
+        value: maxSeconds,
+        subtext: maxSeconds > 1 ? 'Silvers' : 'Silver'
+      } : null;
+    }
+  },
+  {
+    id: 'the_npc',
+    title: 'The NPC',
+    description: 'Closest to the exact middle of the pack',
+    icon: 'ph-robot',
+    color: 'text-gray-400',
+    gradient: 'from-gray-500/20',
+    calculate: (t: Tournament) => {
+      let bestDiff = 999; // Lower is better (closer to middle)
+      let npc: Player | null = null;
+      let npcAvg = 0;
+
+      // Assuming standard 12 player races? Or calculate per race?
+      // Let's assume generic "Middle" is position 6 or 7.
+      // Better: Compare to the average of ALL players.
+
+      const allPlacements = t.races.flatMap(r => Object.values(r.placements));
+      if (allPlacements.length === 0) return null;
+      const globalAvg = allPlacements.reduce((a,b)=>a+b,0) / allPlacements.length;
+
+      t.players.forEach(p => {
+        const places = t.races
+            .map(r => r.placements[p.id])
+            .filter(pos => pos !== undefined);
+
+        if (places.length < 3) return;
+
+        const pAvg = places.reduce((a,b)=>a+b,0) / places.length;
+        const diff = Math.abs(pAvg - globalAvg);
+
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          npc = p;
+          npcAvg = pAvg;
+        }
+      });
+
+      return npc ? {
+        player: npc,
+        value: npcAvg.toFixed(2),
+        subtext: 'Avg Place'
+      } : null;
+    }
+  },
+  {
+    id: 'hard_carry',
+    title: 'The Carry',
+    description: 'Highest % of their Team\'s total points',
+    icon: 'ph-backpack',
+    color: 'text-rose-400',
+    gradient: 'from-rose-500/20',
+    calculate: (t) => {
+      let bestPlayer: Player | null = null;
+      let highestPercentage = 0;
+
+      t.teams.forEach(team => {
+        const teamTotalPoints = (team.points || 0) + (team.finalsPoints || 0);
+        if (teamTotalPoints === 0) return; // Avoid divide by zero
+
+        // Get all players in this team
+        const members = t.players.filter(p =>
+            p.id === team.captainId || team.memberIds.includes(p.id)
+        );
+
+        members.forEach(p => {
+          const points = p.totalPoints || 0;
+          const pct = points / teamTotalPoints;
+
+          if (pct > highestPercentage) {
+            highestPercentage = pct;
+            bestPlayer = p;
+          }
+        });
+      });
+
+      if (!bestPlayer || highestPercentage < 0.6) return null; // Only show if they carried >60%
+
+      return {
+        player: bestPlayer,
+        value: (highestPercentage * 100).toFixed(0) + '%',
+        subtext: 'of Team Pts'
+      };
+    }
+  },
+  {
+    id: 'most_wins',
+    title: 'The Speedster',
+    description: 'Most 1st place finishes in races',
+    icon: 'ph-crown',
+    color: 'text-amber-400',
+    gradient: 'from-amber-500/20',
+    calculate: (t) => {
+      const wins: Record<string, number> = {};
+
+      // 1. Iterate over every race history
+      t.races.forEach(race => {
+        // placements is { "playerId": position }
+        // We want to find the ID where position === 1
+        const winnerId = Object.keys(race.placements).find(
+            pid => race.placements[pid] === 1
+        );
+
+        if (winnerId) {
+          wins[winnerId] = (wins[winnerId] || 0) + 1;
+        }
+      });
+
+      // 2. Find the max
+      let maxWins = 0;
+      let winnerId = '';
+
+      Object.entries(wins).forEach(([pid, count]) => {
+        if (count > maxWins) {
+          maxWins = count;
+          winnerId = pid;
+        }
+      });
+
+      if (maxWins === 0) return null;
+
+      const player = t.players.find(p => p.id === winnerId);
+      if (!player) return null;
+
+      return {
+        player: player,
+        value: maxWins,
+        subtext: maxWins === 1 ? 'Victory' : 'Victories'
+      };
+    }
+  },
+  {
+    id: 'consistency',
+    title: 'The Machine',
+    description: 'Best average placement (min 3 races).',
+    icon: 'ph-trend-up',
+    color: 'text-emerald-400',
+    gradient: 'from-emerald-500/20',
+    calculate: (t) => {
+      let bestAvg = 99;
+      let bestP: Player | null = null;
+
+      t.players.forEach(p => {
+        const places = t.races
+            .map(r => r.placements[p.id])
+            .filter(pos => pos !== undefined);
+
+        if (places.length < 3) return;
+        const avg = places.reduce((a,b)=>a+b,0) / places.length;
+
+        if (avg < bestAvg) {
+          bestAvg = avg;
+          bestP = p;
+        }
+      });
+
+      return bestP ? { player: bestP, value: bestAvg.toFixed(1), subtext: 'Avg Place' } : null;
+    }
+  },
+  {
+    id: 'pacifist',
+    title: 'The Pacifist',
+    description: 'Best average placement... with ZERO wins.',
+    icon: 'ph-hand-peace',
+    color: 'text-blue-400',
+    gradient: 'from-blue-500/20',
+    calculate: (t) => {
+      const stats: Record<string, { sum: number, count: number, wins: number }> = {};
+
+      // 1. Aggregate stats from races
+      t.races.forEach(race => {
+        Object.entries(race.placements).forEach(([pid, pos]) => {
+          if (!stats[pid]) stats[pid] = { sum: 0, count: 0, wins: 0 };
+          stats[pid].sum += pos;
+          stats[pid].count += 1;
+          if (pos === 1) stats[pid].wins += 1;
+        });
+      });
+
+      // 2. Filter for 0 wins and find best average
+      let bestAvg = 999;
+      let candidateId = '';
+
+      Object.entries(stats).forEach(([pid, stat]) => {
+        if (stat.wins === 0 && stat.count >= 3) { // Min 3 races to qualify
+          const avg = stat.sum / stat.count;
+          if (avg < bestAvg) {
+            bestAvg = avg;
+            candidateId = pid;
+          }
+        }
+      });
+
+      if (!candidateId) return null;
+
+      const player = t.players.find(p => p.id === candidateId);
+      return player ? {
+        player: player,
+        value: bestAvg.toFixed(1),
+        subtext: 'Avg Place'
+      } : null;
+    }
+  }
+];
+
+// --- 3. The Computation ---
+// We map over categories and execute their logic
+const activeStats = computed(() => {
+  return categories.map(cat => {
+    const result = cat.calculate(props.tournament);
+    return { ...cat, result };
+  }).filter(item => item.result !== null); // Hide categories with no data
+});
+
+</script>
+
+<template>
+  <div v-if="activeStats.length > 0" class="animate-fade-in">
+
+    <div class="flex items-center gap-3 mb-6">
+      <div class="h-8 w-1.5 bg-amber-500 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.6)]"></div>
+      <div>
+        <h2 class="text-xl font-bold text-white uppercase tracking-widest">Hall of Fame</h2>
+        <p class="text-xs text-slate-400 font-medium">Tournament Records & Superlatives</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+      <div v-for="stat in activeStats" :key="stat.id"
+           class="group relative bg-slate-800 rounded-xl border border-slate-700 p-4 overflow-hidden hover:border-slate-600 transition-all hover:shadow-xl hover:-translate-y-1">
+
+        <div class="absolute inset-0 bg-gradient-to-br to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+             :class="stat.gradient"></div>
+
+        <i :class="[stat.icon, stat.color]"
+           class="ph-fill absolute -right-6 -bottom-6 text-9xl opacity-[0.03] group-hover:opacity-[0.08] group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 ease-out pointer-events-none"></i>
+
+        <div class="relative z-10 flex flex-col h-full">
+
+          <div class="flex items-center gap-3 mb-6">
+            <div class="h-12 w-12 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-300">
+              <i :class="[stat.icon, stat.color]" class="ph-fill text-2xl drop-shadow-lg"></i>
+            </div>
+
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-black uppercase tracking-widest text-slate-100 truncate group-hover:text-white transition-colors">
+                {{ stat.title }}
+              </div>
+              <div class="text-[10px] font-medium text-slate-500 truncate leading-tight mt-0.5">
+                {{ stat.description }}
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-auto pl-1">
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+              Winner
+            </div>
+
+            <div class="flex items-end justify-between gap-2">
+              <div class="text-lg font-bold text-white truncate group-hover:text-amber-50 leading-none pb-0.5">
+                {{ stat.result?.player.name }}
+              </div>
+
+              <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700/80 backdrop-blur-sm group-hover:border-slate-600 transition-colors">
+                 <span class="text-xs font-bold text-white">
+                   {{ stat.result?.value }}
+                 </span>
+                <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                   {{ stat.result?.subtext }}
+                 </span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</template>

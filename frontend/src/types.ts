@@ -85,3 +85,21 @@ export interface EggConfig {
         imageClass?: string;
     }
 }
+
+export interface FameResult {
+    player: Player;
+    value: string | number;
+    subtext: string;
+}
+
+export interface FameCategory {
+    id: string;
+    title: string;
+    description: string;
+    icon: string; // Phosphor icon class
+    color: string; // Tailwind text color class
+    gradient?: string;
+    // The magic: Function returns the player(s) who won this category
+    // Returns: { player: Player, value: string | number }
+    calculate: (tournament: Tournament) => FameResult | null;
+}

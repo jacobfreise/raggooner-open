@@ -11,6 +11,7 @@ import {
 } from '../utils/utils';
 import {generateDiscordReport} from "../utils/exportUtils.ts";
 import {getRaceWinnerGif} from "../utils/umaGifs.ts";
+import HallOfFame from "./HallOfFame.vue";
 
 const props = defineProps<{
   tournamentProp: Tournament;
@@ -1113,7 +1114,13 @@ const structuredPlayerStats = computed(() => {
 
     <div class="mt-12 pt-8 border-t border-slate-700">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h3 class="text-2xl font-bold text-white">Player Statistics</h3>
+        <div class="flex items-center gap-3 mb-6">
+          <div class="h-8 w-1.5 bg-amber-500 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.6)]"></div>
+          <div>
+            <h2 class="text-xl font-bold text-white uppercase tracking-widest">Player Stats</h2>
+            <p class="text-xs text-slate-400 font-medium">Points and Placements of Players</p>
+          </div>
+        </div>
 
         <div class="flex flex-wrap items-center gap-2">
 
@@ -1293,6 +1300,10 @@ const structuredPlayerStats = computed(() => {
           </div>
         </div>
       </div>
+    </div>
+
+    <div>
+      <HallOfFame :tournament="tournament"></HallOfFame>
     </div>
 
     <div class="mt-12 pt-8 border-t border-slate-700" v-if="isDev">
