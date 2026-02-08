@@ -677,7 +677,7 @@ const categories: FameCategory[] = [
       Object.entries(stats).forEach(([pid, stat]) => {
         if (stat.wins === 0 && stat.count >= 3) { // Min 3 races to qualify
           const avg = stat.sum / stat.count;
-          if (avg < bestAvg) {
+          if (avg < bestAvg && avg <= 4) {
             bestAvg = avg;
             candidateId = pid;
           }
