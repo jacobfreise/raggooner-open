@@ -85,7 +85,7 @@ const categories: FameCategory[] = [
   },
   {
     id: 'choker',
-    title: 'The Group Stage Merchant',
+    title: 'The Choker',
     description: 'Biggest performance drop-off in Finals.',
     icon: 'ph-skull', // or ph-warning-circle
     color: 'text-rose-500', // Distinct red for "Danger"
