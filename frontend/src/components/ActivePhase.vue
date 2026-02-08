@@ -271,7 +271,7 @@ const structuredPlayerStats = computed(() => {
 
       sections.push({
         id: 'wildcards',
-        title: 'Wildcards / Unassigned',
+        title: 'Wildcards',
         color: '#94a3b8',
         players: unassigned,
         sortNumeric: wcAggregate,
