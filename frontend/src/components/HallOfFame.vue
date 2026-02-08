@@ -38,7 +38,7 @@ const categories: FameCategory[] = [
   },
   {
     id: 'medalist',
-    title: 'The Medalist',
+    title: 'The Podium Merchant',
     description: 'Finished Top 3 in every single race participated.',
     icon: 'ph-medal',
     color: 'text-yellow-500', // Deep Gold
