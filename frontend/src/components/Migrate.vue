@@ -15,7 +15,7 @@ const migrateAll = async (commit: boolean) => {
 
   try {
     // 1. Fetch ALL tournaments
-    const querySnapshot = await getDocs(collection(db, 'artifacts', 'default_app', 'public', 'data', 'tournaments'));
+    const querySnapshot = await getDocs(collection(db, 'artifacts', 'default-app', 'public', 'data', 'tournaments'));
     const batch = writeBatch(db);
     let updateCount = 0;
 
