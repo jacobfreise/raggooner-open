@@ -41,6 +41,89 @@ const EGG_LIST: EggConfig[] = [
             image: '/special-week-agemasen.gif',
             imageClass: 'w-[500px] h-auto rounded-xl shadow-2xl animate-bounce'
         }
+    },
+    {
+        id: 'flawless_victory',
+        // Trigger: A team sweeps 1-2-3 in ALL races (Triggers only at the very end)
+        check: (currentRace, _players, tournament) => {
+            // --- 1. TIMING CHECK: Is this the absolute last race? ---
+
+            // Helper to sort races: Groups (1) < Finals (2), then by Race Number
+            const stageOrder: Record<string, number> = { 'groups': 1, 'finals': 2 };
+
+            const sortedRaces = [...tournament.races].sort((a, b) => {
+                const sA = stageOrder[a.stage?.toLowerCase()] || 99;
+                const sB = stageOrder[b.stage?.toLowerCase()] || 99;
+                if (sA !== sB) return sA - sB;
+                return a.raceNumber - b.raceNumber;
+            });
+
+            const lastRace = sortedRaces[sortedRaces.length - 1];
+
+            // If the current race being checked isn't the last one, ignore it.
+            // This prevents the egg from firing 5 times in a row.
+            if (currentRace.id !== lastRace?.id) return false;
+
+
+            // --- 2. IDENTIFY THE TEAM ---
+
+            // Who got 1, 2, 3 in this final race?
+            const p1 = Object.keys(currentRace.placements).find(pid => currentRace.placements[pid] === 1);
+            const p2 = Object.keys(currentRace.placements).find(pid => currentRace.placements[pid] === 2);
+            const p3 = Object.keys(currentRace.placements).find(pid => currentRace.placements[pid] === 3);
+
+            if (!p1 || !p2 || !p3) return false;
+
+            // Find the team these players belong to
+            // (We only need to check p1's team, then verify p2/p3 are in it)
+            const winningTeam = tournament.teams.find(t =>
+                t.captainId === p1 || t.memberIds.includes(p1)
+            );
+
+            if (!winningTeam) return false;
+
+            const roster = [winningTeam.captainId, ...winningTeam.memberIds];
+
+            // Verify p2 and p3 are also on this team
+            if (!roster.includes(p2) || !roster.includes(p3)) return false;
+
+
+            // --- 3. HISTORY CHECK: Did they sweep EVERY previous race? ---
+
+            // Filter for only races this team played in
+            const teamRaces = tournament.races.filter(r =>
+                r.placements[winningTeam.captainId] !== undefined
+            );
+
+            // If they just played 1 race (e.g. just started), maybe don't trigger "Flawless" yet?
+            // Or let it trigger if it's a 1-race tournament.
+            if (teamRaces.length < 2) return false;
+
+            // Check every single race for the 1-2-3 sweep
+            const isFlawless = teamRaces.every(r => {
+                const rP1 = Object.keys(r.placements).find(pid => r.placements[pid] === 1);
+                const rP2 = Object.keys(r.placements).find(pid => r.placements[pid] === 2);
+                const rP3 = Object.keys(r.placements).find(pid => r.placements[pid] === 3);
+
+                // Check if 1, 2, and 3 exist AND are in the roster
+                return (
+                    rP1 && roster.includes(rP1) &&
+                    rP2 && roster.includes(rP2) &&
+                    rP3 && roster.includes(rP3)
+                );
+            });
+
+            return isFlawless;
+        },
+        audio: '/triple-kill.mp3', // A majestic sound
+        volume: 1.0,
+        duration: 6000,
+        visual: {
+            text: 'FLAWLESS VICTORY',
+            overlayClass: 'flex-col gap-6 bg-amber-500/20 backdrop-blur-md border-y-8 border-amber-400',
+            image: '/blue-angels.gif',
+            imageClass: 'w-48 h-48 drop-shadow-[0_0_50px_rgba(251,191,36,0.8)]'
+        }
     }
 ];
 

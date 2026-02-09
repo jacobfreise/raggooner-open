@@ -10,6 +10,70 @@ const props = defineProps<{
 // --- 2. The Configuration (Add new stats here!) ---
 const categories: FameCategory[] = [
   {
+    id: 'flawless_victory',
+    title: 'The Flawless', // or "The Trifecta"
+    description: 'Achieved a perfect 1-2-3 finish in every single race played',
+    icon: 'ph-airplane-tilt', // Represents formation flying
+    color: 'text-cyan-400',
+    gradient: 'from-cyan-500/20',
+    calculate: (t: Tournament) => {
+      let winner: Team | null = null;
+      let maxRaces = 0;
+
+      for (const team of t.teams) {
+        // 1. Basic Eligibility: Must have at least 3 players (Captain + 2 Members)
+        const roster = [team.captainId, ...team.memberIds];
+        if (roster.length < 3) continue;
+
+        let isFlawless = true;
+        let raceCount = 0;
+
+        // 2. Check every race
+        for (const r of t.races) {
+          // Check if this team played this race (look for captain)
+          if (r.placements[team.captainId] === undefined) continue;
+
+          raceCount++;
+
+          // 3. Identify who got 1st, 2nd, 3rd
+          const p1 = Object.keys(r.placements).find(key => r.placements[key] === 1);
+          const p2 = Object.keys(r.placements).find(key => r.placements[key] === 2);
+          const p3 = Object.keys(r.placements).find(key => r.placements[key] === 3);
+
+          // 4. Verify all three exist AND belong to this team
+          if (!p1 || !p2 || !p3) {
+            isFlawless = false;
+            break;
+          }
+          if (!roster.includes(p1) || !roster.includes(p2) || !roster.includes(p3)) {
+            isFlawless = false;
+            break;
+          }
+        }
+
+        // 5. Must have played at least 1 race and been flawless
+        if (isFlawless && raceCount > 0) {
+          // If multiple teams are flawless (impossible?), tie-break by race count
+          if (raceCount > maxRaces) {
+            maxRaces = raceCount;
+            winner = team;
+          }
+        }
+      }
+
+      if (!winner) return null;
+
+      const captain = t.players.find(p => p.id === winner!.captainId);
+      if (!captain) return null;
+
+      return {
+        player: { ...captain, name: winner.name },
+        value: '100%',
+        subtext: 'Podium Lockouts'
+      };
+    }
+  },
+  {
     id: 'mvp',
     title: 'The MVP',
     description: 'Highest total points across all stages',
