@@ -1041,9 +1041,13 @@ const structuredPlayerStats = computed(() => {
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 
             <div v-for="player in section.players" :key="player.id"
-                 class="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-indigo-500/50 transition-all flex flex-col h-full group">
+                 class="relative overflow-hidden bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-indigo-500/50 transition-all flex flex-col h-full group hover:shadow-xl hover:-translate-y-1">
 
-              <div class="flex justify-between items-start pb-2 border-slate-700/50">
+              <div class="absolute inset-0 transition-opacity duration-500 opacity-0 group-hover:opacity-100 pointer-events-none"
+                   :style="{ background: `linear-gradient(to bottom right, ${getPlayerColor(player.id)}33, transparent)` }">
+              </div>
+
+              <div class="relative z-10 flex justify-between items-start pb-2 border-slate-700/50">
                 <div>
                   <div class="text-2xl font-bold leading-none group-hover:text-indigo-300 transition-colors"
                        :style="{ color: getPlayerColor(player.id) }">
