@@ -1020,7 +1020,7 @@ const categories: FameCategory[] = [
     id: 'high_rollers',
     title: 'High Rollers',
     description: 'Highest team score achieved in a single race',
-    icon: 'ph-diamond',
+    icon: 'ph-sketch-logo',
     color: 'text-fuchsia-400',
     gradient: 'from-fuchsia-500/20',
     calculate: (t: Tournament) => {
