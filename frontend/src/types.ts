@@ -96,6 +96,7 @@ export interface FameCategory {
     id: string;
     title: string;
     description: string;
+    isTeam?: boolean;
     icon: string; // Phosphor icon class
     color: string; // Tailwind text color class
     gradient?: string;
