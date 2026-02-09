@@ -208,7 +208,7 @@ const categories: FameCategory[] = [
         // e.g. Group 6.0 - Finals 2.0 = +4.0 Improvement
         const diff = groupAvg - finalsAvg;
 
-        if (diff > maxImprovement && diff > 0 && diff >= 1.5) {
+        if (diff > maxImprovement && diff > 0 && diff >= 2.5) {
           maxImprovement = diff;
           winner = p;
         }
@@ -253,7 +253,7 @@ const categories: FameCategory[] = [
         const dropoff = finalsAvg - groupAvg;
 
         // Threshold: Must have dropped at least 1.5 places on average to count
-        if (dropoff > maxDropoff && dropoff >= 1.5) {
+        if (dropoff > maxDropoff && dropoff >= 2.5) {
           maxDropoff = dropoff;
           victim = p;
         }
@@ -298,6 +298,8 @@ const categories: FameCategory[] = [
           candidate = p;
         }
       });
+
+      if (!candidate || maxDev < 3.5) return null;
 
       return candidate ? {
         player: candidate,
@@ -354,7 +356,7 @@ const categories: FameCategory[] = [
         }
       });
 
-      if (!winner) return null;
+      if (!winner || minStdDev > 1.5) return null;
 
       return {
         player: winner,
@@ -478,7 +480,7 @@ const categories: FameCategory[] = [
         }
       });
 
-      if (maxLasts < 2) return null;
+      if (maxLasts < 3) return null;
 
       return victim ? {
         player: victim,
@@ -515,7 +517,7 @@ const categories: FameCategory[] = [
         }
       });
 
-      if (maxSeconds < 2) return null;
+      if (maxSeconds < 3) return null;
 
       return runnerUp ? {
         player: runnerUp,
@@ -533,7 +535,7 @@ const categories: FameCategory[] = [
     gradient: 'from-gray-500/20',
     calculate: (t: Tournament) => {
       // 1. Set Cutoff: Deviation must be <= 1.0 position to qualify
-      let bestDev = 1.6;
+      let bestDev = 1.3;
       let winner: Player | null = null;
       let winnerAvgMiddle = 0;
 
@@ -640,7 +642,7 @@ const categories: FameCategory[] = [
 
         // 4. Check for best improvement (Most negative slope wins)
         // We set a threshold (e.g. -0.5) to ensure it's actual improvement, not just noise
-        if (slope < bestSlope && slope < -0.3) {
+        if (slope < bestSlope && slope < -0.5) {
           bestSlope = slope;
           winner = p;
         }
@@ -690,7 +692,7 @@ const categories: FameCategory[] = [
         });
       });
 
-      if (!bestPlayer || highestPercentage < 0.6) return null; // Only show if they carried >60%
+      if (!bestPlayer || highestPercentage < 0.7) return null; // Only show if they carried >70%
 
       return {
         player: bestPlayer,
@@ -733,7 +735,7 @@ const categories: FameCategory[] = [
         }
       });
 
-      if (maxWins === 0) return null;
+      if (maxWins < 3) return null;
 
       const player = t.players.find(p => p.id === winnerId);
       if (!player) return null;
@@ -746,14 +748,14 @@ const categories: FameCategory[] = [
     }
   },
   {
-    id: 'consistency',
+    id: 'machine',
     title: 'The Machine',
     description: 'Best average placement',
     icon: 'ph-trend-up',
     color: 'text-emerald-400',
     gradient: 'from-emerald-500/20',
     calculate: (t) => {
-      let bestAvg = 99;
+      let bestAvg = 3.5;
       let bestP: Player | null = null;
 
       t.players.forEach(p => {
@@ -794,13 +796,13 @@ const categories: FameCategory[] = [
       });
 
       // 2. Filter for 0 wins and find best average
-      let bestAvg = 999;
+      let bestAvg = 3.51;
       let candidateId = '';
 
       Object.entries(stats).forEach(([pid, stat]) => {
         if (stat.wins === 0 && stat.count >= 3) { // Min 3 races to qualify
           const avg = stat.sum / stat.count;
-          if (avg < bestAvg && avg <= 4) {
+          if (avg < bestAvg) {
             bestAvg = avg;
             candidateId = pid;
           }
@@ -855,7 +857,7 @@ const categories: FameCategory[] = [
       });
 
       // Safety check: if minPct is still 1.0, nobody qualified
-      if (!liability || minPct > 0.12) return null;
+      if (!liability || minPct > 0.1) return null;
 
       return {
         player: liability,
@@ -867,7 +869,7 @@ const categories: FameCategory[] = [
   {
     id: 'team_podiums',
     title: 'The Podium Hogs',
-    description: 'Most combined Top 3 finishes (Gold/Silver/Bronze) by the team',
+    description: 'Most combined Top 3 finishes (Must secure >50% of all available podium slots)',
     icon: 'ph-ranking',
     color: 'text-amber-400',
     gradient: 'from-amber-500/20',
@@ -876,30 +878,52 @@ const categories: FameCategory[] = [
       let bestTeam: Team | null = null;
       let bestStats = { g: 0, s: 0, b: 0 };
 
+      // THRESHOLD: Must capture at least 50% of available podiums (Avg 1.5 per race)
+      const THRESHOLD_RATIO = 0.5;
+
       for (const team of t.teams) {
         let g = 0, s = 0, b = 0;
+        let racesParticipated = 0;
         const roster = [team.captainId, ...team.memberIds];
 
-        // 1. Tally up medals for every member across all races
-        t.races.forEach(r => {
+        // 1. Analyze every race
+        for (const r of t.races) {
+          // Check if ANY team member participated in this race
+          const participated = roster.some(pid => r.placements[pid] !== undefined);
+          if (!participated) continue;
+
+          racesParticipated++;
+
+          // Count Podiums
           roster.forEach(pid => {
             const pos = r.placements[pid];
             if (pos === 1) g++;
             else if (pos === 2) s++;
             else if (pos === 3) b++;
           });
-        });
+        }
 
-        const total = g + s + b;
+        const totalPodiums = g + s + b;
 
-        // 2. Determine Winner (Prioritize Total Count first)
-        if (total > maxTotal) {
-          maxTotal = total;
+        // 2. Calculate Capacity (3 podium spots per race)
+        const totalSlots = racesParticipated * 3;
+
+        // Safety: Avoid division by zero
+        if (totalSlots === 0) continue;
+
+        const ratio = totalPodiums / totalSlots;
+
+        // 3. APPLY FILTER: Disqualify if they didn't hog enough
+        if (ratio < THRESHOLD_RATIO) continue;
+
+        // 4. Determine Winner (Standard "Most Podiums" logic applies to survivors)
+        if (totalPodiums > maxTotal) {
+          maxTotal = totalPodiums;
           bestTeam = team;
           bestStats = { g, s, b };
         }
-        // Tie-breaker: If total count is same, check Gold count
-        else if (total === maxTotal && total > 0) {
+        else if (totalPodiums === maxTotal && totalPodiums > 0) {
+          // Tie-breaker: Gold Count
           if (g > bestStats.g) {
             bestTeam = team;
             bestStats = { g, s, b };
@@ -909,12 +933,10 @@ const categories: FameCategory[] = [
 
       if (!bestTeam) return null;
 
-      // 3. Return the Captain as the "Face" of the card, but use Team Name
       const captain = t.players.find(p => p.id === bestTeam!.captainId);
       if (!captain) return null;
 
       return {
-        // Clone the captain but overwrite name with Team Name
         player: { ...captain, name: bestTeam.name },
         value: `${bestStats.g}G ${bestStats.s}S ${bestStats.b}B`,
         subtext: 'Team Total'
@@ -953,7 +975,7 @@ const categories: FameCategory[] = [
         }
       }
 
-      if (!winner || maxCount === 0) return null;
+      if (!winner || maxCount < 2) return null;
 
       return {
         player: { ...t.players.find(p => p.id === winner!.captainId)!, name: winner.name },
@@ -970,7 +992,7 @@ const categories: FameCategory[] = [
     color: 'text-teal-400',
     gradient: 'from-teal-500/20',
     calculate: (t: Tournament) => {
-      let minGap = 999;
+      let minGap = 20;
       let winner: Team | null = null;
       let winnerAvg = 0;
 
@@ -1045,7 +1067,7 @@ const categories: FameCategory[] = [
             }
           }
 
-          if (currentRaceScore > maxRaceScore) {
+          if (currentRaceScore > maxRaceScore && currentRaceScore >= 50) {
             maxRaceScore = currentRaceScore;
             winner = team;
           }
