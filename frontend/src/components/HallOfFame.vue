@@ -868,7 +868,7 @@ const categories: FameCategory[] = [
     id: 'team_podiums',
     title: 'The Podium Hogs',
     description: 'Most combined Top 3 finishes (Gold/Silver/Bronze) by the team',
-    icon: 'ph-steps',
+    icon: 'ph-ranking',
     color: 'text-amber-400',
     gradient: 'from-amber-500/20',
     calculate: (t: Tournament) => {
