@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed} from 'vue';
-import type {FameCategory, Player, Tournament} from '../types'; // Import your types
+import type {FameCategory, Player, Team, Tournament} from '../types';
+import {POINTS_SYSTEM} from "../utils/constants.ts"; // Import your types
 
 const props = defineProps<{
   tournament: Tournament;
@@ -796,6 +797,203 @@ const categories: FameCategory[] = [
         player: liability,
         value: (minPct * 100).toFixed(1) + '%',
         subtext: 'of team pts'
+      };
+    }
+  },
+  {
+    id: 'team_podiums',
+    title: 'The Podium Hogs',
+    description: 'Most combined Top 3 finishes (Gold/Silver/Bronze) by the team.',
+    icon: 'ph-steps',
+    color: 'text-amber-400',
+    gradient: 'from-amber-500/20',
+    calculate: (t: Tournament) => {
+      let maxTotal = 0;
+      let bestTeam: Team | null = null;
+      let bestStats = { g: 0, s: 0, b: 0 };
+
+      for (const team of t.teams) {
+        let g = 0, s = 0, b = 0;
+        const roster = [team.captainId, ...team.memberIds];
+
+        // 1. Tally up medals for every member across all races
+        t.races.forEach(r => {
+          roster.forEach(pid => {
+            const pos = r.placements[pid];
+            if (pos === 1) g++;
+            else if (pos === 2) s++;
+            else if (pos === 3) b++;
+          });
+        });
+
+        const total = g + s + b;
+
+        // 2. Determine Winner (Prioritize Total Count first)
+        if (total > maxTotal) {
+          maxTotal = total;
+          bestTeam = team;
+          bestStats = { g, s, b };
+        }
+        // Tie-breaker: If total count is same, check Gold count
+        else if (total === maxTotal && total > 0) {
+          if (g > bestStats.g) {
+            bestTeam = team;
+            bestStats = { g, s, b };
+          }
+        }
+      }
+
+      if (!bestTeam) return null;
+
+      // 3. Return the Captain as the "Face" of the card, but use Team Name
+      const captain = t.players.find(p => p.id === bestTeam!.captainId);
+      if (!captain) return null;
+
+      return {
+        // Clone the captain but overwrite name with Team Name
+        player: { ...captain, name: bestTeam.name },
+        value: `${bestStats.g}G ${bestStats.s}S ${bestStats.b}B`,
+        subtext: 'Team Total'
+      };
+    }
+  },
+  {
+    id: 'one_two_punch',
+    title: 'The 1-2 Punch',
+    description: 'Most races finishing 1st and 2nd together.',
+    icon: 'ph-fist', // Or ph-lightning
+    color: 'text-rose-500',
+    gradient: 'from-rose-600/20',
+    calculate: (t: Tournament) => {
+      let maxCount = 0;
+      let winner: Team | null = null;
+
+      for (const team of t.teams) {
+        let count = 0;
+        const roster = [team.captainId, ...team.memberIds];
+
+        t.races.forEach(r => {
+          // Check if this team owns position 1 AND position 2
+          const pos1Player = Object.keys(r.placements).find(key => r.placements[key] === 1);
+          const pos2Player = Object.keys(r.placements).find(key => r.placements[key] === 2);
+
+          if (pos1Player && pos2Player &&
+              roster.includes(pos1Player) && roster.includes(pos2Player)) {
+            count++;
+          }
+        });
+
+        if (count > maxCount) {
+          maxCount = count;
+          winner = team;
+        }
+      }
+
+      if (!winner || maxCount === 0) return null;
+
+      return {
+        player: { ...t.players.find(p => p.id === winner!.captainId)!, name: winner.name },
+        value: `${maxCount}x`,
+        subtext: 'Perfect Races'
+      };
+    }
+  },
+  {
+    id: 'balanced_attack',
+    title: 'Balanced Attack',
+    description: 'Smallest point gap between teammates (No weak links).',
+    icon: 'ph-scales',
+    color: 'text-teal-400',
+    gradient: 'from-teal-500/20',
+    calculate: (t: Tournament) => {
+      let minGap = 999;
+      let winner: Team | null = null;
+      let winnerAvg = 0;
+
+      for (const team of t.teams) {
+        const roster = [team.captainId, ...team.memberIds];
+
+        // 1. Get total points for each member
+        const memberPoints = roster.map(pid => {
+          const p = t.players.find(pl => pl.id === pid);
+          return p?.totalPoints || 0;
+        });
+
+        // Ignore empty teams or solo teams (need at least 2 to compare)
+        if (memberPoints.length < 2) continue;
+        if (memberPoints.reduce((a,b)=>a+b,0) === 0) continue; // Ignore 0 point teams
+
+        // 2. Calculate Gap (Max - Min)
+        const max = Math.max(...memberPoints);
+        const min = Math.min(...memberPoints);
+        const gap = max - min;
+        const avg = memberPoints.reduce((a,b)=>a+b,0) / memberPoints.length;
+
+        // 3. Find smallest gap (Higher average points breaks ties)
+        if (gap < minGap) {
+          minGap = gap;
+          winner = team;
+          winnerAvg = avg;
+        } else if (gap === minGap) {
+          // Tie-breaker: Who scored more?
+          if (avg > winnerAvg) {
+            winner = team;
+            winnerAvg = avg;
+          }
+        }
+      }
+
+      if (!winner) return null;
+
+      return {
+        player: { ...t.players.find(p => p.id === winner!.captainId)!, name: winner.name },
+        value: `${minGap} pts`,
+        subtext: 'Spread' // e.g. "12 pts Spread"
+      };
+    }
+  },
+  {
+    id: 'high_rollers',
+    title: 'High Rollers',
+    description: 'Highest team score achieved in a single race.',
+    icon: 'ph-trend-up',
+    color: 'text-emerald-400',
+    gradient: 'from-emerald-500/20',
+    calculate: (t: Tournament) => {
+      const SYSTEM = t.pointsSystem || POINTS_SYSTEM;
+
+      let maxRaceScore = 0;
+      let winner: Team | null = null;
+
+      for (const team of t.teams) {
+        const roster = [team.captainId, ...team.memberIds];
+
+        // CHANGE: Use for...of instead of .forEach
+        for (const r of t.races) {
+          let currentRaceScore = 0;
+
+          // Inner loop can stay forEach since it doesn't set 'winner',
+          // but for...of is cleaner.
+          for (const pid of roster) {
+            const pos = r.placements[pid];
+            if (pos) {
+              currentRaceScore += (SYSTEM[pos] || 1);
+            }
+          }
+
+          if (currentRaceScore > maxRaceScore) {
+            maxRaceScore = currentRaceScore;
+            winner = team;
+          }
+        }
+      }
+
+      if (!winner) return null;
+
+      return {
+        player: { ...t.players.find(p => p.id === winner!.captainId)!, name: winner.name },
+        value: `${maxRaceScore} pts`,
+        subtext: 'Single Race'
       };
     }
   },
