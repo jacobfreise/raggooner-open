@@ -925,7 +925,7 @@ const categories: FameCategory[] = [
     id: 'one_two_punch',
     title: 'The 1-2 Punch',
     description: 'Most races finishing 1st and 2nd together',
-    icon: 'ph-fist', // Or ph-lightning
+    icon: 'ph-hand-fist', // Or ph-lightning
     color: 'text-rose-500',
     gradient: 'from-rose-600/20',
     calculate: (t: Tournament) => {
