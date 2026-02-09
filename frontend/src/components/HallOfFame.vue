@@ -13,6 +13,7 @@ const categories: FameCategory[] = [
     id: 'flawless_victory',
     title: 'The Flawless', // or "The Trifecta"
     description: 'Achieved a perfect 1-2-3 finish in every single race played',
+    isTeam: true,
     icon: 'ph-airplane-tilt', // Represents formation flying
     color: 'text-cyan-400',
     gradient: 'from-cyan-500/20',
@@ -451,7 +452,7 @@ const categories: FameCategory[] = [
     description: 'Most last place finishes',
     icon: 'ph-anchor',
     color: 'text-slate-500', // Grey for shame
-    gradient: 'from-rose-500/20',
+    gradient: 'from-zinc-500/20',
     calculate: (t: Tournament) => {
       const lastCounts: Record<string, number> = {};
 
@@ -870,6 +871,7 @@ const categories: FameCategory[] = [
     id: 'team_podiums',
     title: 'The Podium Hogs',
     description: 'Most combined Top 3 finishes (Must secure >50% of all available podium slots)',
+    isTeam: true,
     icon: 'ph-ranking',
     color: 'text-amber-400',
     gradient: 'from-amber-500/20',
@@ -947,6 +949,7 @@ const categories: FameCategory[] = [
     id: 'one_two_punch',
     title: 'The 1-2 Punch',
     description: 'Most races finishing 1st and 2nd together',
+    isTeam: true,
     icon: 'ph-hand-fist', // Or ph-lightning
     color: 'text-rose-500',
     gradient: 'from-rose-600/20',
@@ -988,6 +991,7 @@ const categories: FameCategory[] = [
     id: 'phalanx',
     title: 'The Phalanx',
     description: 'Smallest point gap between teammates (No weak links)',
+    isTeam: true,
     icon: 'ph-shield-check',
     color: 'text-teal-400',
     gradient: 'from-teal-500/20',
@@ -1042,6 +1046,7 @@ const categories: FameCategory[] = [
     id: 'high_rollers',
     title: 'High Rollers',
     description: 'Highest team score achieved in a single race',
+    isTeam: true,
     icon: 'ph-sketch-logo',
     color: 'text-fuchsia-400',
     gradient: 'from-fuchsia-500/20',
@@ -1119,7 +1124,6 @@ const activeStats = computed(() => {
              class="ph-fill absolute -right-6 -bottom-6 text-9xl opacity-[0.03] group-hover:opacity-[0.08] group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 ease-out pointer-events-none"></i>
 
           <div class="relative z-10 flex flex-col h-full">
-
             <div class="flex items-center gap-3 mb-6">
               <div class="h-12 w-12 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-300">
                 <i :class="[stat.icon, stat.color]" class="ph-fill text-2xl drop-shadow-lg"></i>
