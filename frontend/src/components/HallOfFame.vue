@@ -867,7 +867,7 @@ const categories: FameCategory[] = [
   {
     id: 'team_podiums',
     title: 'The Podium Hogs',
-    description: 'Most combined Top 3 finishes (Gold/Silver/Bronze) by the team.',
+    description: 'Most combined Top 3 finishes (Gold/Silver/Bronze) by the team',
     icon: 'ph-steps',
     color: 'text-amber-400',
     gradient: 'from-amber-500/20',
@@ -924,7 +924,7 @@ const categories: FameCategory[] = [
   {
     id: 'one_two_punch',
     title: 'The 1-2 Punch',
-    description: 'Most races finishing 1st and 2nd together.',
+    description: 'Most races finishing 1st and 2nd together',
     icon: 'ph-fist', // Or ph-lightning
     color: 'text-rose-500',
     gradient: 'from-rose-600/20',
@@ -965,7 +965,7 @@ const categories: FameCategory[] = [
   {
     id: 'balanced_attack',
     title: 'Balanced Attack',
-    description: 'Smallest point gap between teammates (No weak links).',
+    description: 'Smallest point gap between teammates (No weak links)',
     icon: 'ph-scales',
     color: 'text-teal-400',
     gradient: 'from-teal-500/20',
@@ -1019,7 +1019,7 @@ const categories: FameCategory[] = [
   {
     id: 'high_rollers',
     title: 'High Rollers',
-    description: 'Highest team score achieved in a single race.',
+    description: 'Highest team score achieved in a single race',
     icon: 'ph-trend-up',
     color: 'text-emerald-400',
     gradient: 'from-emerald-500/20',
