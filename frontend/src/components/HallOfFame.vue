@@ -985,10 +985,10 @@ const categories: FameCategory[] = [
     }
   },
   {
-    id: 'balanced_attack',
-    title: 'Balanced Attack',
+    id: 'phalanx',
+    title: 'The Phalanx',
     description: 'Smallest point gap between teammates (No weak links)',
-    icon: 'ph-scales',
+    icon: 'ph-shield-check',
     color: 'text-teal-400',
     gradient: 'from-teal-500/20',
     calculate: (t: Tournament) => {
