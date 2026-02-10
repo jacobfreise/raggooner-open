@@ -115,13 +115,13 @@ const EGG_LIST: EggConfig[] = [
 
             return isFlawless;
         },
-        audio: '/triple-kill.mp3', // A majestic sound
+        audio: '/flawless-victory.mp3', // A majestic sound
         volume: 1.0,
-        duration: 6000,
+        duration: 4000,
         visual: {
             text: 'FLAWLESS VICTORY',
             overlayClass: 'flex-col gap-6 bg-amber-500/20 backdrop-blur-md border-y-8 border-amber-400',
-            image: '/blue-angels.gif',
+            image: '/victory.gif',
             imageClass: 'w-48 h-48 drop-shadow-[0_0_50px_rgba(251,191,36,0.8)]'
         }
     }
