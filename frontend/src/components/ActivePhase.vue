@@ -75,6 +75,7 @@ const {
   getPlayerColor,
   getPlayerNameOrUma,
   submitUmas,
+  closeUmaModal,
   getUmaList,
   showWildcardModal,
   openWildcardModal,
@@ -1266,22 +1267,36 @@ const structuredPlayerStats = computed(() => {
 
     <div v-if="showUmaModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+
         <div class="flex justify-between items-center mb-6">
           <h3 class="text-2xl font-bold text-white">Edit Umas</h3>
-          <button @click="submitUmas" class="text-slate-400 hover:text-white"><i class="ph-bold ph-x text-xl"></i></button>
+          <button @click="closeUmaModal" class="text-slate-400 hover:text-white">
+            <i class="ph-bold ph-x text-xl"></i>
+          </button>
         </div>
 
         <div class="space-y-6">
-          <p class="text-sm text-slate-400">Enter Umas used by players.</p>
+          <p class="text-sm text-slate-400">
+            Changes are saved automatically.
+          </p>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div v-for="player in tournament!.players" :key="player.id" class="flex items-center justify-between bg-slate-800 p-3 rounded border border-slate-700">
-              <span class="text-sm font-medium truncate w-32">{{ player.name }}</span>
+            <div
+                v-for="player in tournament!.players"
+                :key="player.id"
+                class="flex items-center justify-between bg-slate-800 p-3 rounded border border-slate-700"
+            >
+          <span class="text-sm font-medium truncate w-32 text-slate-200">
+            {{ player.name }}
+          </span>
+
               <select
                   v-model="player.uma"
-                  class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
+                  @change="submitUmas"
+                  class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all cursor-pointer"
+              >
                 <option value="">- Select -</option>
-                <option v-for="uma in getUmaList()" :key="player.id" :value="uma">
+                <option v-for="uma in getUmaList()" :key="uma" :value="uma">
                   {{ uma }}
                 </option>
               </select>
@@ -1289,9 +1304,12 @@ const structuredPlayerStats = computed(() => {
           </div>
 
           <div class="pt-4 border-t border-slate-700 flex justify-end gap-3">
-            <button @click="submitUmas"
-                    :disabled="!isAdmin"
-                    class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded font-bold">Submit Umas</button>
+            <button
+                @click="closeUmaModal"
+                class="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded font-bold transition-colors"
+            >
+              Done
+            </button>
           </div>
         </div>
       </div>

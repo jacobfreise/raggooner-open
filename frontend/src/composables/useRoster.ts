@@ -133,8 +133,12 @@ export function useRoster(
             players: newPlayers
         });
 
-        showUmaModal.value = false;
+        // showUmaModal.value = false;
     };
+
+    const closeUmaModal = () => {
+        showUmaModal.value = false;
+    }
 
     const getPlayerColor = (playerId: string) => {
         if (!tournament.value) return '#e2e8f0';
@@ -174,6 +178,7 @@ export function useRoster(
         openWildcardModal,
         addWildcard,
         submitUmas,
+        closeUmaModal,
         getPlayerColor,
         getPlayerNameOrUma,
     };
