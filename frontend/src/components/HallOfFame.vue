@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import {computed} from 'vue';
 import type {FameCategory, Player, Team, Tournament} from '../types';
-import {POINTS_SYSTEM} from "../utils/constants.ts"; // Import your types
+import {POINTS_SYSTEM} from "../utils/constants.ts";
+import {compareTeams} from "../utils/utils.ts"; // Import your types
 
 const props = defineProps<{
   tournament: Tournament;
@@ -1112,22 +1113,11 @@ const categories: FameCategory[] = [
       if (relevantRaces.length < 3) return null;
 
       // 2. IDENTIFY EVENTUAL WINNER
-      const finalTotals: Record<string, number> = {};
-      t.teams.forEach(tm => finalTotals[tm.id] = 0);
+      const sortedTeams = t.teams
+          .filter(t => t.inFinals)
+          .sort((a, b) => compareTeams(a, b, true, t, true))!;
 
-      relevantRaces.forEach(r => {
-        Object.entries(r.placements).forEach(([pid, pos]) => {
-          const team = t.teams.find(tm => tm.captainId === pid || tm.memberIds.includes(pid));
-          if (team) finalTotals[team.id] = (finalTotals[team.id] || 0) + (SYSTEM[pos] || 1);
-        });
-      });
-
-      const teamIds = Object.keys(finalTotals);
-      if (teamIds.length === 0) return null;
-
-      const winnerId = teamIds.reduce((a, b) =>
-          (finalTotals[a] ?? 0) > (finalTotals[b] ?? 0) ? a : b
-      );
+      const winnerId = sortedTeams[0]!.id;
 
       // 3. SNAPSHOT AT "CUTOFF" (Start of the last 2 races)
       const cutoffIndex = relevantRaces.length - 2;
@@ -1140,7 +1130,7 @@ const categories: FameCategory[] = [
       racesBeforeCutoff.forEach(r => {
         Object.entries(r.placements).forEach(([pid, pos]) => {
           const team = t.teams.find(tm => tm.captainId === pid || tm.memberIds.includes(pid));
-          if (team) snapshotScores[team.id] = (snapshotScores[team.id] || 0) + (SYSTEM[pos] || 1);
+          if (team) snapshotScores[team.id] = (snapshotScores[team.id] || 0) + (SYSTEM[pos] || 0);
         });
       });
 
