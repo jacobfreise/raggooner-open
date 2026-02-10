@@ -1158,7 +1158,7 @@ const categories: FameCategory[] = [
       const deficit = leaderScore - winnerScore;
 
       // Threshold: Must be behind by 30+ points entering the final 2 races
-      if (deficit < 35) return null;
+      if (deficit < 30) return null;
 
       const winnerTeam = t.teams.find(tm => tm.id === winnerId);
       if (!winnerTeam) return null;
@@ -1243,7 +1243,7 @@ const categories: FameCategory[] = [
       const lead = (snapshotScores[leaderId] ?? 0) - (snapshotScores[secondId] ?? 0);
 
       // Threshold: Must have been leading by 30+ points
-      if (lead < 35) return null;
+      if (lead < 30) return null;
 
       const bottlerTeam = t.teams.find(tm => tm.id === leaderId);
       if (!bottlerTeam) return null;
