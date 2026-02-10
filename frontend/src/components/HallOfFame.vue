@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed} from 'vue';
-import type {FameCategory, Player, Race, Team, Tournament} from '../types';
+import type {FameCategory, Player, Team, Tournament} from '../types';
 import {POINTS_SYSTEM} from "../utils/constants.ts"; // Import your types
 
 const props = defineProps<{
