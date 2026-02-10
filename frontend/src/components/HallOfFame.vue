@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed} from 'vue';
-import type {FameCategory, Player, Team, Tournament} from '../types';
+import type {FameCategory, Player, Race, Team, Tournament} from '../types';
 import {POINTS_SYSTEM} from "../utils/constants.ts"; // Import your types
 
 const props = defineProps<{
@@ -1088,6 +1088,176 @@ const categories: FameCategory[] = [
       };
     }
   },
+  {
+    id: 'comeback_kings',
+    title: 'The Comeback Kings',
+    description: 'Overcame a massive deficit in the last 2 races',
+    icon: 'ph-heartbeat',
+    color: 'text-emerald-400',
+    gradient: 'from-emerald-500/20',
+    isTeam: true,
+    calculate: (t: Tournament) => {
+      const SYSTEM = t.pointsSystem || POINTS_SYSTEM;
+
+      // 1. FILTER RACES
+      const isBigTournament = t.teams.length >= 6;
+      let relevantRaces = isBigTournament
+          ? t.races.filter(r => r.stage === 'finals')
+          : [...t.races];
+
+      relevantRaces.sort((a, b) => a.raceNumber - b.raceNumber);
+
+      // Need at least 3 races to have a "last 2 races" comeback context
+      // (If only 2 races exist, you can't be "behind" entering the last 2, because you are at 0 pts)
+      if (relevantRaces.length < 3) return null;
+
+      // 2. IDENTIFY EVENTUAL WINNER
+      const finalTotals: Record<string, number> = {};
+      t.teams.forEach(tm => finalTotals[tm.id] = 0);
+
+      relevantRaces.forEach(r => {
+        Object.entries(r.placements).forEach(([pid, pos]) => {
+          const team = t.teams.find(tm => tm.captainId === pid || tm.memberIds.includes(pid));
+          if (team) finalTotals[team.id] = (finalTotals[team.id] || 0) + (SYSTEM[pos] || 1);
+        });
+      });
+
+      const teamIds = Object.keys(finalTotals);
+      if (teamIds.length === 0) return null;
+
+      const winnerId = teamIds.reduce((a, b) =>
+          (finalTotals[a] ?? 0) > (finalTotals[b] ?? 0) ? a : b
+      );
+
+      // 3. SNAPSHOT AT "CUTOFF" (Start of the last 2 races)
+      const cutoffIndex = relevantRaces.length - 2;
+      const racesBeforeCutoff = relevantRaces.slice(0, cutoffIndex);
+
+      const snapshotScores: Record<string, number> = {};
+      t.teams.forEach(tm => snapshotScores[tm.id] = 0);
+
+      // Tally scores up to the cutoff
+      racesBeforeCutoff.forEach(r => {
+        Object.entries(r.placements).forEach(([pid, pos]) => {
+          const team = t.teams.find(tm => tm.captainId === pid || tm.memberIds.includes(pid));
+          if (team) snapshotScores[team.id] = (snapshotScores[team.id] || 0) + (SYSTEM[pos] || 1);
+        });
+      });
+
+      // Who was leading THEN?
+      const currentIds = Object.keys(snapshotScores);
+      if (currentIds.length === 0) return null;
+
+      const leaderAtCutoffId = currentIds.reduce((a, b) =>
+          (snapshotScores[a] ?? 0) > (snapshotScores[b] ?? 0) ? a : b
+      );
+
+      const leaderScore = snapshotScores[leaderAtCutoffId] ?? 0;
+      const winnerScore = snapshotScores[winnerId] ?? 0;
+
+      const deficit = leaderScore - winnerScore;
+
+      // Threshold: Must be behind by 30+ points entering the final 2 races
+      if (deficit < 35) return null;
+
+      const winnerTeam = t.teams.find(tm => tm.id === winnerId);
+      if (!winnerTeam) return null;
+
+      const captain = t.players.find(p => p.id === winnerTeam.captainId);
+      if (!captain) return null;
+
+      return {
+        player: { ...captain, name: winnerTeam.name },
+        value: `${deficit} pts`,
+        subtext: 'Deficit Overcome'
+      };
+    }
+  },
+  {
+    id: 'the_fumblers',
+    title: 'The Fumblers',
+    description: 'Blew a massive lead in the last 2 races',
+    icon: 'ph-bomb',
+    color: 'text-orange-500',
+    gradient: 'from-orange-500/20',
+    isTeam: true,
+    calculate: (t: Tournament) => {
+      const SYSTEM = t.pointsSystem || POINTS_SYSTEM;
+
+      // 1. FILTER RACES
+      const isBigTournament = t.teams.length >= 6;
+      let relevantRaces = isBigTournament
+          ? t.races.filter(r => r.stage === 'finals')
+          : [...t.races];
+
+      relevantRaces.sort((a, b) => a.raceNumber - b.raceNumber);
+      if (relevantRaces.length < 3) return null;
+
+      // 2. IDENTIFY EVENTUAL WINNER (To ensure the fumbler actually lost)
+      const finalTotals: Record<string, number> = {};
+      t.teams.forEach(tm => finalTotals[tm.id] = 0);
+
+      relevantRaces.forEach(r => {
+        Object.entries(r.placements).forEach(([pid, pos]) => {
+          const team = t.teams.find(tm => tm.captainId === pid || tm.memberIds.includes(pid));
+          if (team) finalTotals[team.id] = (finalTotals[team.id] || 0) + (SYSTEM[pos] || 1);
+        });
+      });
+
+      const teamIds = Object.keys(finalTotals);
+      if (teamIds.length === 0) return null;
+
+      const championId = teamIds.reduce((a, b) =>
+          (finalTotals[a] ?? 0) > (finalTotals[b] ?? 0) ? a : b
+      );
+
+      // 3. SNAPSHOT AT "CUTOFF"
+      const cutoffIndex = relevantRaces.length - 2;
+      const racesBeforeCutoff = relevantRaces.slice(0, cutoffIndex);
+
+      const snapshotScores: Record<string, number> = {};
+      t.teams.forEach(tm => snapshotScores[tm.id] = 0);
+
+      racesBeforeCutoff.forEach(r => {
+        Object.entries(r.placements).forEach(([pid, pos]) => {
+          const team = t.teams.find(tm => tm.captainId === pid || tm.memberIds.includes(pid));
+          if (team) snapshotScores[team.id] = (snapshotScores[team.id] || 0) + (SYSTEM[pos] || 1);
+        });
+      });
+
+      // Who was leading THEN?
+      // We need to sort everyone to find 1st and 2nd place at that moment
+      const sortedAtCutoff = Object.keys(snapshotScores).sort((a, b) =>
+          (snapshotScores[b] ?? 0) - (snapshotScores[a] ?? 0)
+      );
+
+      const leaderId = sortedAtCutoff[0];
+      const secondId = sortedAtCutoff[1];
+
+      if (!leaderId || !secondId) return null;
+
+      // IF the leader at the cutoff IS the eventual champion, they didn't fumble.
+      if (leaderId === championId) return null;
+
+      // Calculate the lead they had
+      const lead = (snapshotScores[leaderId] ?? 0) - (snapshotScores[secondId] ?? 0);
+
+      // Threshold: Must have been leading by 30+ points
+      if (lead < 35) return null;
+
+      const bottlerTeam = t.teams.find(tm => tm.id === leaderId);
+      if (!bottlerTeam) return null;
+
+      const captain = t.players.find(p => p.id === bottlerTeam.captainId);
+      if (!captain) return null;
+
+      return {
+        player: { ...captain, name: bottlerTeam.name },
+        value: `${lead} pts`,
+        subtext: 'Lead Blown'
+      };
+    }
+  }
 ];
 
 // --- 3. The Computation ---
