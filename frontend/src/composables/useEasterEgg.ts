@@ -47,16 +47,25 @@ const EGG_LIST: EggConfig[] = [
         // Trigger: A team sweeps 1-2-3 in ALL races (Triggers only at the very end)
         check: (currentRace, _players, tournament) => {
             // --- 1. TIMING CHECK: Is this the absolute last race? ---
+            const isSmallTournament = tournament.teams.length < 6;
 
             // Helper to sort races: Groups (1) < Finals (2), then by Race Number
             const stageOrder: Record<string, number> = { 'groups': 1, 'finals': 2 };
 
-            const sortedRaces = [...tournament.races].sort((a, b) => {
+            const sortedRaces = [...tournament.races]
+                .sort((a, b) => {
                 const sA = stageOrder[a.stage?.toLowerCase()] || 99;
                 const sB = stageOrder[b.stage?.toLowerCase()] || 99;
                 if (sA !== sB) return sA - sB;
                 return a.raceNumber - b.raceNumber;
             });
+
+            const finalsRaces = sortedRaces.filter(r => {
+                return isSmallTournament ? true : r.stage === 'finals';
+            })
+
+            // Only fire when all races are over!
+            if (finalsRaces.length < 5) return false;
 
             const lastRace = sortedRaces[sortedRaces.length - 1];
 
@@ -93,11 +102,11 @@ const EGG_LIST: EggConfig[] = [
             // Filter for only races this team played in
             const teamRaces = tournament.races.filter(r =>
                 r.placements[winningTeam.captainId] !== undefined
+                || winningTeam.memberIds.some(member => r.placements[member] !== undefined)
             );
 
             // If they just played 1 race (e.g. just started), maybe don't trigger "Flawless" yet?
-            // Or let it trigger if it's a 1-race tournament.
-            if (teamRaces.length < 2) return false;
+            if (teamRaces.length < 5) return false;
 
             // Check every single race for the 1-2-3 sweep
             const isFlawless = teamRaces.every(r => {
@@ -122,7 +131,7 @@ const EGG_LIST: EggConfig[] = [
             text: 'FLAWLESS VICTORY',
             overlayClass: 'flex-col gap-6 bg-amber-500/20 backdrop-blur-md border-y-8 border-amber-400',
             image: '/victory.gif',
-            imageClass: 'w-48 h-48 drop-shadow-[0_0_50px_rgba(251,191,36,0.8)]'
+            imageClass: 'w-64 h-64 drop-shadow-[0_0_50px_rgba(251,191,36,0.8)]'
         }
     }
 ];
