@@ -8,6 +8,20 @@ const props = defineProps<{
   tournament: Tournament;
 }>();
 
+
+// Helper function for Olympic-style comparison
+const compareStats = (
+    a: { count: number; g: number; s: number; b: number },
+    b: { count: number; g: number; s: number; b: number }
+): number => {
+  // Returns: positive if a > b, negative if b > a, 0 if equal
+
+  if (a.count !== b.count) return a.count - b.count;
+  if (a.g !== b.g) return a.g - b.g;
+  if (a.s !== b.s) return a.s - b.s;
+  return a.b - b.b;
+}
+
 // --- 2. The Configuration (Add new stats here!) ---
 const categories: FameCategory[] = [
   {
@@ -103,23 +117,19 @@ const categories: FameCategory[] = [
     title: 'The Inevitable',
     description: 'Finished Top 3 in every single race participated',
     icon: 'ph-medal',
-    color: 'text-yellow-500', // Deep Gold
+    color: 'text-yellow-500',
     gradient: 'from-yellow-600/20',
     tieHandling: { type: 'allow-ties' },
     calculate: (t: Tournament) => {
-      let bestCandidate: Player | null = null;
-      // Track best stats for comparison
-      let bestStats = { count: 0, g: 0, s: 0, b: 0 };
+      const candidates: Array<{ player: Player; stats: { count: number; g: number; s: number; b: number } }> = [];
 
+      // 1. Collect all valid candidates
       t.players.forEach(p => {
-        let g = 0, s = 0, b = 0;
-        let valid = true;
-        let count = 0;
+        let g = 0, s = 0, b = 0, count = 0, valid = true;
 
-        // 1. Analyze every race this player ran
         for (const r of t.races) {
           const pos = r.placements[p.id];
-          if (pos === undefined) continue; // Didn't play, doesn't count against them
+          if (pos === undefined) continue;
 
           count++;
 
@@ -127,51 +137,37 @@ const categories: FameCategory[] = [
           else if (pos === 2) s++;
           else if (pos === 3) b++;
           else {
-            valid = false; // They got 4th or worse. Disqualified.
+            valid = false;
             break;
           }
         }
 
-        // 2. Minimum Criteria (e.g. 3 races)
-        if (!valid || count < 3) return [];
-
-        // 3. The "Olympic" Tiebreaker Logic
-        let isBetter = false;
-
-        if (count > bestStats.count) {
-          isBetter = true; // More races played = Automatic win
-        } else if (count === bestStats.count) {
-          // Tiebreaker 1: Golds
-          if (g > bestStats.g) {
-            isBetter = true;
-          } else if (g === bestStats.g) {
-            // Tiebreaker 2: Silvers
-            if (s > bestStats.s) {
-              isBetter = true;
-            } else if (s === bestStats.s) {
-              // Tiebreaker 3: Bronzes
-              if (b > bestStats.b) {
-                isBetter = true;
-              }
-            }
-          }
-        }
-
-        // 4. Update the King of the Hill
-        if (isBetter) {
-          bestStats = { count, g, s, b };
-          bestCandidate = p;
+        // Only add if valid and meets minimum
+        if (valid && count >= 3) {
+          candidates.push({ player: p, stats: { count, g, s, b } });
         }
       });
 
-      if (!bestCandidate) return [];
+      if (candidates.length === 0) return [];
 
-      // 5. Format Output: "3G 1S 0B"
-      return [{
-        player: bestCandidate,
-        value: `${bestStats.g}G ${bestStats.s}S ${bestStats.b}B`,
-        subtext: `in ${bestStats.count} Races`
-      }];
+      // 2. Find the best stats using Olympic comparison
+      let bestStats = candidates[0]!.stats;
+
+      candidates.forEach(c => {
+        const comparison = compareStats(c.stats, bestStats);
+        if (comparison > 0) {
+          bestStats = c.stats;
+        }
+      });
+
+      // 3. Return ALL players with the best stats
+      return candidates
+          .filter(c => compareStats(c.stats, bestStats) === 0)
+          .map(c => ({
+            player: c.player,
+            value: `${c.stats.g}G ${c.stats.s}S ${c.stats.b}B`,
+            subtext: `in ${c.stats.count} Race${c.stats.count === 1 ? '' : 's'}`
+          }));
     }
   },
   {
@@ -184,7 +180,7 @@ const categories: FameCategory[] = [
     tieHandling: { type: 'allow-ties' },
     calculate: (t: Tournament) => {
       let maxImprovement = -999;
-      let winner: Player | null = null;
+      let winners: Player[] = [];
 
       t.players.forEach(p => {
         // 1. Get Placements for each stage
@@ -208,18 +204,28 @@ const categories: FameCategory[] = [
         const diff = groupAvg - finalsAvg;
 
         if (diff > maxImprovement && diff > 0 && diff >= 2.5) {
-          maxImprovement = diff;
-          winner = p;
+          // Case A: We found a NEW highest score
+          if (diff > maxImprovement) {
+            maxImprovement = diff;
+            winners = [p]; // Reset the array with this new leader
+          }
+              // Case B: We found a TIE for the highest score
+          // (Using a small epsilon 0.0001 to handle floating point math inconsistencies)
+          else if (Math.abs(diff - maxImprovement) < 0.0001) {
+            winners.push(p); // Add this player to the existing list
+          }
         }
       });
 
-      if (!winner) return [];
+      if (winners.length === 0) return [];
 
-      return [{
-        player: winner,
-        value: `+${maxImprovement.toFixed(1)}`,
-        subtext: 'avg Place Improv.'
-      }];
+      return winners.map(w => {
+        return {
+          player: w,
+          value: `+${maxImprovement.toFixed(1)}`,
+          subtext: 'avg Place Improv.'
+        }
+      });
     }
   },
   {
@@ -250,11 +256,6 @@ const categories: FameCategory[] = [
         // e.g. Finals 8.0 - Group 2.0 = +6.0 Dropoff
         const dropoff = finalsAvg - groupAvg;
 
-        // Threshold: Must have dropped at least 1.5 places on average to count
-        // if (dropoff > maxDropoff && dropoff >= 2.5) {
-        //   maxDropoff = dropoff;
-        //   victim = p;
-        // }
         return { player: p, performance: dropoff }
       });
       const maxPer = Math.max(...performances.map(p => p.performance))
@@ -282,16 +283,15 @@ const categories: FameCategory[] = [
     tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
       let maxDev = 0;
-      let candidate: Player | null = null;
 
-      t.players.forEach(p => {
+      const variances = t.players.map(p => {
         // 1. Get all placements for this player
         const places: number[] = [];
         t.races.forEach(r => {
           if (r.placements[p.id]) places.push(r.placements[p.id]!);
         });
 
-        if (places.length < 3) return []; // Need data for deviation
+        if (places.length < 3) return {player: p, value: 0}; // Need data for deviation
 
         // 2. Calculate Standard Deviation
         const mean = places.reduce((a, b) => a + b, 0) / places.length;
@@ -300,17 +300,21 @@ const categories: FameCategory[] = [
 
         if (stdDev > maxDev) {
           maxDev = stdDev;
-          candidate = p;
         }
+        return {player: p, value: stdDev}
       });
 
-      if (!candidate || maxDev < 3.5) return [];
+      if (maxDev < 3.5) return [];
 
-      return candidate ? [{
-        player: candidate,
-        value: maxDev.toFixed(2),
-        subtext: 'Std Dev'
-      }] : [];
+      return variances
+          .filter(v => v.value === maxDev)
+          .map(v => {
+                return {
+                  player: v.player,
+                  value: maxDev.toFixed(2),
+                  subtext: 'Std Dev'
+                }
+              });
     }
   },
   {
@@ -323,53 +327,38 @@ const categories: FameCategory[] = [
     tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
       let minStdDev = 999;
-      let winner: Player | null = null;
-      let winnerAvg = 0;
 
-      t.players.forEach(p => {
-        // 1. Collect all placements
-        const placements: number[] = [];
+      const variances = t.players.map(p => {
+        // 1. Get all placements for this player
+        const places: number[] = [];
         t.races.forEach(r => {
-          const pos = r.placements[p.id];
-          if (pos !== undefined) placements.push(pos);
+          if (r.placements[p.id]) places.push(r.placements[p.id]!);
         });
 
-        // 2. Minimum Sample Size (e.g. 5 races)
-        // Standard deviation is meaningless with too few data points
-        if (placements.length < 5) return [];
+        if (places.length < 3) return {player: p, value: 0}; // Need data for deviation
 
-        // 3. Calculate Mean (Average)
-        const n = placements.length;
-        const mean = placements.reduce((a, b) => a + b, 0) / n;
-
-        // 4. Calculate Variance
-        // Sum of squared differences from the mean
-        const sumSquaredDiffs = placements.reduce((sum, val) => {
-          const diff = val - mean;
-          return sum + (diff * diff);
-        }, 0);
-
-        const variance = sumSquaredDiffs / n;
-
-        // 5. Calculate Standard Deviation
+        // 2. Calculate Standard Deviation
+        const mean = places.reduce((a, b) => a + b, 0) / places.length;
+        const variance = places.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / places.length;
         const stdDev = Math.sqrt(variance);
 
-        // 6. Find the Lowest
         if (stdDev < minStdDev) {
           minStdDev = stdDev;
-          winner = p;
-          winnerAvg = mean;
         }
+        return {player: p, value: stdDev}
       });
 
-      if (!winner || minStdDev > 1.5) return [];
+      if (variances.length === 0 || minStdDev > 1.5) return [];
 
-      return [{
-        player: winner,
-        value: `±${minStdDev.toFixed(2)}`,
-        // Shows their "usual" spot (e.g. "Avg Place 2.5")
-        subtext: `Avg Place ${winnerAvg.toFixed(1)}`
-      }];
+      return variances
+          .filter(v => v.value === minStdDev)
+          .map(v => {
+            return {
+              player: v.player,
+              value: minStdDev.toFixed(2),
+              subtext: 'Std Dev'
+            }
+          });
     }
   },
   {
