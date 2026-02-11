@@ -87,10 +87,16 @@ export interface EggConfig {
 }
 
 export interface FameResult {
-    player: Player;
+    player: Player | Team;
     value: string | number;
     subtext: string;
 }
+
+export type TieHandling =
+    | { type: 'allow-ties' }           // Return all tied winners
+    | { type: 'no-winner-on-tie' }     // Return null if tied
+    | { type: 'tiebreaker', fn: (a: FameResult, b: FameResult, tournament: Tournament) => number }; // Custom tiebreaker
+
 
 export interface FameCategory {
     id: string;
@@ -100,7 +106,22 @@ export interface FameCategory {
     icon: string; // Phosphor icon class
     color: string; // Tailwind text color class
     gradient?: string;
+    tieHandling: TieHandling;
     // The magic: Function returns the player(s) who won this category
     // Returns: { player: Player, value: string | number }
-    calculate: (tournament: Tournament) => FameResult | null;
+    calculate: (tournament: Tournament) => FameResult[];
+}
+
+export interface PlayerStats {
+    player: Player;
+    value: number;
+    subtext: string;
+    metadata?: Record<string, any>; // e.g., { golds: 3, silvers: 2 }
+}
+
+export interface TeamStats {
+    team: Team;
+    value: number;
+    subtext: string;
+    metadata?: Record<string, any>;
 }

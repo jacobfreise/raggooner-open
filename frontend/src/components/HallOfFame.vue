@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed} from 'vue';
-import type {FameCategory, Player, Team, Tournament} from '../types';
+import type {FameCategory, FameResult, Player, Team, Tournament} from '../types';
 import {POINTS_SYSTEM} from "../utils/constants.ts";
 import {compareTeams} from "../utils/utils.ts"; // Import your types
 
@@ -18,6 +18,7 @@ const categories: FameCategory[] = [
     icon: 'ph-airplane-tilt', // Represents formation flying
     color: 'text-cyan-400',
     gradient: 'from-cyan-500/20',
+    tieHandling: { type: 'no-winner-on-tie' },
     calculate: (t: Tournament) => {
       let winner: Team | null = null;
       let maxRaces = 0;
@@ -63,16 +64,16 @@ const categories: FameCategory[] = [
         }
       }
 
-      if (!winner) return null;
+      if (!winner) return [];
 
       const captain = t.players.find(p => p.id === winner!.captainId);
-      if (!captain) return null;
+      if (!captain) return [];
 
-      return {
+      return [{
         player: { ...captain, name: winner.name },
         value: '100%',
         subtext: 'Podium Lockouts'
-      };
+      }];
     }
   },
   {
@@ -82,25 +83,19 @@ const categories: FameCategory[] = [
     icon: 'ph-trophy',
     color: 'text-yellow-400', // Gold for the winner
     gradient: 'from-yellow-500/20',
+    tieHandling: { type: 'allow-ties' },
     calculate: (t: Tournament) => {
-      let maxPoints = -999;
-      let winner: Player | null = null;
+      const maxPts = Math.max(...t.players.map(p => p.totalPoints || 0));
 
-      t.players.forEach(p => {
-        const points = p.totalPoints || 0;
-        if (points > maxPoints) {
-          maxPoints = points;
-          winner = p;
-        }
-      });
+      if (maxPts < 25) return [];
 
-      if (!winner || maxPoints < 10) return null;
-
-      return {
-        player: winner,
-        value: maxPoints,
-        subtext: 'Total Pts'
-      };
+      return t.players
+          .filter(p => (p.totalPoints || 0) === maxPts)
+          .map(p => ({
+            player: p,
+            value: maxPts,
+            subtext: 'Total Pts'
+          }));
     }
   },
   {
@@ -110,6 +105,7 @@ const categories: FameCategory[] = [
     icon: 'ph-medal',
     color: 'text-yellow-500', // Deep Gold
     gradient: 'from-yellow-600/20',
+    tieHandling: { type: 'allow-ties' },
     calculate: (t: Tournament) => {
       let bestCandidate: Player | null = null;
       // Track best stats for comparison
@@ -137,7 +133,7 @@ const categories: FameCategory[] = [
         }
 
         // 2. Minimum Criteria (e.g. 3 races)
-        if (!valid || count < 3) return;
+        if (!valid || count < 3) return [];
 
         // 3. The "Olympic" Tiebreaker Logic
         let isBetter = false;
@@ -168,14 +164,14 @@ const categories: FameCategory[] = [
         }
       });
 
-      if (!bestCandidate) return null;
+      if (!bestCandidate) return [];
 
       // 5. Format Output: "3G 1S 0B"
-      return {
+      return [{
         player: bestCandidate,
         value: `${bestStats.g}G ${bestStats.s}S ${bestStats.b}B`,
         subtext: `in ${bestStats.count} Races`
-      };
+      }];
     }
   },
   {
@@ -185,6 +181,7 @@ const categories: FameCategory[] = [
     icon: 'ph-snowflake', // "Ice in their veins"
     color: 'text-cyan-400',
     gradient: 'from-cyan-500/20',
+    tieHandling: { type: 'allow-ties' },
     calculate: (t: Tournament) => {
       let maxImprovement = -999;
       let winner: Player | null = null;
@@ -200,7 +197,7 @@ const categories: FameCategory[] = [
             .map(r => r.placements[p.id]!);
 
         // Must have played at least 1 race in BOTH stages to qualify
-        if (groupPlaces.length === 0 || finalsPlaces.length === 0) return;
+        if (groupPlaces.length === 0 || finalsPlaces.length === 0) return [];
 
         // 2. Calculate Averages
         const groupAvg = groupPlaces.reduce((a,b)=>a+b,0) / groupPlaces.length;
@@ -216,13 +213,13 @@ const categories: FameCategory[] = [
         }
       });
 
-      if (!winner) return null;
+      if (!winner) return [];
 
-      return {
+      return [{
         player: winner,
         value: `+${maxImprovement.toFixed(1)}`,
         subtext: 'avg Place Improv.'
-      };
+      }];
     }
   },
   {
@@ -232,11 +229,10 @@ const categories: FameCategory[] = [
     icon: 'ph-skull', // or ph-warning-circle
     color: 'text-rose-500', // Distinct red for "Danger"
     gradient: 'from-rose-600/20',
+    tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
-      let maxDropoff = -999;
-      let victim: Player | null = null;
 
-      t.players.forEach(p => {
+      const performances = t.players.map(p => {
         const groupPlaces = t.races
             .filter(r => r.stage === 'groups' && r.placements[p.id] !== undefined)
             .map(r => r.placements[p.id]!);
@@ -245,7 +241,7 @@ const categories: FameCategory[] = [
             .filter(r => r.stage === 'finals' && r.placements[p.id] !== undefined)
             .map(r => r.placements[p.id]!);
 
-        if (groupPlaces.length === 0 || finalsPlaces.length === 0) return;
+        if (groupPlaces.length === 0 || finalsPlaces.length === 0) return {player: p, performance: 0};
 
         const groupAvg = groupPlaces.reduce((a,b)=>a+b,0) / groupPlaces.length;
         const finalsAvg = finalsPlaces.reduce((a,b)=>a+b,0) / finalsPlaces.length;
@@ -255,19 +251,25 @@ const categories: FameCategory[] = [
         const dropoff = finalsAvg - groupAvg;
 
         // Threshold: Must have dropped at least 1.5 places on average to count
-        if (dropoff > maxDropoff && dropoff >= 2.5) {
-          maxDropoff = dropoff;
-          victim = p;
-        }
+        // if (dropoff > maxDropoff && dropoff >= 2.5) {
+        //   maxDropoff = dropoff;
+        //   victim = p;
+        // }
+        return { player: p, performance: dropoff }
       });
+      const maxPer = Math.max(...performances.map(p => p.performance))
 
-      if (!victim) return null;
+      if (!maxPer || maxPer < 2.5) return [];
 
-      return {
-        player: victim,
-        value: `-${maxDropoff.toFixed(1)}`,
-        subtext: 'avg Place Drop'
-      };
+      return performances
+          .filter(per => per.performance === maxPer)
+          .map(per => {
+            return {
+              player: per.player,
+              value: `-${per.performance.toFixed(1)}`,
+              subtext: 'avg Place Drop'
+            }
+          });
     }
   },
   {
@@ -277,6 +279,7 @@ const categories: FameCategory[] = [
     icon: 'ph-coin-vertical',
     color: 'text-purple-400',
     gradient: 'from-violet-500/20',
+    tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
       let maxDev = 0;
       let candidate: Player | null = null;
@@ -288,7 +291,7 @@ const categories: FameCategory[] = [
           if (r.placements[p.id]) places.push(r.placements[p.id]!);
         });
 
-        if (places.length < 3) return; // Need data for deviation
+        if (places.length < 3) return []; // Need data for deviation
 
         // 2. Calculate Standard Deviation
         const mean = places.reduce((a, b) => a + b, 0) / places.length;
@@ -301,13 +304,13 @@ const categories: FameCategory[] = [
         }
       });
 
-      if (!candidate || maxDev < 3.5) return null;
+      if (!candidate || maxDev < 3.5) return [];
 
-      return candidate ? {
+      return candidate ? [{
         player: candidate,
         value: maxDev.toFixed(2),
         subtext: 'Std Dev'
-      } : null;
+      }] : [];
     }
   },
   {
@@ -317,6 +320,7 @@ const categories: FameCategory[] = [
     icon: 'ph-wave-sine', // Represents the frequency/consistency
     color: 'text-indigo-400',
     gradient: 'from-indigo-500/20',
+    tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
       let minStdDev = 999;
       let winner: Player | null = null;
@@ -332,7 +336,7 @@ const categories: FameCategory[] = [
 
         // 2. Minimum Sample Size (e.g. 5 races)
         // Standard deviation is meaningless with too few data points
-        if (placements.length < 5) return;
+        if (placements.length < 5) return [];
 
         // 3. Calculate Mean (Average)
         const n = placements.length;
@@ -358,14 +362,14 @@ const categories: FameCategory[] = [
         }
       });
 
-      if (!winner || minStdDev > 1.5) return null;
+      if (!winner || minStdDev > 1.5) return [];
 
-      return {
+      return [{
         player: winner,
         value: `±${minStdDev.toFixed(2)}`,
         // Shows their "usual" spot (e.g. "Avg Place 2.5")
         subtext: `Avg Place ${winnerAvg.toFixed(1)}`
-      };
+      }];
     }
   },
   {
@@ -375,6 +379,7 @@ const categories: FameCategory[] = [
     icon: 'ph-arrows-vertical',
     color: 'text-fuchsia-400',
     gradient: 'from-fuchsia-500/20',
+    tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
       let maxYoyos = 0;
       let winner: Player | null = null;
@@ -403,10 +408,10 @@ const categories: FameCategory[] = [
           // Determine Field Size (e.g. 12)
           // We use 'max' to find the last place position, even if someone disconnected
           const placements = Object.values(r.placements);
-          if (placements.length === 0) return;
+          if (placements.length === 0) return [];
           const fieldSize = Math.max(...placements);
 
-          if (fieldSize < 6) return; // Skip tiny lobbies
+          if (fieldSize < 6) return []; // Skip tiny lobbies
 
           // Determine Current Zone
           let currentZone: 'top' | 'bottom' | 'mid' = 'mid';
@@ -438,13 +443,13 @@ const categories: FameCategory[] = [
         }
       });
 
-      if (!winner || maxYoyos < 3) return null;
+      if (!winner || maxYoyos < 3) return [];
 
-      return {
+      return [{
         player: winner,
         value: maxYoyos,
-        subtext: maxYoyos === 1 ? 'Whiplash' : 'Whiplashes'
-      };
+        subtext: 'Whiplashes'
+      }];
     }
   },
   {
@@ -454,6 +459,7 @@ const categories: FameCategory[] = [
     icon: 'ph-anchor',
     color: 'text-slate-500', // Grey for shame
     gradient: 'from-zinc-500/20',
+    tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
       const lastCounts: Record<string, number> = {};
 
@@ -482,13 +488,13 @@ const categories: FameCategory[] = [
         }
       });
 
-      if (maxLasts < 3) return null;
+      if (maxLasts < 3) return [];
 
-      return victim ? {
+      return victim ? [{
         player: victim,
         value: maxLasts,
         subtext: 'Last Places'
-      } : null;
+      }] : [];
     }
   },
   {
@@ -498,6 +504,7 @@ const categories: FameCategory[] = [
     icon: 'ph-heart-break',
     color: 'text-pink-400',
     gradient: 'from-pink-500/20',
+    tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
       const seconds: Record<string, number> = {};
 
@@ -519,13 +526,13 @@ const categories: FameCategory[] = [
         }
       });
 
-      if (maxSeconds < 3) return null;
+      if (maxSeconds < 3) return [];
 
-      return runnerUp ? {
+      return runnerUp ? [{
         player: runnerUp,
         value: maxSeconds,
         subtext: maxSeconds > 1 ? 'Silvers' : 'Silver'
-      } : null;
+      }] : [];
     }
   },
   {
@@ -535,6 +542,7 @@ const categories: FameCategory[] = [
     icon: 'ph-robot',
     color: 'text-gray-400',
     gradient: 'from-gray-500/20',
+    tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
       // 1. Set Cutoff: Deviation must be <= 1.0 position to qualify
       let bestDev = 1.3;
@@ -549,11 +557,11 @@ const categories: FameCategory[] = [
         t.races.forEach(r => {
           const pos = r.placements[p.id];
           // Skip if player didn't race
-          if (pos === undefined) return;
+          if (pos === undefined) return [];
 
           // Get all positions to find the true "Last Place"
           const allPositions = Object.values(r.placements);
-          if (allPositions.length === 0) return;
+          if (allPositions.length === 0) return [];
 
           // CHANGE: Field size is now determined by the highest placement number
           const fieldSize = Math.max(...allPositions);
@@ -568,7 +576,7 @@ const categories: FameCategory[] = [
         });
 
         // Minimum 3 races to qualify
-        if (raceCount < 3) return;
+        if (raceCount < 3) return [];
 
         const avgDev = totalDev / raceCount;
 
@@ -580,15 +588,15 @@ const categories: FameCategory[] = [
         }
       });
 
-      if (!winner) return null;
+      if (!winner) return [];
 
-      return {
+      return [{
         player: winner,
         // e.g. "0.50 Dev"
         value: `${bestDev.toFixed(2)} Dev`,
         // e.g. "from Middle 6.5"
         subtext: `from Middle ${winnerAvgMiddle.toFixed(1)}`
-      };
+      }];
     }
   },
   {
@@ -598,6 +606,7 @@ const categories: FameCategory[] = [
     icon: 'ph-chart-line-up',
     color: 'text-green-400',
     gradient: 'from-green-500/20',
+    tieHandling: {type: "allow-ties"},
     calculate: (t: Tournament) => {
       let bestSlope = 0; // We are looking for the most NEGATIVE number
       let winner: Player | null = null;
@@ -617,7 +626,7 @@ const categories: FameCategory[] = [
 
         // Minimum 4 races needed to establish a trend line
         const n = myRaces.length;
-        if (n < 4) return;
+        if (n < 4) return [];
 
         // 2. Prepare Data Points for Linear Regression
         // x = Race Index (0, 1, 2...), y = Placement
@@ -638,7 +647,7 @@ const categories: FameCategory[] = [
         const numerator = (n * sumXY) - (sumX * sumY);
         const denominator = (n * sumXX) - (sumX * sumX);
 
-        if (denominator === 0) return; // Avoid division by zero
+        if (denominator === 0) return []; // Avoid division by zero
 
         const slope = numerator / denominator;
 
@@ -650,13 +659,13 @@ const categories: FameCategory[] = [
         }
       });
 
-      if (!winner) return null;
+      if (!winner) return [];
 
-      return {
+      return [{
         player: winner,
         value: Math.abs(bestSlope).toFixed(2), // Show as positive number for display
         subtext: 'Places / Race' // e.g. "1.50 Places / Race"
-      };
+      }];
     }
   },
   {
@@ -666,6 +675,7 @@ const categories: FameCategory[] = [
     icon: 'ph-backpack',
     color: 'text-rose-400',
     gradient: 'from-rose-500/20',
+    tieHandling: {type: "allow-ties"},
     calculate: (t) => {
       let bestPlayer: Player | null = null;
       let highestPercentage = 0;
@@ -694,13 +704,13 @@ const categories: FameCategory[] = [
         });
       });
 
-      if (!bestPlayer || highestPercentage < 0.7) return null; // Only show if they carried >70%
+      if (!bestPlayer || highestPercentage < 0.7) return []; // Only show if they carried >70%
 
-      return {
+      return [{
         player: bestPlayer,
         value: (highestPercentage * 100).toFixed(0) + '%',
         subtext: 'of Team Pts'
-      };
+      }];
     }
   },
   {
@@ -710,8 +720,12 @@ const categories: FameCategory[] = [
     icon: 'ph-crown',
     color: 'text-amber-400',
     gradient: 'from-amber-500/20',
+    tieHandling: {type: "allow-ties"},
     calculate: (t) => {
+      const MIN_WINS_THRESHOLD = 3;
+
       const wins: Record<string, number> = {};
+      let maxWins = 0;
 
       // 1. Iterate over every race history
       t.races.forEach(race => {
@@ -723,30 +737,23 @@ const categories: FameCategory[] = [
 
         if (winnerId) {
           wins[winnerId] = (wins[winnerId] || 0) + 1;
+          if (wins[winnerId] > maxWins) {
+            maxWins = wins[winnerId];
+          }
         }
       });
 
-      // 2. Find the max
-      let maxWins = 0;
-      let winnerId = '';
+      if (maxWins < MIN_WINS_THRESHOLD) return [];
 
-      Object.entries(wins).forEach(([pid, count]) => {
-        if (count > maxWins) {
-          maxWins = count;
-          winnerId = pid;
-        }
-      });
-
-      if (maxWins < 3) return null;
-
-      const player = t.players.find(p => p.id === winnerId);
-      if (!player) return null;
-
-      return {
-        player: player,
-        value: maxWins,
-        subtext: maxWins === 1 ? 'Victory' : 'Victories'
-      };
+      return t.players
+          .filter(p => wins[p.id] === maxWins)
+          .map(p => {
+            return {
+              player: p,
+              value: maxWins,
+              subtext: 'Victories'
+            }
+          })
     }
   },
   {
@@ -756,6 +763,7 @@ const categories: FameCategory[] = [
     icon: 'ph-trend-up',
     color: 'text-emerald-400',
     gradient: 'from-emerald-500/20',
+    tieHandling: {type: "allow-ties"},
     calculate: (t) => {
       let bestAvg = 3.5;
       let bestP: Player | null = null;
@@ -774,7 +782,7 @@ const categories: FameCategory[] = [
         }
       });
 
-      return bestP ? { player: bestP, value: bestAvg.toFixed(1), subtext: 'Avg Place' } : null;
+      return bestP ? [{ player: bestP, value: bestAvg.toFixed(1), subtext: 'Avg Place' }] : [];
     }
   },
   {
@@ -784,6 +792,7 @@ const categories: FameCategory[] = [
     icon: 'ph-hand-peace',
     color: 'text-blue-400',
     gradient: 'from-blue-500/20',
+    tieHandling: {type: "allow-ties"},
     calculate: (t) => {
       const stats: Record<string, { sum: number, count: number, wins: number }> = {};
 
@@ -811,14 +820,14 @@ const categories: FameCategory[] = [
         }
       });
 
-      if (!candidateId) return null;
+      if (!candidateId) return [];
 
       const player = t.players.find(p => p.id === candidateId);
-      return player ? {
+      return player ? [{
         player: player,
         value: bestAvg.toFixed(1),
         subtext: 'Avg Place'
-      } : null;
+      }] : [];
     }
   },
   {
@@ -828,6 +837,7 @@ const categories: FameCategory[] = [
     icon: 'ph-warning-octagon', // A warning sign fits perfectly
     color: 'text-orange-400',
     gradient: 'from-orange-500/20',
+    tieHandling: {type: "allow-ties"},
     calculate: (t: Tournament) => {
       let minPct = 1.0; // Start at 100% and go down
       let liability: Player | null = null;
@@ -859,13 +869,13 @@ const categories: FameCategory[] = [
       });
 
       // Safety check: if minPct is still 1.0, nobody qualified
-      if (!liability || minPct > 0.1) return null;
+      if (!liability || minPct > 0.1) return [];
 
-      return {
+      return [{
         player: liability,
         value: (minPct * 100).toFixed(1) + '%',
         subtext: 'of team pts'
-      };
+      }];
     }
   },
   {
@@ -876,6 +886,7 @@ const categories: FameCategory[] = [
     icon: 'ph-ranking',
     color: 'text-amber-400',
     gradient: 'from-amber-500/20',
+    tieHandling: {type: "allow-ties"},
     calculate: (t: Tournament) => {
       let maxTotal = 0;
       let bestTeam: Team | null = null;
@@ -934,16 +945,16 @@ const categories: FameCategory[] = [
         }
       }
 
-      if (!bestTeam) return null;
+      if (!bestTeam) return [];
 
       const captain = t.players.find(p => p.id === bestTeam!.captainId);
-      if (!captain) return null;
+      if (!captain) return [];
 
-      return {
+      return [{
         player: { ...captain, name: bestTeam.name },
         value: `${bestStats.g}G ${bestStats.s}S ${bestStats.b}B`,
         subtext: 'Team Total'
-      };
+      }];
     }
   },
   {
@@ -954,6 +965,7 @@ const categories: FameCategory[] = [
     icon: 'ph-hand-fist', // Or ph-lightning
     color: 'text-rose-500',
     gradient: 'from-rose-600/20',
+    tieHandling: {type: "allow-ties"},
     calculate: (t: Tournament) => {
       let maxCount = 0;
       let winner: Team | null = null;
@@ -979,13 +991,13 @@ const categories: FameCategory[] = [
         }
       }
 
-      if (!winner || maxCount < 2) return null;
+      if (!winner || maxCount < 2) return [];
 
-      return {
+      return [{
         player: { ...t.players.find(p => p.id === winner!.captainId)!, name: winner.name },
         value: `${maxCount}x`,
         subtext: 'Perfect Races'
-      };
+      }];
     }
   },
   {
@@ -996,6 +1008,7 @@ const categories: FameCategory[] = [
     icon: 'ph-shield-check',
     color: 'text-teal-400',
     gradient: 'from-teal-500/20',
+    tieHandling: {type: "allow-ties"},
     calculate: (t: Tournament) => {
       let minGap = 20;
       let winner: Team | null = null;
@@ -1034,13 +1047,13 @@ const categories: FameCategory[] = [
         }
       }
 
-      if (!winner) return null;
+      if (!winner) return [];
 
-      return {
+      return [{
         player: { ...t.players.find(p => p.id === winner!.captainId)!, name: winner.name },
         value: `${minGap} pts`,
         subtext: 'Spread' // e.g. "12 pts Spread"
-      };
+      }];
     }
   },
   {
@@ -1051,6 +1064,7 @@ const categories: FameCategory[] = [
     icon: 'ph-sketch-logo',
     color: 'text-fuchsia-400',
     gradient: 'from-fuchsia-500/20',
+    tieHandling: {type: "no-winner-on-tie"},
     calculate: (t: Tournament) => {
       const SYSTEM = t.pointsSystem || POINTS_SYSTEM;
 
@@ -1060,12 +1074,9 @@ const categories: FameCategory[] = [
       for (const team of t.teams) {
         const roster = [team.captainId, ...team.memberIds];
 
-        // CHANGE: Use for...of instead of .forEach
         for (const r of t.races) {
           let currentRaceScore = 0;
 
-          // Inner loop can stay forEach since it doesn't set 'winner',
-          // but for...of is cleaner.
           for (const pid of roster) {
             const pos = r.placements[pid];
             if (pos) {
@@ -1080,13 +1091,13 @@ const categories: FameCategory[] = [
         }
       }
 
-      if (!winner) return null;
+      if (!winner) return [];
 
-      return {
-        player: { ...t.players.find(p => p.id === winner!.captainId)!, name: winner.name },
+      return [{
+        player: winner,
         value: `${maxRaceScore} pts`,
         subtext: 'Single Race'
-      };
+      }];
     }
   },
   {
@@ -1096,6 +1107,7 @@ const categories: FameCategory[] = [
     icon: 'ph-heartbeat',
     color: 'text-emerald-400',
     gradient: 'from-emerald-500/20',
+    tieHandling: {type: "allow-ties"},
     isTeam: true,
     calculate: (t: Tournament) => {
       const SYSTEM = t.pointsSystem || POINTS_SYSTEM;
@@ -1110,7 +1122,7 @@ const categories: FameCategory[] = [
 
       // Need at least 3 races to have a "last 2 races" comeback context
       // (If only 2 races exist, you can't be "behind" entering the last 2, because you are at 0 pts)
-      if (relevantRaces.length < 3) return null;
+      if (relevantRaces.length < 3) return [];
 
       // 2. IDENTIFY EVENTUAL WINNER
       const sortedTeams = t.teams
@@ -1136,7 +1148,7 @@ const categories: FameCategory[] = [
 
       // Who was leading THEN?
       const currentIds = Object.keys(snapshotScores);
-      if (currentIds.length === 0) return null;
+      if (currentIds.length === 0) return [];
 
       const leaderAtCutoffId = currentIds.reduce((a, b) =>
           (snapshotScores[a] ?? 0) > (snapshotScores[b] ?? 0) ? a : b
@@ -1148,19 +1160,19 @@ const categories: FameCategory[] = [
       const deficit = leaderScore - winnerScore;
 
       // Threshold: Must be behind by 30+ points entering the final 2 races
-      if (deficit < 30) return null;
+      if (deficit < 30) return [];
 
       const winnerTeam = t.teams.find(tm => tm.id === winnerId);
-      if (!winnerTeam) return null;
+      if (!winnerTeam) return [];
 
       const captain = t.players.find(p => p.id === winnerTeam.captainId);
-      if (!captain) return null;
+      if (!captain) return [];
 
-      return {
+      return [{
         player: { ...captain, name: winnerTeam.name },
         value: `${deficit} pts`,
         subtext: 'Deficit Overcome'
-      };
+      }];
     }
   },
   {
@@ -1170,6 +1182,7 @@ const categories: FameCategory[] = [
     icon: 'ph-bomb',
     color: 'text-orange-500',
     gradient: 'from-orange-500/20',
+    tieHandling: {type: "allow-ties"},
     isTeam: true,
     calculate: (t: Tournament) => {
       const SYSTEM = t.pointsSystem || POINTS_SYSTEM;
@@ -1181,7 +1194,7 @@ const categories: FameCategory[] = [
           : [...t.races];
 
       relevantRaces.sort((a, b) => a.raceNumber - b.raceNumber);
-      if (relevantRaces.length < 3) return null;
+      if (relevantRaces.length < 3) return [];
 
       // 2. IDENTIFY EVENTUAL WINNER (To ensure the fumbler actually lost)
       const sortedTeams = t.teams
@@ -1213,42 +1226,95 @@ const categories: FameCategory[] = [
       const leaderId = sortedAtCutoff[0];
       const secondId = sortedAtCutoff[1];
 
-      if (!leaderId || !secondId) return null;
+      if (!leaderId || !secondId) return [];
 
       // IF the leader at the cutoff IS the eventual champion, they didn't fumble.
-      if (leaderId === championId) return null;
+      if (leaderId === championId) return [];
 
       // Calculate the lead they had
       const lead = (snapshotScores[leaderId] ?? 0) - (snapshotScores[secondId] ?? 0);
 
       // Threshold: Must have been leading by 30+ points
-      if (lead < 30) return null;
+      if (lead < 30) return [];
 
       const bottlerTeam = t.teams.find(tm => tm.id === leaderId);
-      if (!bottlerTeam) return null;
+      if (!bottlerTeam) return [];
 
       const captain = t.players.find(p => p.id === bottlerTeam.captainId);
-      if (!captain) return null;
+      if (!captain) return [];
 
-      return {
+      return [{
         player: { ...captain, name: bottlerTeam.name },
         value: `${lead} pts`,
         subtext: 'Lead Blown'
-      };
+      }];
     }
   }
 ];
 
+const processCategoryResults = (
+    category: FameCategory,
+    rawResults: FameResult[],
+    tournament: Tournament
+): FameResult[] => {
+  if (rawResults.length === 0) return [];
+  if (rawResults.length === 1) return rawResults;
+
+  const { tieHandling } = category;
+
+  switch (tieHandling.type) {
+    case 'allow-ties':
+      // Return all tied winners
+      return rawResults;
+
+    case 'no-winner-on-tie':
+      // Return empty array if there's a tie
+      return [];
+
+    case 'tiebreaker':
+      // Sort by tiebreaker function and return top
+      const sorted = [...rawResults].sort((a, b) =>
+          tieHandling.fn(a, b, tournament)
+      );
+
+      // Check if top results are STILL tied after tiebreaker
+      const topScore = tieHandling.fn(sorted[0]!, sorted[0]!, tournament);
+      const winners = sorted.filter(r =>
+          tieHandling.fn(r, sorted[0]!, tournament) === topScore
+      );
+
+      return winners.slice(0, 1); // Return only the winner(s)
+  }
+};
+
 // --- 3. The Computation ---
 // We map over categories and execute their logic
+// const activeStats = computed(() => {
+//   return categories.map(cat => {
+//     const result = cat.calculate(props.tournament);
+//     return { ...cat, result };
+//   }).filter(item => item.result !== null); // Hide categories with no data
+// });
 const activeStats = computed(() => {
-  return categories.map(cat => {
-    const result = cat.calculate(props.tournament);
-    return { ...cat, result };
-  }).filter(item => item.result !== null); // Hide categories with no data
+  return categories
+      .map(cat => {
+        const rawResults = cat.calculate(props.tournament);
+        const processedResults = processCategoryResults(cat, rawResults, props.tournament);
+
+        return {
+          ...cat,
+          results: processedResults,
+          hasMultipleWinners: processedResults.length > 1
+        };
+      })
+      .filter(item => item.results.length > 0); // Hide categories with no winners
 });
 
 </script>
+
+<!-- ========================================
+     UPDATED TEMPLATE - Supports Multiple Winners
+     ======================================== -->
 
 <template>
   <div v-if="activeStats.length > 0" class="animate-fade-in">
@@ -1266,13 +1332,17 @@ const activeStats = computed(() => {
         <div v-for="stat in activeStats" :key="stat.id"
              class="group relative bg-slate-800 rounded-xl border border-slate-700 p-4 overflow-hidden hover:border-slate-600 transition-all hover:shadow-xl hover:-translate-y-1">
 
+          <!-- Gradient Overlay -->
           <div class="absolute inset-0 bg-gradient-to-br to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
                :class="stat.gradient"></div>
 
+          <!-- Background Icon -->
           <i :class="[stat.icon, stat.color]"
              class="ph-fill absolute -right-6 -bottom-6 text-9xl opacity-[0.03] group-hover:opacity-[0.08] group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 ease-out pointer-events-none"></i>
 
           <div class="relative z-10 flex flex-col h-full">
+
+            <!-- Header -->
             <div class="flex items-center gap-3 mb-6">
               <div class="h-12 w-12 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-300">
                 <i :class="[stat.icon, stat.color]" class="ph-fill text-2xl drop-shadow-lg"></i>
@@ -1288,25 +1358,54 @@ const activeStats = computed(() => {
               </div>
             </div>
 
+            <!-- Winners Section -->
             <div class="flex flex-col gap-2 mt-auto pl-1">
               <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">
-                Winner
+                <!-- ✅ Dynamic label based on winner count -->
+                {{ stat.hasMultipleWinners ? 'Winners' : 'Winner' }}
               </div>
 
-              <div class="flex items-center justify-between gap-2 w-full">
+              <!-- ✅ SINGLE WINNER (Original Layout) -->
+              <div v-if="!stat.hasMultipleWinners" class="flex items-center justify-between gap-2 w-full">
                 <div class="text-lg font-bold text-white group-hover:text-amber-50 leading-tight break-words min-w-0">
-                  {{ stat.result?.player.name }}
+                  {{ stat.results[0]?.player.name }}
                 </div>
 
                 <div class="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700/80 backdrop-blur-sm group-hover:border-slate-600 transition-colors">
                   <span class="text-xs font-bold text-white whitespace-nowrap">
-                    {{ stat.result?.value }}
+                    {{ stat.results[0]?.value }}
                   </span>
                   <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">
-                    {{ stat.result?.subtext }}
+                    {{ stat.results[0]?.subtext }}
                   </span>
                 </div>
               </div>
+
+              <!-- ✅ MULTIPLE WINNERS (Compact List) -->
+              <div v-else class="flex flex-col gap-1">
+                <!-- All winners except last -->
+                <div v-for="(result, idx) in stat.results.slice(0, -1)" :key="idx"
+                     class="text-sm font-bold text-white/90 leading-tight truncate">
+                  {{ result.player.name }}
+                </div>
+
+                <!-- Last winner + Value Badge in same row -->
+                <div class="flex items-center justify-between gap-2 w-full">
+                  <div class="text-sm font-bold text-white/90 leading-tight truncate">
+                    {{ stat.results[stat.results.length - 1]?.player.name }}
+                  </div>
+
+                  <div class="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700/80 backdrop-blur-sm group-hover:border-slate-600 transition-colors">
+                    <span class="text-xs font-bold text-white whitespace-nowrap">
+                      {{ stat.results[0]?.value }}
+                    </span>
+                    <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">
+                      {{ stat.results[0]?.subtext }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
           </div>
@@ -1316,3 +1415,84 @@ const activeStats = computed(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Optional: Add animation for multiple winners */
+.winner-enter-active,
+.winner-leave-active {
+  transition: all 0.3s ease;
+}
+
+.winner-enter-from,
+.winner-leave-to {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+</style>
+
+<!--<template>-->
+<!--  <div v-if="activeStats.length > 0" class="animate-fade-in">-->
+<!--    <div class="mt-12 pt-8 border-t border-slate-700">-->
+<!--      <div class="flex items-center gap-3 mb-6">-->
+<!--        <div class="h-8 w-1.5 bg-amber-500 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.6)]"></div>-->
+<!--        <div>-->
+<!--          <h2 class="text-xl font-bold text-white uppercase tracking-widest">Hall of Fame</h2>-->
+<!--          <p class="text-xs text-slate-400 font-medium">Tournament Records & Superlatives</p>-->
+<!--        </div>-->
+<!--      </div>-->
+
+<!--      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">-->
+
+<!--        <div v-for="stat in activeStats" :key="stat.id"-->
+<!--             class="group relative bg-slate-800 rounded-xl border border-slate-700 p-4 overflow-hidden hover:border-slate-600 transition-all hover:shadow-xl hover:-translate-y-1">-->
+
+<!--          <div class="absolute inset-0 bg-gradient-to-br to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"-->
+<!--               :class="stat.gradient"></div>-->
+
+<!--          <i :class="[stat.icon, stat.color]"-->
+<!--             class="ph-fill absolute -right-6 -bottom-6 text-9xl opacity-[0.03] group-hover:opacity-[0.08] group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 ease-out pointer-events-none"></i>-->
+
+<!--          <div class="relative z-10 flex flex-col h-full">-->
+<!--            <div class="flex items-center gap-3 mb-6">-->
+<!--              <div class="h-12 w-12 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-300">-->
+<!--                <i :class="[stat.icon, stat.color]" class="ph-fill text-2xl drop-shadow-lg"></i>-->
+<!--              </div>-->
+
+<!--              <div class="flex-1 min-w-0">-->
+<!--                <div class="text-sm font-black uppercase tracking-widest text-slate-100 group-hover:text-white transition-colors leading-tight">-->
+<!--                  {{ stat.title }}-->
+<!--                </div>-->
+<!--                <div class="text-[10px] font-medium text-slate-500 leading-tight mt-1 line-clamp-2">-->
+<!--                  {{ stat.description }}-->
+<!--                </div>-->
+<!--              </div>-->
+<!--            </div>-->
+
+<!--            <div class="flex flex-col gap-2 mt-auto pl-1">-->
+<!--              <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">-->
+<!--                Winner-->
+<!--              </div>-->
+
+<!--              <div class="flex items-center justify-between gap-2 w-full">-->
+<!--                <div class="text-lg font-bold text-white group-hover:text-amber-50 leading-tight break-words min-w-0">-->
+<!--                  {{ stat.result?.player.name }}-->
+<!--                </div>-->
+
+<!--                <div class="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700/80 backdrop-blur-sm group-hover:border-slate-600 transition-colors">-->
+<!--                  <span class="text-xs font-bold text-white whitespace-nowrap">-->
+<!--                    {{ stat.result?.value }}-->
+<!--                  </span>-->
+<!--                  <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">-->
+<!--                    {{ stat.result?.subtext }}-->
+<!--                  </span>-->
+<!--                </div>-->
+<!--              </div>-->
+<!--            </div>-->
+
+<!--          </div>-->
+<!--        </div>-->
+
+<!--      </div>-->
+<!--    </div>-->
+<!--  </div>-->
+<!--</template>-->

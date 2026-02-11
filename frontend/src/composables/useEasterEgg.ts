@@ -24,13 +24,13 @@ const EGG_LIST: EggConfig[] = [
     },
     {
         id: 'dedra_spechonky',
-        // Example: Gold Ship gets last place (Audio Only)
         check: (race, players) => {
             const winnerId = Object.keys(race.placements)
                 .find(pid => race.placements[pid] == 1);
             if (!winnerId) return false;
             const winner = players.find(p => p.id === winnerId);
-            return winner?.uma.toLowerCase().includes('special week') && winner?.name.toLowerCase().includes('dedratermi');
+            if (!winner) return false;
+            return winner.uma.toLowerCase().includes('special week') && winner.name.toLowerCase().includes('dedratermi');
         },
         audio: 'special-week-agemasen.mp3',
         volume: 0.7,
