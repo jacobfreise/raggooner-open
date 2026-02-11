@@ -7,7 +7,10 @@ service cloud.firestore {
       // 1. PUBLIC TOURNAMENTS
       match /tournaments/{tournamentId} {
         allow read: if true;
-        allow create: if true;
+        allow create: if request.auth != null
+            && request.resource.data.name is string
+            && request.resource.data.name.size() > 0
+            && request.resource.data.name.size() <= 100;
 
         // UPDATE RULE:
         // Allow update IF:
@@ -23,7 +26,10 @@ service cloud.firestore {
       // 2. SECRETS (Password Vault)
       match /secrets/{tournamentId} {
         allow read: if false;
-        allow create: if true; // Allowed because it happens in the batch
+        allow create: if request.auth != null
+            && request.resource.data.password is string
+            && request.resource.data.password.size() >= 3
+            && request.resource.data.password.size() <= 50;
       }
 
       // 3. ADMIN SLIPS (The Login Session)
