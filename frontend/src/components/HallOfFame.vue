@@ -1112,16 +1112,16 @@ const categories: FameCategory[] = [
             if (pos) {
               currentRaceScore += (SYSTEM[pos] || 0);
             }
-            console.log('player: ' + pid + ' pos: ' + pos + ' in race: ' + r.stage + ' ' + r.raceNumber);
           }
-          if (currentRaceScore === maxRaceScore && !winners.includes(team)) {
-            console.log('pushing: ' + JSON.stringify(team) + ' with score: ' + currentRaceScore);
-            winners.push(team);
-          } else if (currentRaceScore > maxRaceScore && currentRaceScore >= 50) {
-            maxRaceScore = currentRaceScore;
-            // winner = team;
-            winners = [team];
-            console.log('resetting with: ' + JSON.stringify(team) + ' and points: ' + currentRaceScore);
+
+          if (currentRaceScore >= 50) {
+            if (currentRaceScore === maxRaceScore && !winners.includes(team)) {
+              winners.push(team);
+            } else if (currentRaceScore > maxRaceScore) {
+              maxRaceScore = currentRaceScore;
+              // winner = team;
+              winners = [team];
+            }
           }
         }
       }
