@@ -9,7 +9,6 @@ import {
   getRaceTimestamp,
   getRankColor,
 } from '../utils/utils';
-import {generateDiscordReport} from "../utils/exportUtils.ts";
 import {getRaceWinnerGif} from "../utils/umaGifs.ts";
 import HallOfFame from "./HallOfFame.vue";
 import DiscordExportPreview from "./DiscordExportPreview.vue";
@@ -96,14 +95,6 @@ const shouldShowGroup = (group: string) => {
   if(teamCount < 6) return group === 'A';
   if(teamCount === 9) return ['A', 'B', 'C'].includes(group);
   return ['A', 'B'].includes(group);
-};
-
-const copyResults = async () => {
-  if (!tournament.value) return;
-  const text = generateDiscordReport(tournament.value);
-
-  await navigator.clipboard.writeText(text);
-  alert("Results copied to clipboard!");
 };
 
 const getRelevantAdjustments = (team: Team, stage: 'groups' | 'finals') => {
