@@ -118,10 +118,10 @@ const buildCompactStageSection = (
 
         const medal = currentRank <= 3 ? medals[currentRank - 1] : `${currentRank}.`;
 
-        const qMark = (currentStage === 'groups' && team.inFinals) ? '✅' : (currentStage === 'groups' && !team.inFinals) ? '❌' : '';
+        const qMark = (currentStage === 'groups' && team.inFinals) ? ' ✅' : (currentStage === 'groups' && !team.inFinals) ? ' ❌' : '';
 
         // Main line: Medal Team — Points
-        lines.push(`${medal} **${team.name}** ${qMark} — **${team.totalScore}**`);
+        lines.push(`${medal} **${team.name}**${qMark} — **${team.totalScore}**`);
 
         // Adjustments (inline, compact)
         if (team.relevantAdjustments.length > 0) {
