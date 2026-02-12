@@ -763,17 +763,6 @@ const structuredPlayerStats = computed(() => {
           <div class="container mx-auto p-4">
             <DiscordExportPreview :tournament="tournament" :isAdmin="true" />
           </div>
-
-          <button
-              @click="copyResults"
-              class="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold py-2 px-4 rounded flex items-center gap-2 transition-colors shadow-lg shadow-indigo-900/20"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-            </svg>
-            Export for Discord
-          </button>
         </div>
       </div>
     </div>
