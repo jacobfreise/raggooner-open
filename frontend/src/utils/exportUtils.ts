@@ -27,7 +27,7 @@ export const generateDiscordReport = (t: Tournament): string => {
 
         if (groupRaces.length > 0 && (groupTeams.length > 0 || groupWildcards.length > 0)) {
             lines.push(buildCompactStageSection(
-                `${groupEmojis[groupName]} ${groupName}`,
+                `Group ${groupEmojis[groupName]} ${groupName}`,
                 groupName,
                 groupTeams,
                 groupRaces,
