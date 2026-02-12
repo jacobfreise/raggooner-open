@@ -137,7 +137,7 @@ const buildCompactStageSection = (
             const isCaptain = pid === team.captainId;
             const icon = isCaptain ? '👑' : '  ';
             const uma = p?.uma ? `(${p.uma})` : '';
-            return `${icon} ${p?.name || 'Unknown'}${uma} ${score}`;
+            return `${icon} ${p?.name || 'Unknown'} ${uma} ${score}`;
         });
 
         lines.push('```');
