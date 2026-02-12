@@ -540,7 +540,7 @@ const categories: FameCategory[] = [
             return {
               player: player,
               value: count,
-              subtext: 'Last Places'
+              subtext: '2nd Places'
             }
           })
           .filter((r): r is FameResult => r !== null);
@@ -893,7 +893,7 @@ const categories: FameCategory[] = [
         });
       });
 
-      // Safety check: if minPct is still 1.0, nobody qualified
+      // Safety check: if minPct is still >10%, nobody qualified
       if (!liability || minPct > 0.1) return [];
 
       return [{
