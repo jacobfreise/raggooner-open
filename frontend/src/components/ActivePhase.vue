@@ -12,6 +12,7 @@ import {
 import {generateDiscordReport} from "../utils/exportUtils.ts";
 import {getRaceWinnerGif} from "../utils/umaGifs.ts";
 import HallOfFame from "./HallOfFame.vue";
+import DiscordExportPreview from "./DiscordExportPreview.vue";
 
 const props = defineProps<{
   tournamentProp: Tournament;
@@ -755,9 +756,13 @@ const structuredPlayerStats = computed(() => {
           <p class="text-slate-300 mb-4">
             <span class="mr-1">{{ winningTeams.length > 1 ? 'Winners:' : 'Winner:' }}</span>
             <span class="font-bold text-white text-lg">
-      {{ winningTeams.map(t => t.name).join(' & ') }}
-    </span>
+              {{ winningTeams.map(t => t.name).join(' & ') }}
+            </span>
           </p>
+
+          <div class="container mx-auto p-4">
+            <DiscordExportPreview :tournament="tournament" :isAdmin="true" />
+          </div>
 
           <button
               @click="copyResults"
