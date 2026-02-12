@@ -1097,7 +1097,7 @@ const categories: FameCategory[] = [
     calculate: (t: Tournament) => {
       const SYSTEM = t.pointsSystem || POINTS_SYSTEM;
 
-      let maxRaceScore = -1;
+      let maxRaceScore = 0;
       // let winner: Team | null = null;
       let winners: Team[] = [];
 
