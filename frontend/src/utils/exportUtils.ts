@@ -130,15 +130,19 @@ const buildCompactStageSection = (
         }
 
         // ✅ Players: Name (Uma) Pts — all in ONE line
-        const playerText = team.fullRosterIds.map(pid => {
+        // Players with individual scores
+        const playerLines = team.fullRosterIds.map(pid => {
             const p = playerMap.get(pid);
             const score = currentStage === 'finals' ? (p?.finalsPoints || 0) : (p?.groupPoints || 0);
-            const isCap = pid === team.captainId ? '👑' : '';
+            const isCaptain = pid === team.captainId;
+            const icon = isCaptain ? '👑' : '  ';
             const uma = p?.uma ? `(${p.uma})` : '';
-            return `${isCap}${p?.name || '?'}${uma} ${score}`;
-        }).join(' • ');
+            return `${icon} ${p?.name || 'Unknown'}${uma} ${score}`;
+        });
 
-        lines.push(`> ${playerText}`);
+        lines.push('```');
+        playerLines.forEach(line => lines.push(line));
+        lines.push('```');
     });
 
     // Wildcards - Ultra compact
@@ -156,6 +160,7 @@ const buildCompactStageSection = (
 
     // Race Winners - Compact table
     if (races.length > 0) {
+        lines.push('**🏇 Race Winners:**');
         lines.push('```');
         races.forEach((race, idx) => {
             const winnerId = Object.keys(race.placements).find(pid => race.placements[pid] === 1);
