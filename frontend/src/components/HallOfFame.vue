@@ -371,9 +371,8 @@ const categories: FameCategory[] = [
     tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
       let maxYoyos = 0;
-      let winner: Player | null = null;
 
-      t.players.forEach(p => {
+      const yoyos = t.players.map(p => {
         // 1. Get ONLY the races this player actually raced in
         const myRaces = t.races.filter(r => r.placements[p.id] !== undefined);
 
@@ -397,10 +396,11 @@ const categories: FameCategory[] = [
           // Determine Field Size (e.g. 12)
           // We use 'max' to find the last place position, even if someone disconnected
           const placements = Object.values(r.placements);
-          if (placements.length === 0) return [];
+          if (placements.length === 0) return;
           const fieldSize = Math.max(...placements);
 
-          if (fieldSize < 6) return []; // Skip tiny lobbies
+          // skip small lobbies
+          if (fieldSize < 6) return;
 
           // Determine Current Zone
           let currentZone: 'top' | 'bottom' | 'mid' = 'mid';
@@ -428,17 +428,21 @@ const categories: FameCategory[] = [
 
         if (yoyoCount > maxYoyos) {
           maxYoyos = yoyoCount;
-          winner = p;
         }
+        return {player: p, value: yoyoCount};
       });
 
-      if (!winner || maxYoyos < 3) return [];
+      if (yoyos.length === 0 || maxYoyos < 3) return [];
 
-      return [{
-        player: winner,
-        value: maxYoyos,
-        subtext: 'Whiplashes'
-      }];
+      return yoyos
+          .filter(v => v.value === maxYoyos)
+          .map(v => {
+            return {
+              player: v.player,
+              value: maxYoyos,
+              subtext: 'Whiplashes'
+            };
+          });
     }
   },
   {
@@ -469,23 +473,33 @@ const categories: FameCategory[] = [
 
       // Find max
       let maxLasts = 0;
-      let victim: Player | null = null;
-      Object.entries(lastCounts).forEach(([pid, count]) => {
+
+      Object.entries(lastCounts).forEach(([_, count]) => {
         if (count > maxLasts) {
           maxLasts = count;
-          victim = t.players.find(p => p.id === pid) || null;
         }
       });
 
       if (maxLasts < 3) return [];
 
-      return victim ? [{
-        player: victim,
-        value: maxLasts,
-        subtext: 'Last Places'
-      }] : [];
+      return Object.entries(lastCounts)
+          .filter(([_, count]) => {
+            return count === maxLasts
+          })
+          .map(([playerId, count]): FameResult | null => {
+            const player = t.players.find(p => p.id === playerId);
+            if (!player) return null;
+
+            return {
+              player: player,
+              value: count,
+              subtext: 'Last Places'
+            }
+          })
+          .filter((r): r is FameResult => r !== null);
     }
   },
+  //TODO: below here: refactor multiple
   {
     id: 'bridesmaid',
     title: 'Always the Bridesmaid',
@@ -506,22 +520,30 @@ const categories: FameCategory[] = [
       });
 
       let maxSeconds = 0;
-      let runnerUp: Player | null = null;
 
-      Object.entries(seconds).forEach(([pid, count]) => {
+      Object.entries(seconds).forEach(([_, count]) => {
         if (count > maxSeconds) {
           maxSeconds = count;
-          runnerUp = t.players.find(p => p.id === pid) || null;
         }
       });
 
       if (maxSeconds < 3) return [];
 
-      return runnerUp ? [{
-        player: runnerUp,
-        value: maxSeconds,
-        subtext: maxSeconds > 1 ? 'Silvers' : 'Silver'
-      }] : [];
+      return Object.entries(seconds)
+          .filter(([_, count]) => {
+            return count === maxSeconds
+          })
+          .map(([playerId, count]): FameResult | null => {
+            const player = t.players.find(p => p.id === playerId);
+            if (!player) return null;
+
+            return {
+              player: player,
+              value: count,
+              subtext: 'Last Places'
+            }
+          })
+          .filter((r): r is FameResult => r !== null);
     }
   },
   {
@@ -754,8 +776,8 @@ const categories: FameCategory[] = [
     gradient: 'from-emerald-500/20',
     tieHandling: {type: "allow-ties"},
     calculate: (t) => {
-      let bestAvg = 3.5;
-      let bestP: Player | null = null;
+      let bestAvg = 3.5; // cutoff for showing the category
+      let candidates: Player[] = [];
 
       t.players.forEach(p => {
         const places = t.races
@@ -765,13 +787,22 @@ const categories: FameCategory[] = [
         if (places.length < 3) return;
         const avg = places.reduce((a,b)=>a+b,0) / places.length;
 
-        if (avg < bestAvg) {
+        if (Math.abs(avg - bestAvg) < 0.0001) {
+          candidates.push(p);
+        } else if (avg < bestAvg) {
           bestAvg = avg;
-          bestP = p;
+          candidates = [p];
         }
       });
 
-      return bestP ? [{ player: bestP, value: bestAvg.toFixed(1), subtext: 'Avg Place' }] : [];
+      return candidates
+          .map(p => {
+            return {
+              player: p,
+              value: bestAvg.toFixed(2),
+              subtext: 'Avg Place'
+            }
+          });
     }
   },
   {
@@ -797,26 +828,31 @@ const categories: FameCategory[] = [
 
       // 2. Filter for 0 wins and find best average
       let bestAvg = 3.51;
-      let candidateId = '';
+      let candidates: Player[] = [];
 
       Object.entries(stats).forEach(([pid, stat]) => {
         if (stat.wins === 0 && stat.count >= 3) { // Min 3 races to qualify
           const avg = stat.sum / stat.count;
-          if (avg < bestAvg) {
+          const p = t.players.find(player => player.id === pid);
+          if (!p) return;
+
+          if (Math.abs(avg - bestAvg) < 0.0001) {
+            candidates.push(p);
+          } else if (avg < bestAvg) {
             bestAvg = avg;
-            candidateId = pid;
+            candidates = [p];
           }
         }
       });
 
-      if (!candidateId) return [];
-
-      const player = t.players.find(p => p.id === candidateId);
-      return player ? [{
-        player: player,
-        value: bestAvg.toFixed(1),
-        subtext: 'Avg Place'
-      }] : [];
+      return candidates
+          .map(p => {
+            return {
+              player: p,
+              value: bestAvg.toFixed(1),
+              subtext: 'Avg Place'
+            };
+          });
     }
   },
   {
@@ -957,7 +993,7 @@ const categories: FameCategory[] = [
     tieHandling: {type: "allow-ties"},
     calculate: (t: Tournament) => {
       let maxCount = 0;
-      let winner: Team | null = null;
+      let winners: Team[] = [];
 
       for (const team of t.teams) {
         let count = 0;
@@ -976,17 +1012,21 @@ const categories: FameCategory[] = [
 
         if (count > maxCount) {
           maxCount = count;
-          winner = team;
+          winners = [team];
+        } else if (count === maxCount) {
+          winners.push(team);
         }
       }
 
-      if (!winner || maxCount < 2) return [];
+      if (maxCount < 2) return [];
 
-      return [{
-        player: { ...t.players.find(p => p.id === winner!.captainId)!, name: winner.name },
-        value: `${maxCount}x`,
-        subtext: 'Perfect Races'
-      }];
+      return winners.map(winner => {
+        return {
+          player: winner,
+          value: `${maxCount}x`,
+          subtext: 'Perfect Races'
+        }
+      });
     }
   },
   {
@@ -1053,12 +1093,13 @@ const categories: FameCategory[] = [
     icon: 'ph-sketch-logo',
     color: 'text-fuchsia-400',
     gradient: 'from-fuchsia-500/20',
-    tieHandling: {type: "no-winner-on-tie"},
+    tieHandling: {type: "allow-ties"},
     calculate: (t: Tournament) => {
       const SYSTEM = t.pointsSystem || POINTS_SYSTEM;
 
       let maxRaceScore = 0;
-      let winner: Team | null = null;
+      // let winner: Team | null = null;
+      let winners: Team[] = [];
 
       for (const team of t.teams) {
         const roster = [team.captainId, ...team.memberIds];
@@ -1069,24 +1110,26 @@ const categories: FameCategory[] = [
           for (const pid of roster) {
             const pos = r.placements[pid];
             if (pos) {
-              currentRaceScore += (SYSTEM[pos] || 1);
+              currentRaceScore += (SYSTEM[pos] || 0);
             }
           }
-
-          if (currentRaceScore > maxRaceScore && currentRaceScore >= 50) {
+          if (currentRaceScore === maxRaceScore && !winners.includes(team)) {
+            winners.push(team);
+          } else if (currentRaceScore > maxRaceScore && currentRaceScore >= 50) {
             maxRaceScore = currentRaceScore;
-            winner = team;
+            // winner = team;
+            winners = [team];
           }
         }
       }
 
-      if (!winner) return [];
-
-      return [{
-        player: winner,
-        value: `${maxRaceScore} pts`,
-        subtext: 'Single Race'
-      }];
+      return winners.map(winner => {
+        return {
+          player: winner,
+          value: `${maxRaceScore} pts`,
+          subtext: 'Single Race'
+        }
+      });
     }
   },
   {
@@ -1375,7 +1418,7 @@ const activeStats = computed(() => {
                 <!-- All winners except last -->
                 <div v-for="(result, idx) in stat.results.slice(0, -1)" :key="idx"
                      class="text-sm font-bold text-white/90 leading-tight truncate">
-                  {{ result.player.name }}
+                  {{ result.player.name }},
                 </div>
 
                 <!-- Last winner + Value Badge in same row -->
