@@ -1114,14 +1114,14 @@ const categories: FameCategory[] = [
             }
           }
 
-          if (currentRaceScore >= 50) {
-            if (currentRaceScore === maxRaceScore && !winners.includes(team)) {
-              winners.push(team);
-            } else if (currentRaceScore > maxRaceScore) {
-              maxRaceScore = currentRaceScore;
-              // winner = team;
-              winners = [team];
-            }
+          if (currentRaceScore < 50) continue;
+
+          if (currentRaceScore === maxRaceScore && !winners.includes(team)) {
+            winners.push(team);
+          } else if (currentRaceScore > maxRaceScore) {
+            maxRaceScore = currentRaceScore;
+            // winner = team;
+            winners = [team];
           }
         }
       }
