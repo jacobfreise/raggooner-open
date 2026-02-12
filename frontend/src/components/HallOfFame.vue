@@ -1121,7 +1121,7 @@ const categories: FameCategory[] = [
             maxRaceScore = currentRaceScore;
             // winner = team;
             winners = [team];
-            console.log('resetting with: ' + JSON.stringify(team));
+            console.log('resetting with: ' + JSON.stringify(team) + ' and points: ' + currentRaceScore);
           }
         }
       }
