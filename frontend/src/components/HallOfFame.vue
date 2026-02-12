@@ -540,7 +540,7 @@ const categories: FameCategory[] = [
             return {
               player: player,
               value: count,
-              subtext: '2nd Places'
+              subtext: 'Silvers'
             }
           })
           .filter((r): r is FameResult => r !== null);
