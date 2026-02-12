@@ -1097,7 +1097,7 @@ const categories: FameCategory[] = [
     calculate: (t: Tournament) => {
       const SYSTEM = t.pointsSystem || POINTS_SYSTEM;
 
-      let maxRaceScore = 0;
+      let maxRaceScore = -1;
       // let winner: Team | null = null;
       let winners: Team[] = [];
 
@@ -1112,13 +1112,16 @@ const categories: FameCategory[] = [
             if (pos) {
               currentRaceScore += (SYSTEM[pos] || 0);
             }
+            console.log('pos: ' + pos);
           }
           if (currentRaceScore === maxRaceScore && !winners.includes(team)) {
+            console.log('pushing: ' + JSON.stringify(team) + ' with score: ' + currentRaceScore);
             winners.push(team);
           } else if (currentRaceScore > maxRaceScore && currentRaceScore >= 50) {
             maxRaceScore = currentRaceScore;
             // winner = team;
             winners = [team];
+            console.log('resetting with: ' + JSON.stringify(team));
           }
         }
       }
