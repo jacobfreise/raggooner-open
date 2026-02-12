@@ -2,92 +2,80 @@ import type {Tournament, Team, Player, Race, Wildcard} from '../types';
 
 export const generateDiscordReport = (t: Tournament): string => {
     const lines: string[] = [];
-
-    // Create a map of ID -> Player Object for easy lookup
     const playerMap = new Map(t.players.map(p => [p.id, p]));
 
-    // --- Header ---
-    lines.push(`**ðŸ† Tournament Results: ${t.name}**`);
-    lines.push('');
+    // ==========================================
+    // HEADER - Ultra compact
+    // ==========================================
+    lines.push('```');
+    lines.push(`🏆 ${t.name.toUpperCase()}`);
+    lines.push('```');
 
     // ==========================================
-    // 1. GROUP STAGE (A & B & C)
+    // GROUP STAGES
     // ==========================================
     const groupNames = ['A', 'B', 'C'] as const;
+    const groupEmojis = { A: '🔵', B: '🔴', C: '🟢' };
 
     groupNames.forEach(groupName => {
-        // Filter Races for this Group
         const groupRaces = t.races
             .filter(r => r.stage === 'groups' && r.group === groupName)
             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-        // Filter Teams for this Group
         const groupTeams = t.teams.filter(team => team.group === groupName);
-
-        // Check for wildcards in this group
         const groupWildcards = t.wildcards?.filter(w => w.group === groupName) || [];
 
-        const hasParticipants = groupTeams.length > 0 || groupWildcards.length > 0;
-
-        if (groupRaces.length > 0 && hasParticipants) {
-            lines.push(buildStageSection(
-                `Group ${groupName}`,
+        if (groupRaces.length > 0 && (groupTeams.length > 0 || groupWildcards.length > 0)) {
+            lines.push(buildCompactStageSection(
+                `${groupEmojis[groupName]} ${groupName}`,
                 groupName,
                 groupTeams,
                 groupRaces,
                 t.wildcards || [],
                 playerMap
             ));
-            lines.push('');
         }
     });
 
     // ==========================================
-    // 2. FINALS STAGE
+    // FINALS
     // ==========================================
     const finalsRaces = t.races
         .filter(r => r.stage === 'finals')
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
     const finalsTeams = t.teams.filter(team => team.inFinals);
-
     const finalsWildcards = t.wildcards?.filter(w => w.group === 'Finals') || [];
-    const hasFinalsParticipants = finalsTeams.length > 0 || finalsWildcards.length > 0;
 
-    if (finalsRaces.length > 0 && hasFinalsParticipants) {
-        lines.push(buildStageSection(
-            'Finals',
+    if (finalsRaces.length > 0 && (finalsTeams.length > 0 || finalsWildcards.length > 0)) {
+        lines.push(buildCompactStageSection(
+            '🏁 Finals',
             'Finals',
             finalsTeams,
             finalsRaces,
             t.wildcards || [],
             playerMap
         ));
-        lines.push('');
     }
 
     // ==========================================
-    // 3. BANS
+    // BANS - Compact
     // ==========================================
     if (t.bans && t.bans.length > 0) {
         const banCounts = countFrequencies(t.bans);
-        const banString = Object.entries(banCounts)
-            .map(([name, count]) => count > 1 ? `${name} (${count})` : name)
+        const banList = Object.entries(banCounts)
+            .map(([name, count]) => count > 1 ? `${name}(×${count})` : name)
             .join(', ');
-
-        lines.push(`**ðŸš« Bans:** ${banString}`);
+        lines.push(`🚫 **Bans:** ${banList}`);
     }
-    lines.push(`Tournament ID: ${t.id}`);
 
     return lines.join('\n');
 };
 
 /**
- * ------------------------------------------------------------------
- * HELPER: Builds a specific section (Rankings + Race Winners)
- * ------------------------------------------------------------------
+ * Compact stage section - saves ~40% characters
  */
-const buildStageSection = (
+const buildCompactStageSection = (
     title: string,
     groupIdentifier: string,
     teams: Team[],
@@ -95,132 +83,160 @@ const buildStageSection = (
     wildcards: Wildcard[],
     playerMap: Map<string, Player>
 ): string => {
-    const sectionLines: string[] = [];
-
-    sectionLines.push(`**${title}:**`);
-
+    const lines: string[] = [];
     const currentStage = groupIdentifier === 'Finals' ? 'finals' : 'groups';
 
-    // Prepare Teams for Sorting (Using stored points on Team object)
-    const rankedTeams = teams.map(team => {
-        // Use stored values as source of truth for Team Score
-        const totalScore = currentStage === 'finals' ? (team.finalsPoints || 0) : team.points;
+    // Header
+    lines.push(`**${title}**`);
 
-        // Sort roster by their stored individual points
+    // Prepare Teams
+    const rankedTeams = teams.map(team => {
+        const totalScore = currentStage === 'finals' ? (team.finalsPoints || 0) : team.points;
         let fullRosterIds = [team.captainId, ...team.memberIds];
 
         fullRosterIds.sort((idA, idB) => {
             const playerA = playerMap.get(idA);
             const playerB = playerMap.get(idB);
-
             const scoreA = currentStage === 'finals' ? (playerA?.finalsPoints || 0) : (playerA?.groupPoints || 0);
             const scoreB = currentStage === 'finals' ? (playerB?.finalsPoints || 0) : (playerB?.groupPoints || 0);
-
             return scoreB - scoreA;
         });
 
-        // Filter adjustments for display text only
         const relevantAdjustments = team.adjustments?.filter(adj => adj.stage === currentStage) || [];
 
-        return {
-            ...team,
-            totalScore,
-            fullRosterIds,
-            relevantAdjustments
-        };
+        return { ...team, totalScore, fullRosterIds, relevantAdjustments };
     }).sort((a, b) => b.totalScore - a.totalScore);
 
-    // Generate Ranking Text
+    // Rankings - Compact format
+    const medals = ['🥇', '🥈', '🥉'];
     let currentRank = 1;
 
     rankedTeams.forEach((team, index) => {
-        // Tie handling logic based on stored totalScore
-        if (index > 0) {
-            const prevTeam = rankedTeams[index - 1];
-            if (team.totalScore < prevTeam!.totalScore) {
-                currentRank = index + 1;
-            }
-        } else {
-            currentRank = 1;
+        if (index > 0 && team.totalScore < rankedTeams[index - 1]!.totalScore) {
+            currentRank = index + 1;
         }
 
-        const rankString = getOrdinal(currentRank);
+        const medal = currentRank <= 3 ? medals[currentRank - 1] : `${currentRank}.`;
 
-        // Generate text for roster using stored Player points
-        const membersText = team.fullRosterIds.map(pid => {
-            const p = playerMap.get(pid);
-            // Dynamic access based on stage
-            const score = currentStage === 'finals' ? (p?.finalsPoints || 0) : (p?.groupPoints || 0);
-            return p ? `${p.name} (${score})` : 'Unknown';
-        }).join(', ');
+        // Main line: Medal Team — Points
+        lines.push(`${medal} **${team.name}** — **${team.totalScore}**`);
 
-        const umasText = team.fullRosterIds.map(pid => {
-            const p = playerMap.get(pid);
-            return p ? (p.uma || 'Unknown') : 'Unknown';
-        }).join(', ');
-
-        // Main Line
-        sectionLines.push(`**${rankString}:** ${team.name} - **${team.totalScore} Points**`);
-
-        // Adjustments Line
+        // Adjustments (inline, compact)
         if (team.relevantAdjustments.length > 0) {
             const adjText = team.relevantAdjustments
-                .map(adj => `${adj.amount > 0 ? '+' : ''}${adj.amount} (${adj.reason})`)
+                .map(adj => `${adj.amount > 0 ? '+' : ''}${adj.amount} ${adj.reason}`)
                 .join(', ');
-            sectionLines.push(`_Adjustments: ${adjText}_`);
+            lines.push(`_${adjText}_`);
         }
 
-        sectionLines.push(`${membersText}`);
-        sectionLines.push(`> Umas - ${umasText}`);
+        // ✅ Players: Name (Uma) Pts — all in ONE line
+        const playerText = team.fullRosterIds.map(pid => {
+            const p = playerMap.get(pid);
+            const score = currentStage === 'finals' ? (p?.finalsPoints || 0) : (p?.groupPoints || 0);
+            const isCap = pid === team.captainId ? '👑' : '';
+            const uma = p?.uma ? `(${p.uma})` : '';
+            return `${isCap}${p?.name || '?'}${uma} ${score}`;
+        }).join(' • ');
+
+        lines.push(`> ${playerText}`);
     });
 
-    // 4. Generate Wildcard Text
+    // Wildcards - Ultra compact
     const activeWildcards = wildcards.filter(w => w.group === groupIdentifier);
-
     if (activeWildcards.length > 0) {
-        sectionLines.push('');
-        sectionLines.push(`**ðŸ‘» Wildcards:**`);
-
-        const sortedWildcards = activeWildcards.map(w => {
-            const p = playerMap.get(w.playerId);
-            const score = w.points || p?.totalPoints || 0;
-            return {
-                name: p?.name || 'Unknown',
-                uma: p?.uma || 'Unknown',
-                score: score
-            };
-        }).sort((a, b) => b.score - a.score);
-
-        sortedWildcards.forEach(w => {
-            sectionLines.push(`${w.name} (${w.score}) - ${w.uma}`);
-        });
+        const wcText = activeWildcards
+            .map(w => {
+                const p = playerMap.get(w.playerId);
+                const score = w.points || p?.totalPoints || 0;
+                return `${p?.name || '?'}(${p?.uma || '?'}) ${score}`;
+            })
+            .join(' • ');
+        lines.push(`👻 ${wcText}`);
     }
 
-    sectionLines.push('');
+    // Race Winners - Compact table
+    if (races.length > 0) {
+        lines.push('```');
+        races.forEach((race, idx) => {
+            const winnerId = Object.keys(race.placements).find(pid => race.placements[pid] === 1);
+            const winner = winnerId ? playerMap.get(winnerId) : null;
+            const name = (winner?.name || '?').substring(0, 12).padEnd(12);
+            const uma = (winner?.uma || '?').substring(0, 18);
+            lines.push(`${idx + 1}. ${name} ${uma}`);
+        });
+        lines.push('```');
+    }
 
-    // 5. Generate Race Winners Text
-    sectionLines.push(`**ðŸ Race Winners:**`);
-    races.forEach((race, index) => {
-        const winnerId = Object.keys(race.placements).find(pid => race.placements[pid] === 1);
-        if (winnerId) {
-            const winner = playerMap.get(winnerId);
-            sectionLines.push(`Race ${index + 1}: ${winner?.name || 'Unknown'} - ${winner?.uma || 'Unknown'}`);
-        } else {
-            sectionLines.push(`Race ${index + 1}: No Winner Recorded`);
+    return lines.join('\n');
+};
+
+// ==========================================
+// ALTERNATIVE: Split into multiple messages
+// ==========================================
+export const generateDiscordReportSplit = (t: Tournament): string[] => {
+    const messages: string[] = [];
+    const playerMap = new Map(t.players.map(p => [p.id, p]));
+
+    // Message 1: Header + Groups
+    const msg1: string[] = [];
+    msg1.push('```');
+    msg1.push(`🏆 ${t.name.toUpperCase()}`);
+    msg1.push('```');
+
+    const groupNames = ['A', 'B', 'C'] as const;
+    const groupEmojis = { A: '🔵', B: '🔴', C: '🟢' };
+
+    groupNames.forEach(groupName => {
+        const groupRaces = t.races.filter(r => r.stage === 'groups' && r.group === groupName);
+        const groupTeams = t.teams.filter(team => team.group === groupName);
+
+        if (groupRaces.length > 0 && groupTeams.length > 0) {
+            msg1.push(buildCompactStageSection(
+                `${groupEmojis[groupName]} ${groupName}`,
+                groupName,
+                groupTeams,
+                groupRaces,
+                t.wildcards || [],
+                playerMap
+            ));
         }
     });
 
-    return sectionLines.join('\n');
+    messages.push(msg1.join('\n'));
+
+    // Message 2: Finals (if exists)
+    const finalsRaces = t.races.filter(r => r.stage === 'finals');
+    const finalsTeams = t.teams.filter(team => team.inFinals);
+
+    if (finalsRaces.length > 0 && finalsTeams.length > 0) {
+        const msg2: string[] = [];
+        msg2.push(buildCompactStageSection(
+            '🏁 Finals',
+            'Finals',
+            finalsTeams,
+            finalsRaces,
+            t.wildcards || [],
+            playerMap
+        ));
+
+        // Bans
+        if (t.bans && t.bans.length > 0) {
+            const banCounts = countFrequencies(t.bans);
+            const banList = Object.entries(banCounts)
+                .map(([name, count]) => count > 1 ? `${name}(×${count})` : name)
+                .join(', ');
+            msg2.push(`🚫 **Bans:** ${banList}`);
+        }
+
+        messages.push(msg2.join('\n'));
+    }
+
+    return messages;
 };
 
-// --- Low Level Helpers ---
-
-const getOrdinal = (n: number): string => {
-    const s = ["th", "st", "nd", "rd"];
-    const v = n % 100;
-    return n + (s[(v - 20) % 10] || s[v] || s[0])!;
-};
-
+// ==========================================
+// HELPERS
+// ==========================================
 const countFrequencies = (arr: string[]): Record<string, number> => {
     return arr.reduce((acc, curr) => {
         acc[curr] = (acc[curr] || 0) + 1;
