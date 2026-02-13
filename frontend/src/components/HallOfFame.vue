@@ -1037,7 +1037,7 @@ const categories: FameCategory[] = [
   {
     id: 'phalanx',
     title: 'The Phalanx',
-    description: 'Smallest point gap between teammates (No weak links)',
+    description: 'Smallest point gap between teammates (No weak links, or only weak links). Weighted by total pts and races played.',
     isTeam: true,
     icon: 'ph-shield-check',
     color: 'text-teal-400',
