@@ -1045,13 +1045,13 @@ const categories: FameCategory[] = [
     tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
       let minGap = Infinity;
-      let maxTeamTotal = 0;  // Changed from maxAvg to maxTeamTotal
+      let maxTeamTotal = 0;
       let winners: Team[] = [];
 
       for (const team of t.teams) {
         const roster = [team.captainId, ...team.memberIds];
 
-        // 1. Safeguard & Dynamic Cutoff
+        // 1. Safeguard check
         let qualifies = true;
         const teamRacesPlayed = t.races.filter(r =>
             roster.some(pid => r.placements[pid] !== undefined)
@@ -1067,8 +1067,6 @@ const categories: FameCategory[] = [
 
         if (!qualifies) continue;
 
-        const dynamicCutoff = teamRacesPlayed * 3.5;
-
         // 2. Get total points for each member
         const memberPoints = roster.map(pid => {
           const p = t.players.find(pl => pl.id === pid);
@@ -1077,7 +1075,6 @@ const categories: FameCategory[] = [
 
         if (memberPoints.length < 2) continue;
 
-        // Calculate Team Total
         const teamTotal = memberPoints.reduce((a, b) => a + b, 0);
         if (teamTotal === 0) continue;
 
@@ -1086,21 +1083,23 @@ const categories: FameCategory[] = [
         const min = Math.min(...memberPoints);
         const gap = max - min;
 
+        // --- THE HYBRID CUTOFF ---
+        // Base drift of 3 pts per race + 10% of their total points
+        const dynamicCutoff = Math.round((teamRacesPlayed * 3) + (teamTotal * 0.10));
+
         // 4. Threshold Check
         if (gap > dynamicCutoff) continue;
 
-        // 5. Determine Winners (Using teamTotal for tiebreakers)
+        // 5. Determine Winners
         if (gap < minGap) {
           minGap = gap;
-          maxTeamTotal = teamTotal; // Save the new highest team score
+          maxTeamTotal = teamTotal;
           winners = [team];
         } else if (gap === minGap) {
           if (teamTotal > maxTeamTotal) {
-            // Same gap, but this team scored more total points! They take the lead.
             maxTeamTotal = teamTotal;
             winners = [team];
           } else if (teamTotal === maxTeamTotal) {
-            // Exact tie in both gap AND total points.
             winners.push(team);
           }
         }
