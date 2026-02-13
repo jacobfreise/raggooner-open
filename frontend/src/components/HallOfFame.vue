@@ -1076,7 +1076,7 @@ const categories: FameCategory[] = [
         if (memberPoints.length < 2) continue;
 
         const teamTotal = memberPoints.reduce((a, b) => a + b, 0);
-        if (teamTotal === 0) continue;
+        if (teamTotal < 20) continue;
 
         // 3. Calculate Gap
         const max = Math.max(...memberPoints);
@@ -1085,7 +1085,7 @@ const categories: FameCategory[] = [
 
         // --- THE HYBRID CUTOFF ---
         // Base drift of 3 pts per race + 10% of their total points
-        const dynamicCutoff = Math.round((teamRacesPlayed * 3) + (teamTotal * 0.10));
+        const dynamicCutoff = Math.round((teamRacesPlayed * 3) + (teamTotal * 0.05));
 
         // 4. Threshold Check
         if (gap > dynamicCutoff) continue;
