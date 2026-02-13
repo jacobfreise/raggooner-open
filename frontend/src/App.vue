@@ -18,6 +18,7 @@ import BanPhase from "./components/BanPhase.vue";
 import ActivePhase from './components/ActivePhase.vue';
 import ChangelogModal from './components/ChangelogModal.vue';
 import {POINTS_SYSTEM} from "./utils/constants.ts";
+import {seedDatabase} from "./utils/seedData.ts";
 // import Migrate from "./components/Migrate.vue";
 
 // Config
@@ -26,6 +27,8 @@ const appId = 'default-app';
 const getTournamentRef = (id: string) => {
   return doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', id);
 };
+
+const isDev = import.meta.env.DEV;
 
 //version info
 const showChangelog = ref(false);
@@ -354,6 +357,13 @@ onMounted(() => {
     hasNewUpdates.value = true;
   }
 });
+
+const handleSeed = async () => {
+  if (confirm('Are you sure? This will insert 3 new tournaments into your database.')) {
+    await seedDatabase(db, auth, appId);
+    alert('Check console for passwords!');
+  }
+}
 </script>
 
 <template>
@@ -404,6 +414,11 @@ onMounted(() => {
 
     <main class="flex-grow p-4 md:p-6 max-w-7xl mx-auto w-full">
 
+      <div v-if="isDev">
+        <button @click="handleSeed">
+          Seed
+        </button>
+      </div>
 
 <!--      <Migrate></Migrate>-->
       <div v-if="!loading && !tournament" class="max-w-lg mx-auto mt-8 space-y-12">

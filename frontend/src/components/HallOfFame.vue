@@ -101,7 +101,7 @@ const categories: FameCategory[] = [
     calculate: (t: Tournament) => {
       const maxPts = Math.max(...t.players.map(p => p.totalPoints || 0));
 
-      if (maxPts < 25) return [];
+      if (maxPts < 25 || t.races.length < 3) return [];
 
       return t.players
           .filter(p => (p.totalPoints || 0) === maxPts)
@@ -499,7 +499,6 @@ const categories: FameCategory[] = [
           .filter((r): r is FameResult => r !== null);
     }
   },
-  //TODO: below here: refactor multiple
   {
     id: 'bridesmaid',
     title: 'Always the Bridesmaid',
@@ -686,42 +685,48 @@ const categories: FameCategory[] = [
     icon: 'ph-backpack',
     color: 'text-rose-400',
     gradient: 'from-rose-500/20',
-    tieHandling: {type: "allow-ties"},
-    calculate: (t) => {
-      let bestPlayer: Player | null = null;
-      let highestPercentage = 0;
+    tieHandling: { type: "allow-ties" },
+    calculate: (t: Tournament) => {
+      let maxPct = 0;
+      let winners: Player[] = [];
 
       t.teams.forEach(team => {
+        // Calculate total team points across all stages
         const teamTotalPoints = (team.points || 0) + (team.finalsPoints || 0);
-        if (teamTotalPoints === 0) return; // Avoid divide by zero
+        if (teamTotalPoints === 0) return; // Avoid division by zero
 
-        // Get all players in this team
+        // Find all members of this specific team
         const members = t.players.filter(p =>
             p.id === team.captainId || team.memberIds.includes(p.id)
         );
 
         members.forEach(p => {
+          // 1. Safeguard: Must have participated in at least 3 races
+          const racesPlayed = t.races.filter(r => r.placements[p.id] !== undefined).length;
+          if (racesPlayed < 3) return;
+
           const points = p.totalPoints || 0;
           const pct = points / teamTotalPoints;
 
-          if (pct > highestPercentage) {
-            highestPercentage = pct;
-            bestPlayer = p;
-          } else if (pct === highestPercentage) {
-            if (!bestPlayer || p.totalPoints! > bestPlayer?.totalPoints!) {
-              bestPlayer = p;
-            }
+          // 2. Track highest percentage (allowing ties safely)
+          if (Math.abs(pct - maxPct) < 0.0001) {
+            winners.push(p);
+          } else if (pct > maxPct) {
+            maxPct = pct;
+            winners = [p];
           }
         });
       });
 
-      if (!bestPlayer || highestPercentage < 0.7) return []; // Only show if they carried >70%
+      // 3. Threshold: Only award if they carried at least 70% of the team
+      if (maxPct < 0.7 || winners.length === 0) return [];
 
-      return [{
-        player: bestPlayer,
-        value: (highestPercentage * 100).toFixed(0) + '%',
+      // 4. Map all tied players to the output format
+      return winners.map(w => ({
+        player: w,
+        value: (maxPct * 100).toFixed(0) + '%',
         subtext: 'of Team Pts'
-      }];
+      }));
     }
   },
   {
@@ -1037,16 +1042,29 @@ const categories: FameCategory[] = [
     icon: 'ph-shield-check',
     color: 'text-teal-400',
     gradient: 'from-teal-500/20',
-    tieHandling: {type: "allow-ties"},
+    tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
-      let minGap = 20;
-      let winner: Team | null = null;
-      let winnerAvg = 0;
+      let minGap = 20; // Cutoff: Spread must be smaller than 20 to qualify
+      let maxTotal = 0;  // Track the highest total points for tie-breaking
+      let winners: Team[] = [];
 
       for (const team of t.teams) {
         const roster = [team.captainId, ...team.memberIds];
 
-        // 1. Get total points for each member
+        // 1. Safeguard: EVERY member must have raced at least 3 times
+        let qualifies = true;
+        for (const pid of roster) {
+          const racesPlayed = t.races.filter(r => r.placements[pid] !== undefined).length;
+          if (racesPlayed < 3) {
+            qualifies = false;
+            break;
+          }
+        }
+
+        // If any member played fewer than 3 races, disqualify the team
+        if (!qualifies) continue;
+
+        // 2. Get total points for each member
         const memberPoints = roster.map(pid => {
           const p = t.players.find(pl => pl.id === pid);
           return p?.totalPoints || 0;
@@ -1054,35 +1072,48 @@ const categories: FameCategory[] = [
 
         // Ignore empty teams or solo teams (need at least 2 to compare)
         if (memberPoints.length < 2) continue;
-        if (memberPoints.reduce((a,b)=>a+b,0) === 0) continue; // Ignore 0 point teams
 
-        // 2. Calculate Gap (Max - Min)
+        const teamTotal = memberPoints.reduce((a, b) => a + b, 0);
+        if (teamTotal === 0) continue; // Ignore 0 point teams
+
+        // 3. Calculate Gap (Max - Min) and Average
         const max = Math.max(...memberPoints);
         const min = Math.min(...memberPoints);
         const gap = max - min;
-        const avg = memberPoints.reduce((a,b)=>a+b,0) / memberPoints.length;
 
-        // 3. Find smallest gap (Higher average points breaks ties)
+        // 4. Determine Winners
         if (gap < minGap) {
+          // Case A: We found a strictly smaller gap! Reset the leaders.
           minGap = gap;
-          winner = team;
-          winnerAvg = avg;
+          maxTotal = teamTotal;
+          winners = [team];
         } else if (gap === minGap) {
-          // Tie-breaker: Who scored more?
-          if (avg > winnerAvg) {
-            winner = team;
-            winnerAvg = avg;
+          // Case B: The gap is tied! Move to the Tie-Breaker (Average Points)
+          if (teamTotal === maxTotal) {
+            // Absolute tie: Same gap AND same average points.
+            winners.push(team);
+          } else if (teamTotal > maxTotal) {
+            // This team scored more points overall while maintaining the same gap. They steal the lead!
+            maxTotal = teamTotal;
+            winners = [team];
           }
         }
       }
 
-      if (!winner) return [];
+      if (winners.length === 0) return [];
 
-      return [{
-        player: { ...t.players.find(p => p.id === winner!.captainId)!, name: winner.name },
-        value: `${minGap} pts`,
-        subtext: 'Spread' // e.g. "12 pts Spread"
-      }];
+      // 5. Map all tied teams to the output format
+      return winners.map(winner => {
+        // Find the captain to extract their avatar/uma, but use the Team Name
+        const captain = t.players.find(p => p.id === winner.captainId);
+        const displayPlayer = captain ? { ...captain, name: winner.name } : winner;
+
+        return {
+          player: displayPlayer,
+          value: `${minGap} pts`,
+          subtext: 'Spread'
+        };
+      });
     }
   },
   {
