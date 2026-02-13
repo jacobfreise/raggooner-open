@@ -168,7 +168,7 @@ const buildCompactStageSection = (
             const winnerId = Object.keys(race.placements).find(pid => race.placements[pid] === 1);
             const winner = winnerId ? playerMap.get(winnerId) : null;
             const name = (winner?.name || '?').substring(0, 12).padEnd(12);
-            const uma = (winner?.uma || '?').substring(0, 18);
+            const uma = (winner?.uma || '?').substring(0, 19);
             lines.push(`${idx + 1}. ${name} ${uma}`);
         });
         lines.push('```');
