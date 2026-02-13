@@ -679,89 +679,54 @@ const categories: FameCategory[] = [
     }
   },
   {
-    id: 'phalanx',
-    title: 'The Phalanx',
-    description: 'Smallest point gap between teammates (No weak links)',
-    isTeam: true,
-    icon: 'ph-shield-check',
-    color: 'text-teal-400',
-    gradient: 'from-teal-500/20',
+    id: 'hard_carry',
+    title: 'The Carry',
+    description: 'Highest % contribution to team score',
+    icon: 'ph-backpack',
+    color: 'text-rose-400',
+    gradient: 'from-rose-500/20',
     tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
-      let minGap = Infinity;
-      let maxTeamTotal = 0;  // Changed from maxAvg to maxTeamTotal
-      let winners: Team[] = [];
+      let maxPct = 0;
+      let winners: Player[] = [];
 
-      for (const team of t.teams) {
-        const roster = [team.captainId, ...team.memberIds];
+      t.teams.forEach(team => {
+        // Calculate total team points across all stages
+        const teamTotalPoints = (team.points || 0) + (team.finalsPoints || 0);
+        if (teamTotalPoints === 0) return; // Avoid division by zero
 
-        // 1. Safeguard & Dynamic Cutoff
-        let qualifies = true;
-        const teamRacesPlayed = t.races.filter(r =>
-            roster.some(pid => r.placements[pid] !== undefined)
-        ).length;
+        // Find all members of this specific team
+        const members = t.players.filter(p =>
+            p.id === team.captainId || team.memberIds.includes(p.id)
+        );
 
-        for (const pid of roster) {
-          const playerRacesPlayed = t.races.filter(r => r.placements[pid] !== undefined).length;
-          if (playerRacesPlayed < 3 || playerRacesPlayed < teamRacesPlayed) {
-            qualifies = false;
-            break;
+        members.forEach(p => {
+          // 1. Safeguard: Must have participated in at least 3 races
+          const racesPlayed = t.races.filter(r => r.placements[p.id] !== undefined).length;
+          if (racesPlayed < 3) return;
+
+          const points = p.totalPoints || 0;
+          const pct = points / teamTotalPoints;
+
+          // 2. Track highest percentage (allowing ties safely)
+          if (Math.abs(pct - maxPct) < 0.0001) {
+            winners.push(p);
+          } else if (pct > maxPct) {
+            maxPct = pct;
+            winners = [p];
           }
-        }
-
-        if (!qualifies) continue;
-
-        const dynamicCutoff = teamRacesPlayed * 4;
-
-        // 2. Get total points for each member
-        const memberPoints = roster.map(pid => {
-          const p = t.players.find(pl => pl.id === pid);
-          return p?.totalPoints || 0;
         });
-
-        if (memberPoints.length < 2) continue;
-
-        // Calculate Team Total
-        const teamTotal = memberPoints.reduce((a, b) => a + b, 0);
-        if (teamTotal === 0) continue;
-
-        // 3. Calculate Gap
-        const max = Math.max(...memberPoints);
-        const min = Math.min(...memberPoints);
-        const gap = max - min;
-
-        // 4. Threshold Check
-        if (gap > dynamicCutoff) continue;
-
-        // 5. Determine Winners (Using teamTotal for tiebreakers)
-        if (gap < minGap) {
-          minGap = gap;
-          maxTeamTotal = teamTotal; // Save the new highest team score
-          winners = [team];
-        } else if (gap === minGap) {
-          if (teamTotal > maxTeamTotal) {
-            // Same gap, but this team scored more total points! They take the lead.
-            maxTeamTotal = teamTotal;
-            winners = [team];
-          } else if (teamTotal === maxTeamTotal) {
-            // Exact tie in both gap AND total points.
-            winners.push(team);
-          }
-        }
-      }
-
-      if (winners.length === 0) return [];
-
-      return winners.map(winner => {
-        const captain = t.players.find(p => p.id === winner.captainId);
-        const displayPlayer = captain ? { ...captain, name: winner.name } : winner;
-
-        return {
-          player: displayPlayer,
-          value: `${minGap} pts`,
-          subtext: 'Spread'
-        };
       });
+
+      // 3. Threshold: Only award if they carried at least 70% of the team
+      if (maxPct < 0.7 || winners.length === 0) return [];
+
+      // 4. Map all tied players to the output format
+      return winners.map(w => ({
+        player: w,
+        value: (maxPct * 100).toFixed(0) + '%',
+        subtext: 'of Team Pts'
+      }));
     }
   },
   {
@@ -1079,25 +1044,30 @@ const categories: FameCategory[] = [
     gradient: 'from-teal-500/20',
     tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
-      let minGap = 20; // Cutoff: Spread must be smaller than 20 to qualify
-      let maxTotal = 0;  // Track the highest total points for tie-breaking
+      let minGap = Infinity;
+      let maxTeamTotal = 0;  // Changed from maxAvg to maxTeamTotal
       let winners: Team[] = [];
 
       for (const team of t.teams) {
         const roster = [team.captainId, ...team.memberIds];
 
-        // 1. Safeguard: EVERY member must have raced at least 3 times
+        // 1. Safeguard & Dynamic Cutoff
         let qualifies = true;
+        const teamRacesPlayed = t.races.filter(r =>
+            roster.some(pid => r.placements[pid] !== undefined)
+        ).length;
+
         for (const pid of roster) {
-          const racesPlayed = t.races.filter(r => r.placements[pid] !== undefined).length;
-          if (racesPlayed < 3) {
+          const playerRacesPlayed = t.races.filter(r => r.placements[pid] !== undefined).length;
+          if (playerRacesPlayed < 3 || playerRacesPlayed < teamRacesPlayed) {
             qualifies = false;
             break;
           }
         }
 
-        // If any member played fewer than 3 races, disqualify the team
         if (!qualifies) continue;
+
+        const dynamicCutoff = teamRacesPlayed * 3.5;
 
         // 2. Get total points for each member
         const memberPoints = roster.map(pid => {
@@ -1105,41 +1075,40 @@ const categories: FameCategory[] = [
           return p?.totalPoints || 0;
         });
 
-        // Ignore empty teams or solo teams (need at least 2 to compare)
         if (memberPoints.length < 2) continue;
 
+        // Calculate Team Total
         const teamTotal = memberPoints.reduce((a, b) => a + b, 0);
-        if (teamTotal === 0) continue; // Ignore 0 point teams
+        if (teamTotal === 0) continue;
 
-        // 3. Calculate Gap (Max - Min) and Average
+        // 3. Calculate Gap
         const max = Math.max(...memberPoints);
         const min = Math.min(...memberPoints);
         const gap = max - min;
 
-        // 4. Determine Winners
+        // 4. Threshold Check
+        if (gap > dynamicCutoff) continue;
+
+        // 5. Determine Winners (Using teamTotal for tiebreakers)
         if (gap < minGap) {
-          // Case A: We found a strictly smaller gap! Reset the leaders.
           minGap = gap;
-          maxTotal = teamTotal;
+          maxTeamTotal = teamTotal; // Save the new highest team score
           winners = [team];
         } else if (gap === minGap) {
-          // Case B: The gap is tied! Move to the Tie-Breaker (Average Points)
-          if (teamTotal === maxTotal) {
-            // Absolute tie: Same gap AND same average points.
-            winners.push(team);
-          } else if (teamTotal > maxTotal) {
-            // This team scored more points overall while maintaining the same gap. They steal the lead!
-            maxTotal = teamTotal;
+          if (teamTotal > maxTeamTotal) {
+            // Same gap, but this team scored more total points! They take the lead.
+            maxTeamTotal = teamTotal;
             winners = [team];
+          } else if (teamTotal === maxTeamTotal) {
+            // Exact tie in both gap AND total points.
+            winners.push(team);
           }
         }
       }
 
       if (winners.length === 0) return [];
 
-      // 5. Map all tied teams to the output format
       return winners.map(winner => {
-        // Find the captain to extract their avatar/uma, but use the Team Name
         const captain = t.players.find(p => p.id === winner.captainId);
         const displayPlayer = captain ? { ...captain, name: winner.name } : winner;
 
