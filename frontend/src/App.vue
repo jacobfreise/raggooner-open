@@ -30,6 +30,7 @@ const getTournamentRef = (id: string) => {
 //version info
 const showChangelog = ref(false);
 const hasNewUpdates = ref(false);
+const previousVersion = ref('0.0.0');
 
 // State
 const tournament = ref<Tournament | null>(null);
@@ -296,6 +297,13 @@ const openChangelog = () => {
   localStorage.setItem('last_seen_version', APP_VERSION);
 };
 
+const closeChangelog = () => {
+  showChangelog.value = false;
+  // Update the ref so if they click the button again in this same session,
+  // there are no longer any "New" highlights.
+  previousVersion.value = APP_VERSION;
+};
+
 const isEditingPoints = ref(false);
 const localPointsSystem = ref<Record<number, number>>({});
 
@@ -339,6 +347,9 @@ onMounted(() => {
 
   // Check version
   const lastSeen = localStorage.getItem('last_seen_version');
+  if (lastSeen) {
+    previousVersion.value = lastSeen;
+  }
   if (lastSeen !== APP_VERSION) {
     hasNewUpdates.value = true;
   }
@@ -772,7 +783,10 @@ onMounted(() => {
   </div>
 
   <Transition enter-active-class="duration-200 ease-out" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="duration-150 ease-in" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
-    <ChangelogModal v-if="showChangelog" @close="showChangelog = false" />
+    <ChangelogModal v-if="showChangelog"
+                    :last-seen-version="previousVersion"
+                    @close="closeChangelog"
+    />
   </Transition>
 </template>
 
