@@ -947,6 +947,8 @@ const categories: FameCategory[] = [
           });
         }
 
+        if (racesParticipated < 3) continue;
+
         const totalPodiums = g + s + b;
 
         // 2. Calculate Capacity (3 podium spots per race)
