@@ -1412,6 +1412,20 @@ const toggleView = () => {
   }
 };
 
+const goToNext = () => {
+  stopCycle();
+  currentIndex.value = (currentIndex.value + 1) % activeStats.value.length;
+  startCycle();
+};
+
+const goToPrevious = () => {
+  stopCycle();
+  currentIndex.value = currentIndex.value === 0
+      ? activeStats.value.length - 1
+      : currentIndex.value - 1;
+  startCycle();
+};
+
 const currentStat = computed(() => {
   if (activeStats.value.length === 0) return null;
   return activeStats.value[currentIndex.value];
@@ -1502,6 +1516,30 @@ onUnmounted(() => {
 
           </div>
         </Transition>
+
+        <div class="absolute inset-y-0 left-4 right-4 flex items-center justify-between pointer-events-none">
+          <button
+              @click="goToPrevious"
+              class="pointer-events-auto h-10 w-10 rounded-full bg-slate-900/80 border border-slate-700
+           hover:bg-slate-800 hover:border-indigo-500 transition-all text-white">
+            <i class="ph-bold ph-caret-left"></i>
+          </button>
+          <button
+              @click="goToNext"
+              class="pointer-events-auto h-10 w-10 rounded-full bg-slate-900/80 border border-slate-700
+           hover:bg-slate-800 hover:border-indigo-500 transition-all text-white">
+            <i class="ph-bold ph-caret-right"></i>
+          </button>
+        </div>
+
+        <div class="absolute top-4 right-4 flex gap-1.5">
+          <div
+              v-for="(stat, idx) in activeStats"
+              :key="stat.id"
+              class="h-1.5 rounded-full transition-all duration-300"
+              :class="idx === currentIndex ? 'w-6 bg-indigo-500' : 'w-1.5 bg-slate-600'"
+          ></div>
+        </div>
 
         <div class="absolute bottom-0 left-0 h-1 bg-slate-700 w-full overflow-hidden">
           <div :key="currentStat.id" class="h-full bg-indigo-500 animate-progress origin-left"></div>
