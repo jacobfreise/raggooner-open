@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed} from 'vue';
+import {computed, onMounted, onUnmounted, ref} from 'vue';
 import type {FameCategory, FameResult, Player, Team, Tournament} from '../types';
 import {POINTS_SYSTEM} from "../utils/constants.ts";
 import {compareTeams} from "../utils/utils.ts"; // Import your types
@@ -7,6 +7,9 @@ import {compareTeams} from "../utils/utils.ts"; // Import your types
 const props = defineProps<{
   tournament: Tournament;
 }>();
+
+// Cycle Duration for category display
+const CYCLE_DURATION = 10000
 
 
 // Helper function for Olympic-style comparison
@@ -1381,6 +1384,47 @@ const activeStats = computed(() => {
       .filter(item => item.results.length > 0); // Hide categories with no winners
 });
 
+// --- View State ---
+const isGridView = ref(false); // Default to cycling view
+const currentIndex = ref(0);
+let cycleInterval: ReturnType<typeof setInterval> | null = null;
+
+const startCycle = () => {
+  if (cycleInterval) clearInterval(cycleInterval);
+  cycleInterval = setInterval(() => {
+    if (!isGridView.value && activeStats.value.length > 0) {
+      currentIndex.value = (currentIndex.value + 1) % activeStats.value.length;
+    }
+  }, CYCLE_DURATION); // Change category every 10 seconds
+};
+
+const stopCycle = () => {
+  if (cycleInterval) clearInterval(cycleInterval);
+};
+
+const toggleView = () => {
+  isGridView.value = !isGridView.value;
+  if (!isGridView.value) {
+    currentIndex.value = 0; // Reset to start when switching back
+    startCycle();
+  } else {
+    stopCycle();
+  }
+};
+
+const currentStat = computed(() => {
+  if (activeStats.value.length === 0) return null;
+  return activeStats.value[currentIndex.value];
+});
+
+// Lifecycle
+onMounted(() => {
+  startCycle();
+});
+onUnmounted(() => {
+  stopCycle();
+});
+
 </script>
 
 <!-- ========================================
@@ -1390,37 +1434,99 @@ const activeStats = computed(() => {
 <template>
   <div v-if="activeStats.length > 0" class="animate-fade-in">
     <div class="mt-12 pt-8 border-t border-slate-700">
-      <div class="flex items-center gap-3 mb-6">
-        <div class="h-8 w-1.5 bg-amber-500 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.6)]"></div>
-        <div>
-          <h2 class="text-xl font-bold text-white uppercase tracking-widest">Hall of Fame</h2>
-          <p class="text-xs text-slate-400 font-medium">Tournament Records & Superlatives</p>
+
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div class="flex items-center gap-3">
+          <div class="h-8 w-1.5 bg-amber-500 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.6)]"></div>
+          <div>
+            <h2 class="text-xl font-bold text-white uppercase tracking-widest">Hall of Fame</h2>
+            <p class="text-xs text-slate-400 font-medium">Tournament Records & Superlatives</p>
+          </div>
+        </div>
+
+        <button @click="toggleView"
+                class="flex items-center gap-2 px-3 py-2 rounded-lg border transition-all text-xs font-bold uppercase tracking-wider"
+                :class="isGridView ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'">
+          <i class="ph-bold" :class="isGridView ? 'ph-squares-four' : 'ph-monitor-play'"></i>
+          <span class="hidden sm:inline">{{ isGridView ? 'Grid View' : 'Cycling View' }}</span>
+        </button>
+      </div>
+
+      <div v-if="!isGridView && currentStat" class="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/50 p-6 sm:p-10 min-h-[300px] flex items-center justify-center">
+
+        <div class="absolute inset-0 bg-gradient-to-br opacity-20 transition-all duration-1000 ease-in-out"
+             :class="currentStat.gradient"></div>
+
+        <i :class="[currentStat.icon, currentStat.color]"
+           class="ph-fill absolute -right-10 -bottom-10 text-[16rem] opacity-5 transition-all duration-700 ease-out pointer-events-none transform -rotate-12"></i>
+
+        <Transition name="fade-slide" mode="out-in">
+          <div :key="currentStat.id" class="relative z-10 w-full max-w-2xl mx-auto flex flex-col items-center text-center">
+
+            <div class="mb-6 h-20 w-20 rounded-2xl bg-slate-900 border border-slate-700 flex items-center justify-center shadow-lg">
+              <i :class="[currentStat.icon, currentStat.color]" class="ph-fill text-4xl drop-shadow-lg"></i>
+            </div>
+
+            <h3 class="text-3xl sm:text-4xl font-black uppercase tracking-widest text-white mb-2 leading-tight">
+              {{ currentStat.title }}
+            </h3>
+
+            <p class="text-sm sm:text-base font-medium text-slate-400 max-w-md mx-auto mb-10 leading-relaxed">
+              {{ currentStat.description }}
+            </p>
+
+            <div class="w-full flex flex-col items-center gap-4">
+              <div class="text-xs font-bold text-slate-500 uppercase tracking-[0.2em]">
+                {{ currentStat.hasMultipleWinners ? 'Winners' : 'Winner' }}
+              </div>
+
+              <div class="flex flex-wrap justify-center gap-3 w-full">
+                <div v-for="(result, idx) in currentStat.results" :key="idx"
+                     class="flex items-center justify-between gap-4 px-5 py-3 rounded-xl bg-slate-900/80 border border-slate-700 shadow-sm min-w-[280px]">
+
+                  <span class="text-lg font-bold text-white truncate">
+                    {{ result.player.name }}
+                  </span>
+
+                  <div class="flex flex-col items-end">
+                    <span class="text-sm font-black" :class="currentStat.color">
+                      {{ result.value }}
+                    </span>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      {{ result.subtext }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </Transition>
+
+        <div class="absolute bottom-0 left-0 h-1 bg-slate-700 w-full overflow-hidden">
+          <div :key="currentStat.id" class="h-full bg-indigo-500 animate-progress origin-left"></div>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
 
         <div v-for="stat in activeStats" :key="stat.id"
              class="group relative bg-slate-800 rounded-xl border border-slate-700 p-4 overflow-hidden hover:border-slate-600 transition-all hover:shadow-xl hover:-translate-y-1">
 
-          <!-- Gradient Overlay -->
           <div class="absolute inset-0 bg-gradient-to-br to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
                :class="stat.gradient"></div>
 
-          <!-- Background Icon -->
           <i :class="[stat.icon, stat.color]"
              class="ph-fill absolute -right-6 -bottom-6 text-9xl opacity-[0.03] group-hover:opacity-[0.08] group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 ease-out pointer-events-none"></i>
 
           <div class="relative z-10 flex flex-col h-full">
-
-            <!-- Header -->
             <div class="flex items-center gap-3 mb-6">
               <div class="h-12 w-12 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-300">
                 <i :class="[stat.icon, stat.color]" class="ph-fill text-2xl drop-shadow-lg"></i>
               </div>
 
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-black uppercase tracking-widest text-slate-100 group-hover:text-white transition-colors leading-tight">
+                <div class="text-sm font-black uppercase tracking-widest text-slate-100 group-hover:text-white transition-colors leading-tight truncate">
                   {{ stat.title }}
                 </div>
                 <div class="text-[10px] font-medium text-slate-500 leading-tight mt-1 line-clamp-2">
@@ -1429,54 +1535,36 @@ const activeStats = computed(() => {
               </div>
             </div>
 
-            <!-- Winners Section -->
             <div class="flex flex-col gap-2 mt-auto pl-1">
-              <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">
-                <!-- ✅ Dynamic label based on winner count -->
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
                 {{ stat.hasMultipleWinners ? 'Winners' : 'Winner' }}
               </div>
 
-              <!-- ✅ SINGLE WINNER (Original Layout) -->
               <div v-if="!stat.hasMultipleWinners" class="flex items-center justify-between gap-2 w-full">
-                <div class="text-lg font-bold text-white group-hover:text-amber-50 leading-tight break-words min-w-0">
+                <div class="text-base font-bold text-white group-hover:text-amber-50 leading-tight truncate min-w-0">
                   {{ stat.results[0]?.player.name }}
                 </div>
-
-                <div class="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700/80 backdrop-blur-sm group-hover:border-slate-600 transition-colors">
-                  <span class="text-xs font-bold text-white whitespace-nowrap">
-                    {{ stat.results[0]?.value }}
-                  </span>
-                  <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">
-                    {{ stat.results[0]?.subtext }}
-                  </span>
+                <div class="shrink-0 flex flex-col items-end pl-2">
+                  <span class="text-xs font-bold text-white whitespace-nowrap">{{ stat.results[0]?.value }}</span>
+                  <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">{{ stat.results[0]?.subtext }}</span>
                 </div>
               </div>
 
-              <!-- ✅ MULTIPLE WINNERS (Compact List) -->
               <div v-else class="flex flex-col gap-1">
-                <!-- All winners except last -->
                 <div v-for="(result, idx) in stat.results.slice(0, -1)" :key="idx"
                      class="text-sm font-bold text-white/90 leading-tight truncate">
                   {{ result.player.name }},
                 </div>
-
-                <!-- Last winner + Value Badge in same row -->
                 <div class="flex items-center justify-between gap-2 w-full">
                   <div class="text-sm font-bold text-white/90 leading-tight truncate">
                     {{ stat.results[stat.results.length - 1]?.player.name }}
                   </div>
-
-                  <div class="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700/80 backdrop-blur-sm group-hover:border-slate-600 transition-colors">
-                    <span class="text-xs font-bold text-white whitespace-nowrap">
-                      {{ stat.results[0]?.value }}
-                    </span>
-                    <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">
-                      {{ stat.results[0]?.subtext }}
-                    </span>
+                  <div class="shrink-0 flex flex-col items-end pl-2">
+                    <span class="text-xs font-bold text-white whitespace-nowrap">{{ stat.results[0]?.value }}</span>
+                    <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">{{ stat.results[0]?.subtext }}</span>
                   </div>
                 </div>
               </div>
-
             </div>
 
           </div>
@@ -1488,6 +1576,31 @@ const activeStats = computed(() => {
 </template>
 
 <style scoped>
+/* Smooth transitions for the cycle view */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.5s ease;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(15px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-15px);
+}
+
+/* Progress bar animation for the cycle view */
+@keyframes progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.animate-progress {
+  animation: progress 10s linear forwards;
+}
 /* Optional: Add animation for multiple winners */
 .winner-enter-active,
 .winner-leave-active {
