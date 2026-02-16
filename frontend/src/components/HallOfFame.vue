@@ -1532,6 +1532,7 @@ onUnmounted(() => {
           </button>
         </div>
 
+<!--        Counter Indicator-->
         <div class="absolute top-4 right-4 flex gap-1.5">
           <div
               v-for="(stat, idx) in activeStats"
@@ -1541,9 +1542,10 @@ onUnmounted(() => {
           ></div>
         </div>
 
-        <div class="absolute bottom-0 left-0 h-1 bg-slate-700 w-full overflow-hidden">
-          <div :key="currentStat.id" class="h-full bg-indigo-500 animate-progress origin-left"></div>
-        </div>
+<!--        Progress Bar -->
+<!--        <div class="absolute bottom-0 left-0 h-1 bg-slate-700 w-full overflow-hidden">-->
+<!--          <div :key="currentStat.id" class="h-full bg-indigo-500 animate-progress origin-left"></div>-->
+<!--        </div>-->
       </div>
 
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
