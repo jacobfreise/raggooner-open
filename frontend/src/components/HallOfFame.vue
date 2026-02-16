@@ -1468,11 +1468,11 @@ onUnmounted(() => {
 
       <div v-if="!isGridView && currentStat" class="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/50 p-6 sm:p-10 min-h-[300px] flex items-center justify-center">
 
-        <div class="absolute inset-0 bg-gradient-to-br opacity-20 transition-all duration-1000 ease-in-out"
+        <div class="absolute inset-0 bg-gradient-to-br opacity-80 transition-all duration-1000 ease-in-out"
              :class="currentStat.gradient"></div>
 
         <i :class="[currentStat.icon, currentStat.color]"
-           class="ph-fill absolute -right-10 -bottom-10 text-[16rem] opacity-5 transition-all duration-700 ease-out pointer-events-none transform -rotate-12"></i>
+           class="ph-fill absolute -right-10 -bottom-10 text-[16rem] opacity-10 transition-all duration-700 ease-out pointer-events-none transform -rotate-12"></i>
 
         <Transition name="fade-slide" mode="out-in">
           <div :key="currentStat.id" class="relative z-10 w-full max-w-2xl mx-auto flex flex-col items-center text-center">
@@ -1557,7 +1557,7 @@ onUnmounted(() => {
                :class="stat.gradient"></div>
 
           <i :class="[stat.icon, stat.color]"
-             class="ph-fill absolute -right-6 -bottom-6 text-9xl opacity-[0.03] group-hover:opacity-[0.08] group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 ease-out pointer-events-none"></i>
+             class="ph-fill absolute -right-6 -bottom-6 text-9xl opacity-[0.08] group-hover:opacity-[0.13] group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 ease-out pointer-events-none"></i>
 
           <div class="relative z-10 flex flex-col h-full">
             <div class="flex items-center gap-3 mb-6">
