@@ -88,10 +88,10 @@ const overviewStats = computed(() => {
     totalRaces: filteredRaces.value.length,
     totalParticipations: filteredParticipations.value.length,
     avgPlayersPerTournament: filteredTournaments.value.length > 0
-        ? Math.round(filteredParticipations.value.length / tournaments.value.length)
+        ? Math.round(filteredParticipations.value.length / tournaments.value.length * 10) / 10
         : 0,
     avgRacesPerTournament: filteredTournaments.value.length > 0
-        ? Math.round(filteredRaces.value.length / filteredTournaments.value.length)
+        ? Math.round(filteredRaces.value.length / filteredTournaments.value.length * 10) / 10
         : 0
   };
 });
