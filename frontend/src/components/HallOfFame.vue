@@ -1040,6 +1040,53 @@ const categories: FameCategory[] = [
     }
   },
   {
+    id: 'mods',
+    title: 'MODS',
+    description: 'Most races finishing 6th and 7th together',
+    isTeam: true,
+    icon: 'ph-hand-fist', // Or ph-lightning
+    color: 'text-rose-500',
+    gradient: 'from-rose-600/20',
+    tieHandling: {type: "allow-ties"},
+    calculate: (t: Tournament) => {
+      let maxCount = 0;
+      let winners: Team[] = [];
+
+      for (const team of t.teams) {
+        let count = 0;
+        const roster = [team.captainId, ...team.memberIds];
+
+        t.races.forEach(r => {
+          // Check if this team owns position 1 AND position 2
+          const pos1Player = Object.keys(r.placements).find(key => r.placements[key] === 6);
+          const pos2Player = Object.keys(r.placements).find(key => r.placements[key] === 7);
+
+          if (pos1Player && pos2Player &&
+              roster.includes(pos1Player) && roster.includes(pos2Player)) {
+            count++;
+          }
+        });
+
+        if (count > maxCount) {
+          maxCount = count;
+          winners = [team];
+        } else if (count === maxCount) {
+          winners.push(team);
+        }
+      }
+
+      if (maxCount < 3) return [];
+
+      return winners.map(winner => {
+        return {
+          player: winner,
+          value: `${maxCount}x`,
+          subtext: 'SHOOT THESE GUYS IMMEDIATELY'
+        }
+      });
+    }
+  },
+  {
     id: 'phalanx',
     title: 'The Phalanx',
     description: 'Smallest point gap between teammates. Weighted by total pts and # of races.',
