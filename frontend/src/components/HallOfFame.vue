@@ -1044,7 +1044,7 @@ const categories: FameCategory[] = [
     title: 'MODS',
     description: 'Most races finishing 6th and 7th together',
     isTeam: true,
-    icon: 'ph-hand-fist', // Or ph-lightning
+    icon: 'ph-hammer', // Or ph-lightning
     color: 'text-rose-500',
     gradient: 'from-rose-600/20',
     tieHandling: {type: "allow-ties"},
