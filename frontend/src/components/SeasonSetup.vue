@@ -146,10 +146,10 @@ const setupSeasons = async () => {
         <div>
           <h3 class="text-sm font-bold text-blue-200 mb-2">What this does:</h3>
           <ul class="text-xs text-blue-300/80 space-y-1">
-            <li>• Creates <strong>Season 1</strong> (2024) and <strong>Season 2</strong> (2025)</li>
-            <li>• Assigns <strong>all existing tournaments</strong> to Season 1</li>
+            <li>• Creates <strong>Season 1</strong> (2025) and <strong>Season 2</strong> (2026)</li>
+            <li>• Tries to assign <strong>all existing tournaments</strong> to Seasons based on Tournament Name</li>
             <li>• Prevents <code class="bg-blue-950/50 px-1 rounded">undefined seasonId</code> errors in migration</li>
-            <li>• You can manually reassign tournaments to Season 2 later</li>
+            <li>• You can manually reassign tournaments to Seasons later</li>
           </ul>
         </div>
       </div>
