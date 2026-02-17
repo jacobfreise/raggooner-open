@@ -4,7 +4,7 @@ service cloud.firestore {
 
     function isSuperAdmin() {
       // Note: "|| true" makes EVERYONE a super admin for testing. Remove it for production!
-      return request.auth != null && (request.auth.uid in ['DEINE_UID'] || true);
+      return request.auth != null && (request.auth.uid in ['DEINE_UID']);
     }
 
     match /artifacts/{appId}/public/data {
