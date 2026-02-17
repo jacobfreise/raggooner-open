@@ -34,7 +34,7 @@ const setupSeasons = async () => {
       startDate: new Date('2024-01-01').toISOString(),
       endDate: new Date('2024-12-31').toISOString(),
       tournamentIds: [],
-      description: 'First season - auto-assigned to all existing tournaments'
+      description: 'First season'
     };
 
     const season2: Season = {
@@ -42,7 +42,7 @@ const setupSeasons = async () => {
       name: 'Season 2',
       startDate: new Date('2025-01-01').toISOString(),
       tournamentIds: [],
-      description: 'Second season - ready for new tournaments'
+      description: 'Second season'
     };
 
     // Write seasons
@@ -56,7 +56,7 @@ const setupSeasons = async () => {
     addLog('Created Season 2', 'success');
 
     // Step 2: Assign all tournaments to Season 1
-    addLog('Step 2/2: Assigning all tournaments to Season 1...', 'info');
+    addLog('Step 2/2: Assigning seasons based on Tournament name.', 'info');
 
     const tournamentsRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'tournaments');
     const tournamentsSnap = await getDocs(tournamentsRef);
@@ -66,9 +66,11 @@ const setupSeasons = async () => {
     let batchCount = 0;
 
     tournamentsSnap.docs.forEach(docSnap => {
+      const isSeasonTwo = docSnap.data.name.includes('Open S2') || docSnap.data.name.includes('Season 2')
+
       const tournamentRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'tournaments', docSnap.id);
       batch.update(tournamentRef, {
-        seasonId: 'season-1'
+        seasonId: isSeasonTwo ? 'season-2' : 'season-1'
       });
 
       tournamentIds.push(docSnap.id);
