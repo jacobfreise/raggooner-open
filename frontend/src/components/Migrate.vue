@@ -208,19 +208,21 @@ const migrateToNewStructure = async (dryRun: boolean) => {
             t.captainId === player.id || t.memberIds?.includes(player.id)
         );
 
-        participations.push({
+        const participation: Record<string, any> = {
           id: `${tournament.id}_${globalId}`,
           tournamentId: tournament.id,
           playerId: globalId,
-          seasonId: tournament.seasonId,
           uma: player.uma || '',
-          teamId: team?.id,
           isCaptain: player.isCaptain || false,
           totalPoints: player.totalPoints || 0,
           groupPoints: player.groupPoints || 0,
           finalsPoints: player.finalsPoints || 0,
           createdAt: tournament.createdAt
-        });
+        };
+        if (tournament.seasonId) participation.seasonId = tournament.seasonId;
+        if (team?.id) participation.teamId = team.id;
+
+        participations.push(participation as TournamentParticipation);
       });
     });
 
@@ -263,17 +265,19 @@ const migrateToNewStructure = async (dryRun: boolean) => {
           }
         });
 
-        races.push({
+        const raceDoc: Record<string, any> = {
           id: race.id,
           tournamentId: tournament.id,
-          seasonId: tournament.seasonId,
           stage: race.stage,
           group: race.group,
           raceNumber: race.raceNumber,
           timestamp: race.timestamp,
           placements: newPlacements,
           umaMapping
-        });
+        };
+        if (tournament.seasonId) raceDoc.seasonId = tournament.seasonId;
+
+        races.push(raceDoc as RaceDocument);
       });
     });
 
