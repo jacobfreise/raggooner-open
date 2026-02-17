@@ -42,20 +42,24 @@ export function useRoster(
 
     // --- ACTIONS ---
 
-    const addPlayer = async () => {
-        if (!newPlayerName.value || !tournament.value) return;
+    const addPlayer = async (globalPlayer?: { id: string; name: string }) => {
+        if (!tournament.value) return;
 
         const player: Player = {
-            id: crypto.randomUUID(),
-            name: newPlayerName.value,
+            id: globalPlayer?.id || crypto.randomUUID(),
+            name: globalPlayer?.name || newPlayerName.value,
             isCaptain: false,
             uma: ''
         };
 
-        newPlayerName.value = '';
+        if (!globalPlayer) {
+            if (!newPlayerName.value) return;
+            newPlayerName.value = '';
+        }
 
         await secureUpdate({
-            players: arrayUnion(player)
+            players: arrayUnion(player),
+            playerIds: arrayUnion(player.id)
         });
 
     };
@@ -65,7 +69,8 @@ export function useRoster(
 
         const newPlayers = tournament.value.players.filter(p => p.id !== pid);
         await secureUpdate({
-            players: newPlayers
+            players: newPlayers,
+            playerIds: newPlayers.map(p => p.id)
         });
     };
 
@@ -113,6 +118,7 @@ export function useRoster(
         // Note: Firestore updates are atomic, but we are passing a single object update here.
         await secureUpdate({
             players: arrayUnion(newPlayer),
+            playerIds: arrayUnion(newPlayer.id),
             wildcards: arrayUnion(newWildcard)
         });
 

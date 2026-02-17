@@ -1,17 +1,35 @@
 import {ref, computed, type Ref, watch} from 'vue';
-import type {Tournament, Team, Race, FirestoreUpdate, Player, PointAdjustment} from '../types';
+import type {Tournament, Team, Race, FirestoreUpdate, Player, PointAdjustment, RaceDocument, TournamentParticipation} from '../types';
 import { POINTS_SYSTEM as DEFAULT_POINTS } from '../utils/constants';
 import {compareTeams, getPlayerUma, getPlayerName, recalculateTournamentScores} from '../utils/utils';
 import {
     arrayRemove,
-    arrayUnion
+    arrayUnion,
+    doc,
+    setDoc,
+    writeBatch,
+    increment
 } from 'firebase/firestore';
+import { db } from '../firebase';
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
 
+// Build a mapping of playerId -> uma for RaceDocument records
+const buildUmaMapping = (players: Player[], placements: Record<string, number>): Record<string, string> => {
+    const mapping: Record<string, string> = {};
+    for (const playerId of Object.keys(placements)) {
+        const player = players.find(p => p.id === playerId);
+        if (player) {
+            mapping[playerId] = player.uma;
+        }
+    }
+    return mapping;
+};
+
 export function useGameLogic(
     tournament: Ref<Tournament | null>,
-    secureUpdate: SecureUpdateFn
+    secureUpdate: SecureUpdateFn,
+    appId: string = 'default-app'
 ) {
     // --- STATE ---
     const initialStage = tournament.value?.stage === 'finals' ? 'finals' : 'groups';
@@ -259,6 +277,25 @@ export function useGameLogic(
                 players: updatedPlayers,
                 wildcards: updatedWildcards
             });
+
+            // Dual-write: Also write RaceDocument to races/ collection
+            try {
+                const raceDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'races', raceData.id);
+                const raceDoc: RaceDocument = {
+                    id: raceData.id,
+                    tournamentId: tournament.value!.id,
+                    seasonId: tournament.value!.seasonId || undefined,
+                    stage: raceData.stage,
+                    group: raceData.group,
+                    raceNumber: raceData.raceNumber,
+                    timestamp: raceData.timestamp,
+                    placements: raceData.placements,
+                    umaMapping: buildUmaMapping(tournament.value!.players, raceData.placements)
+                };
+                await setDoc(raceDocRef, raceDoc);
+            } catch (e) {
+                console.error('Failed to dual-write race document:', e);
+            }
         } catch (e) {
             console.error(e);
             alert("Failed");
@@ -538,9 +575,74 @@ export function useGameLogic(
         tiebreakersNeeded.value = 0;
     };
 
+    const syncTournamentData = async () => {
+        const t = tournament.value!;
+        const batch = writeBatch(db);
+
+        // 1. Create TournamentParticipation for each player
+        t.players.forEach(player => {
+            const partId = `${t.id}_${player.id}`;
+            const partRef = doc(db, 'artifacts', appId, 'public', 'data', 'participations', partId);
+            const participation: TournamentParticipation = {
+                id: partId,
+                tournamentId: t.id,
+                playerId: player.id,
+                seasonId: t.seasonId || undefined,
+                uma: player.uma,
+                teamId: t.teams.find(tm => tm.captainId === player.id || tm.memberIds.includes(player.id))?.id || undefined,
+                isCaptain: player.isCaptain,
+                totalPoints: player.totalPoints || 0,
+                groupPoints: player.groupPoints || 0,
+                finalsPoints: player.finalsPoints || 0,
+                createdAt: new Date().toISOString()
+            };
+            batch.set(partRef, participation);
+        });
+
+        // 2. Ensure all RaceDocuments exist in races/ collection
+        t.races.forEach(race => {
+            const raceRef = doc(db, 'artifacts', appId, 'public', 'data', 'races', race.id);
+            const raceDoc: RaceDocument = {
+                id: race.id,
+                tournamentId: t.id,
+                seasonId: t.seasonId || undefined,
+                stage: race.stage,
+                group: race.group,
+                raceNumber: race.raceNumber,
+                timestamp: race.timestamp,
+                placements: race.placements,
+                umaMapping: buildUmaMapping(t.players, race.placements)
+            };
+            batch.set(raceRef, raceDoc);
+        });
+
+        // 3. Update GlobalPlayer metadata
+        t.players.forEach(player => {
+            const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', player.id);
+            const playerRaceCount = t.races.filter(r =>
+                Object.keys(r.placements).includes(player.id)
+            ).length;
+            batch.update(playerRef, {
+                'metadata.totalTournaments': increment(1),
+                'metadata.totalRaces': increment(playerRaceCount),
+                'metadata.lastPlayed': new Date().toISOString()
+            });
+        });
+
+        await batch.commit();
+    };
+
     const endTournament = async () => {
         if (!tournament.value) return;
-        await secureUpdate({ status: 'completed' });
+        const completedAt = new Date().toISOString();
+        await secureUpdate({ status: 'completed', completedAt });
+
+        // Sync participation, race documents, and global player metadata
+        try {
+            await syncTournamentData();
+        } catch (e) {
+            console.error('Failed to sync tournament data on completion:', e);
+        }
     };
 
     //RACE VIEW LOGIC

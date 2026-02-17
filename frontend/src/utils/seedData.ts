@@ -83,6 +83,7 @@ export const seedDatabase = async (db: any, auth: any, appId: string) => {
                 status: 'active', // Set to active so you can test them immediately
                 stage: config.tCount < 6 ? 'finals' : 'groups',
                 players,
+                playerIds: players.map(p => p.id),
                 teams,
                 races: [],
                 wildcards: [],
