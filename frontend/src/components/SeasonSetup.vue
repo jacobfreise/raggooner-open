@@ -31,8 +31,8 @@ const setupSeasons = async () => {
     const season1: Season = {
       id: 'season-1',
       name: 'Season 1',
-      startDate: new Date('2024-01-01').toISOString(),
-      endDate: new Date('2024-12-31').toISOString(),
+      startDate: new Date('2025-09-01').toISOString(),
+      endDate: new Date('2025-12-31').toISOString(),
       tournamentIds: [],
       description: 'First season'
     };
@@ -40,7 +40,7 @@ const setupSeasons = async () => {
     const season2: Season = {
       id: 'season-2',
       name: 'Season 2',
-      startDate: new Date('2025-01-01').toISOString(),
+      startDate: new Date('2026-01-01').toISOString(),
       tournamentIds: [],
       description: 'Second season'
     };
