@@ -13,6 +13,7 @@ const showChangelog = ref(false);
 const hasNewUpdates = ref(false);
 const previousVersion = ref('0.0.0');
 
+
 const init = async () => {
   const initialToken = (window as any).__initial_auth_token;
   if (initialToken) {
