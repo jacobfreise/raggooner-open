@@ -19,7 +19,9 @@ import ActivePhase from './components/ActivePhase.vue';
 import ChangelogModal from './components/ChangelogModal.vue';
 import {POINTS_SYSTEM} from "./utils/constants.ts";
 import {seedDatabase} from "./utils/seedData.ts";
-// import Migrate from "./components/Migrate.vue";
+import Migrate from "./components/Migrate.vue";
+import SeasonSetup from "./components/SeasonSetup.vue";
+import AnalyticsDashboard from "./components/AnalyticsDashboard.vue";
 
 // Config
 const appId = 'default-app';
@@ -218,6 +220,7 @@ const createTournament = async () => {
       players: [],
       teams: [],
       races: [],
+      playerIds: [],
       isSecured: true,
       usePlacementTiebreaker: true,
       pointsSystem: { ...POINTS_SYSTEM },
@@ -420,7 +423,9 @@ const handleSeed = async () => {
         </button>
       </div>
 
-<!--      <Migrate></Migrate>-->
+      <SeasonSetup></SeasonSetup>
+      <Migrate></Migrate>
+      <AnalyticsDashboard></AnalyticsDashboard>
       <div v-if="!loading && !tournament" class="max-w-lg mx-auto mt-8 space-y-12">
 
         <div class="text-center space-y-4">

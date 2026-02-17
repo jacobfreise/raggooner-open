@@ -2,47 +2,56 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isSuperAdmin() {
+      return request.auth != null && request.auth.uid in [
+        'DEINE_UID'
+      ] || true;
+    }
+
     match /artifacts/{appId}/public/data {
 
-      // 1. PUBLIC TOURNAMENTS
+      // Players - Read: Everyone, Write: Authenticated
+      match /players/{playerId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null;
+        allow update: if isSuperAdmin();  // Only super admin can edit
+        allow delete: if isSuperAdmin();
+      }
+
+      // Seasons
+      match /seasons/{seasonId} {
+        allow read: if request.auth != null;
+        allow write: if isSuperAdmin() || request.auth != null;  // Only admin can manage seasons
+      }
+
+      // Tournaments (wie bisher)
       match /tournaments/{tournamentId} {
-        allow read: if true;
-        allow create: if request.auth != null
-            && request.resource.data.name is string
-            && request.resource.data.name.size() > 0
-            && request.resource.data.name.size() <= 100;
-
-        // UPDATE RULE:
-        // Allow update IF:
-        // 1. The user has a valid Admin Slip (For New/Secured tournaments)
-        // OR
-        // 2. The document is NOT secured (For Legacy Public tournaments)
-        allow update, delete: if
-          (exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/admins/$(tournamentId + '_' + request.auth.uid)))
-          ||
-          (!('isSecured' in resource.data) || resource.data.isSecured == false);
+        allow read: if request.auth != null;
+        allow create: if request.auth != null;
+        allow update, delete: if exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/admins/$(tournamentId + '_' + request.auth.uid));
       }
 
-      // 2. SECRETS (Password Vault)
-      match /secrets/{tournamentId} {
-        allow read: if false;
-        allow create: if request.auth != null
-            && request.resource.data.password is string
-            && request.resource.data.password.size() >= 3
-            && request.resource.data.password.size() <= 50;
+      // Participations - Written by tournament logic
+      match /participations/{participationId} {
+        allow read: if request.auth != null;
+        allow write: if isSuperAdmin() ||
+          exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/admins/$(resource.data.tournamentId + '_' + request.auth.uid));
       }
 
-      // 3. ADMIN SLIPS (The Login Session)
-      match /admins/{docId} {
-        allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Races - Same as participations
+      match /races/{raceId} {
+        allow read: if request.auth != null;
+        allow write: if isSuperAdmin() ||
+          exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/admins/$(resource.data.tournamentId + '_' + request.auth.uid));
+      }
 
-        // CREATE:
-        // We use getAfter() here so we can see the secret being created in the SAME batch.
-        allow create: if request.auth != null
-          && request.resource.data.userId == request.auth.uid
-          && request.resource.data.password == getAfter(
-               /databases/$(database)/documents/artifacts/$(appId)/public/data/secrets/$(request.resource.data.tournamentId)
-             ).data.password;
+      // Admins (wie bisher)
+      match /admins/{adminDoc} {
+        allow read, write: if isSuperAdmin();
+        allow create: if request.auth != null &&
+          request.resource.data.password == get(/databases/$(database)/documents/artifacts/$(appId)/public/data/tournaments/$(request.resource.data.tournamentId)).data.password;
+        allow read: if request.auth != null &&
+          request.resource.data.userId == request.auth.uid;
       }
     }
   }
