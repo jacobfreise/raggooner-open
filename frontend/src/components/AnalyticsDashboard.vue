@@ -187,7 +187,7 @@ const playerRankings = computed(() => {
 
   // 4. Calculate averages and win rates
   playerStats.forEach(stats => {
-    stats.avgPoints = stats.tournaments > 0
+    stats.avgPoints = stats.races > 0
         ? Math.round(stats.totalPoints / stats.races * 10) / 10
         : 0;
     stats.dominance = stats.opponentsFaced > 0
