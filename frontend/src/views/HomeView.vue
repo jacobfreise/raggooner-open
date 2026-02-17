@@ -1,19 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, inject, Ref } from 'vue';
+import { ref, computed, onMounted, inject, type Ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { collection, doc, getDocs, orderBy, query, writeBatch, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import type { Tournament, Season } from '../types';
 import { POINTS_SYSTEM } from "../utils/constants.ts";
 import { getStatusColor } from "../utils/utils.ts";
-import { seedDatabase } from "../utils/seedData.ts";
 
 const openChangelog = inject<() => void>('openChangelog')!;
 const hasNewUpdates = inject<Ref<boolean>>('hasNewUpdates')!;
 
 const router = useRouter();
 const appId = 'default-app';
-const isDev = import.meta.env.DEV;
 
 // State
 const newTournamentName = ref('');
@@ -111,13 +109,6 @@ const selectTournamentFromHome = (id: string) => {
   router.push(`/t/${id}`);
 };
 
-const handleSeed = async () => {
-  if (confirm('Are you sure? This will insert 3 new tournaments into your database.')) {
-    await seedDatabase(db, auth, appId);
-    alert('Check console for passwords!');
-    fetchPublicTournaments();
-  }
-};
 
 onMounted(() => {
   fetchSeasons();

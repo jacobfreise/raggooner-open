@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {ref, computed, onMounted, inject, type Ref} from 'vue';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import type {GlobalPlayer, TournamentParticipation, RaceDocument, Tournament, Season} from '../types';
 import {compareTeams} from "../utils/utils.ts";

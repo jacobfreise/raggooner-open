@@ -46,7 +46,7 @@ const secureUpdate = async (data: FirestoreUpdate<Tournament>) => {
 const {
   adminPasswordInput, localAdminPassword, showAdminModal, isDangerZoneOpen, isDeleting, editedName, editedTiebreaker,
   isAdmin, loginAsAdmin, copyPassword, updateTournamentName, togglePlacementTiebreaker, deleteTournament
-} = useAdmin(tournament, secureUpdate, () => router.push('/'), appId);
+} = useAdmin(tournament, secureUpdate, async () => { await router.push('/'); }, appId);
 
 const { currentView } = useGameLogic(tournament, secureUpdate, appId);
 const { activeVisualEgg } = useEasterEgg(tournament);

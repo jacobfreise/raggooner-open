@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { Tournament, Player, GlobalPlayer, TournamentParticipation, RaceDocument } from '../types';
+import type { Tournament, GlobalPlayer, TournamentParticipation, RaceDocument } from '../types';
 
 const APP_ID = 'default-app'; // TODO: Adjust to your app ID
 
