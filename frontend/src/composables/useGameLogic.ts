@@ -281,10 +281,9 @@ export function useGameLogic(
             // Dual-write: Also write RaceDocument to races/ collection
             try {
                 const raceDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'races', raceData.id);
-                const raceDoc: RaceDocument = {
+                const raceDoc: Record<string, any> = {
                     id: raceData.id,
                     tournamentId: tournament.value!.id,
-                    seasonId: tournament.value!.seasonId || undefined,
                     stage: raceData.stage,
                     group: raceData.group,
                     raceNumber: raceData.raceNumber,
@@ -292,6 +291,7 @@ export function useGameLogic(
                     placements: raceData.placements,
                     umaMapping: buildUmaMapping(tournament.value!.players, raceData.placements)
                 };
+                if (tournament.value!.seasonId) raceDoc.seasonId = tournament.value!.seasonId;
                 await setDoc(raceDocRef, raceDoc);
             } catch (e) {
                 console.error('Failed to dual-write race document:', e);
@@ -583,29 +583,29 @@ export function useGameLogic(
         t.players.forEach(player => {
             const partId = `${t.id}_${player.id}`;
             const partRef = doc(db, 'artifacts', appId, 'public', 'data', 'participations', partId);
-            const participation: TournamentParticipation = {
+            const participation: Record<string, any> = {
                 id: partId,
                 tournamentId: t.id,
                 playerId: player.id,
-                seasonId: t.seasonId || undefined,
                 uma: player.uma,
-                teamId: t.teams.find(tm => tm.captainId === player.id || tm.memberIds.includes(player.id))?.id || undefined,
                 isCaptain: player.isCaptain,
                 totalPoints: player.totalPoints || 0,
                 groupPoints: player.groupPoints || 0,
                 finalsPoints: player.finalsPoints || 0,
                 createdAt: new Date().toISOString()
             };
+            if (t.seasonId) participation.seasonId = t.seasonId;
+            const team = t.teams.find(tm => tm.captainId === player.id || tm.memberIds.includes(player.id));
+            if (team) participation.teamId = team.id;
             batch.set(partRef, participation);
         });
 
         // 2. Ensure all RaceDocuments exist in races/ collection
         t.races.forEach(race => {
             const raceRef = doc(db, 'artifacts', appId, 'public', 'data', 'races', race.id);
-            const raceDoc: RaceDocument = {
+            const raceDoc: Record<string, any> = {
                 id: race.id,
                 tournamentId: t.id,
-                seasonId: t.seasonId || undefined,
                 stage: race.stage,
                 group: race.group,
                 raceNumber: race.raceNumber,
@@ -613,6 +613,7 @@ export function useGameLogic(
                 placements: race.placements,
                 umaMapping: buildUmaMapping(t.players, race.placements)
             };
+            if (t.seasonId) raceDoc.seasonId = t.seasonId;
             batch.set(raceRef, raceDoc);
         });
 
