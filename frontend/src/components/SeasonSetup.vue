@@ -45,61 +45,79 @@ const setupSeasons = async () => {
       description: 'Second season'
     };
 
-    // Write seasons
     const season1Ref = doc(db, 'artifacts', APP_ID, 'public', 'data', 'seasons', season1.id);
     const season2Ref = doc(db, 'artifacts', APP_ID, 'public', 'data', 'seasons', season2.id);
 
     await setDoc(season1Ref, season1);
     await setDoc(season2Ref, season2);
 
-    addLog('Created Season 1', 'success');
-    addLog('Created Season 2', 'success');
+    addLog('Created Season 1 & Season 2', 'success');
 
-    // Step 2: Assign all tournaments to Season 1
-    addLog('Step 2/2: Assigning seasons based on Tournament name.', 'info');
+    // Step 2: Assign tournaments to seasons
+    addLog('Step 2/2: Assigning seasons based on Tournament name...', 'info');
 
     const tournamentsRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'tournaments');
     const tournamentsSnap = await getDocs(tournamentsRef);
 
-    const tournamentIds: string[] = [];
+    // Track IDs separately!
+    const season1TournamentIds: string[] = [];
+    const season2TournamentIds: string[] = [];
+
     let batch = writeBatch(db);
     let batchCount = 0;
 
-    tournamentsSnap.docs.forEach(docSnap => {
-      const isSeasonTwo = docSnap.data.name.includes('Open S2') || docSnap.data.name.includes('Season 2')
+    // Use a for...of loop so 'await batch.commit()' pauses the loop safely
+    for (const docSnap of tournamentsSnap.docs) {
+      // 1. Correctly call data() as a function
+      const data = docSnap.data();
+      const name = data.name || '';
 
+      // 2. Determine the season
+      const isSeasonTwo = name.includes('S2') || name.includes('Season 2');
+      const targetSeasonId = isSeasonTwo ? 'season-2' : 'season-1';
+
+      // 3. Update the tournament document
       const tournamentRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'tournaments', docSnap.id);
-      batch.update(tournamentRef, {
-        seasonId: isSeasonTwo ? 'season-2' : 'season-1'
-      });
+      batch.update(tournamentRef, { seasonId: targetSeasonId });
 
-      tournamentIds.push(docSnap.id);
+      // 4. Push to the correct array
+      if (isSeasonTwo) {
+        season2TournamentIds.push(docSnap.id);
+      } else {
+        season1TournamentIds.push(docSnap.id);
+      }
+
       batchCount++;
 
+      // 5. Safely await the batch commit
       if (batchCount >= 500) {
-        // Commit and start new batch
-        batch.commit();
+        await batch.commit();
         batch = writeBatch(db);
         batchCount = 0;
       }
-    });
+    }
 
-    // Commit remaining
+    // Commit any remaining updates
     if (batchCount > 0) {
       await batch.commit();
     }
 
-    addLog(`Assigned ${tournamentIds.length} tournaments to Season 1`, 'success');
+    addLog(`Assigned ${season1TournamentIds.length} to Season 1`, 'success');
+    addLog(`Assigned ${season2TournamentIds.length} to Season 2`, 'success');
 
-    // Step 3: Update Season 1 with tournament IDs
-    addLog('Updating Season 1 with tournament references...', 'info');
+    // Step 3: Update BOTH Seasons with their specific tournament IDs
+    addLog('Updating Season documents with tournament references...', 'info');
     await setDoc(season1Ref, {
       ...season1,
-      tournamentIds
+      tournamentIds: season1TournamentIds
+    });
+
+    await setDoc(season2Ref, {
+      ...season2,
+      tournamentIds: season2TournamentIds
     });
 
     addLog('🎉 Season Setup Complete!', 'success');
-    addLog(`You can now run the migration. All tournaments are in Season 1.`, 'info');
 
   } catch (e) {
     console.error(e);
@@ -108,6 +126,7 @@ const setupSeasons = async () => {
     processing.value = false;
   }
 };
+
 </script>
 
 <template>
