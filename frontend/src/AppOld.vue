@@ -19,8 +19,8 @@ import ActivePhase from './components/ActivePhase.vue';
 import ChangelogModal from './components/ChangelogModal.vue';
 import {POINTS_SYSTEM} from "./utils/constants.ts";
 import {seedDatabase} from "./utils/seedData.ts";
-import Migrate from "./components/Migrate.vue";
-import SeasonSetup from "./components/SeasonSetup.vue";
+// import Migrate from "./components/Migrate.vue";
+// import SeasonSetup from "./components/SeasonSetup.vue";
 import AnalyticsDashboard from "./components/AnalyticsDashboard.vue";
 
 // Config

@@ -4,8 +4,8 @@ import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { auth } from './firebase';
 import { APP_VERSION } from './data/changelog';
 import ChangelogModal from './components/ChangelogModal.vue';
-import SeasonSetup from "./components/SeasonSetup.vue";
-import Migrate from "./components/Migrate.vue";
+// import SeasonSetup from "./components/SeasonSetup.vue";
+// import Migrate from "./components/Migrate.vue";
 
 const showChangelog = ref(false);
 const hasNewUpdates = ref(false);

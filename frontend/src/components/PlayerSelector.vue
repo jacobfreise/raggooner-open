@@ -46,11 +46,6 @@ const filteredPlayers = computed(() => {
       });
 });
 
-const hasExactMatch = computed(() => {
-  return filteredPlayers.value.some(p =>
-      p.name.toLowerCase() === searchQuery.value.toLowerCase().trim()
-  );
-});
 
 const shouldShowDropdown = computed(() => {
   return isDropdownOpen.value && searchQuery.value.trim().length > 0;
