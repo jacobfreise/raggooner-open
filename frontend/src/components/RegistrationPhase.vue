@@ -46,7 +46,8 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
   };
 
   await props.secureUpdate({
-    players: arrayUnion(player)
+    players: arrayUnion(player),
+    playerIds: arrayUnion(globalPlayer.id)
   });
 };
 </script>
