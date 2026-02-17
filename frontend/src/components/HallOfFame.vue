@@ -1628,12 +1628,12 @@ onUnmounted(() => {
               </div>
 
               <div v-if="!stat.hasMultipleWinners" class="flex items-center justify-between gap-2 w-full">
-                <div class="text-base font-bold text-white group-hover:text-amber-50 leading-tight truncate min-w-0">
+                <div class="text-base font-bold text-white group-hover:text-amber-50 leading-tight break-words min-w-0">
                   {{ stat.results[0]?.player.name }}
                 </div>
-                <div class="shrink-0 flex flex-col items-end pl-2">
+                <div class="shrink-0 flex flex-col items-end pl-2 max-w-[50%]">
                   <span class="text-xs font-bold text-white whitespace-nowrap">{{ stat.results[0]?.value }}</span>
-                  <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">{{ stat.results[0]?.subtext }}</span>
+                  <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right leading-tight">{{ stat.results[0]?.subtext }}</span>
                 </div>
               </div>
 
@@ -1643,12 +1643,12 @@ onUnmounted(() => {
                   {{ result.player.name }},
                 </div>
                 <div class="flex items-center justify-between gap-2 w-full">
-                  <div class="text-sm font-bold text-white/90 leading-tight truncate">
+                  <div class="text-sm font-bold text-white/90 leading-tight break-words">
                     {{ stat.results[stat.results.length - 1]?.player.name }}
                   </div>
-                  <div class="shrink-0 flex flex-col items-end pl-2">
+                  <div class="shrink-0 flex flex-col items-end pl-2 max-w-[50%]">
                     <span class="text-xs font-bold text-white whitespace-nowrap">{{ stat.results[0]?.value }}</span>
-                    <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">{{ stat.results[0]?.subtext }}</span>
+                    <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right leading-tight">{{ stat.results[0]?.subtext }}</span>
                   </div>
                 </div>
               </div>
