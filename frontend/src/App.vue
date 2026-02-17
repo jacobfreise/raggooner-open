@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import {computed, onMounted, ref} from 'vue';
 import {signInAnonymously, signInWithCustomToken} from 'firebase/auth';
-import {collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc, writeBatch} from 'firebase/firestore';
+import {collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc, writeBatch, setDoc} from 'firebase/firestore';
 import {auth, db} from './firebase';
-import type {FirestoreUpdate, Tournament} from './types';
+import type {FirestoreUpdate, Tournament, Season} from './types';
 import {
   getStatusColor, recalculateTournamentScores,
 } from "./utils/utils.ts";
@@ -46,11 +46,30 @@ const joinId = ref('');
 const currentUnsubscribe = ref<(() => void) | null>(null);
 const isCreating = ref(false);
 
+// Season state
+const availableSeasons = ref<Season[]>([]);
+const selectedSeasonId = ref('');
+
 // --- NEW STATE FOR HOME PAGE ---
 const homeListLoading = ref(false);
 const showHistory = ref(false);
 const allTournaments = ref<Tournament[]>([]); // We store brief summaries here
 
+
+// Fetch available seasons for the season selector
+const fetchSeasons = async () => {
+  try {
+    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'seasons'), orderBy('startDate', 'desc'));
+    const snapshot = await getDocs(q);
+    availableSeasons.value = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Season));
+    // Auto-select the first (most recent) season
+    if (availableSeasons.value.length > 0) {
+      selectedSeasonId.value = availableSeasons.value[0]!.id;
+    }
+  } catch (e) {
+    console.error('Failed to fetch seasons:', e);
+  }
+};
 
 // Auth & Init
 const init = async () => {
@@ -61,6 +80,9 @@ const init = async () => {
   } else {
     await signInAnonymously(auth);
   }
+
+  // Fetch seasons for the create form
+  fetchSeasons();
 
   // 1. Check if ID is in the URL (First priority)
   const urlParams = new URLSearchParams(window.location.search);
@@ -152,7 +174,7 @@ const {
 
 const {
   currentView,
-} = useGameLogic(tournament, secureUpdate);
+} = useGameLogic(tournament, secureUpdate, appId);
 
 const { activeVisualEgg } = useEasterEgg(tournament);
 
@@ -193,10 +215,7 @@ const subscribeToTournament = (id: string) => {
 };
 
 const createTournament = async () => {
-  // 2. The Guard Clause: If already creating, stop immediately
   if (isCreating.value) return;
-
-  // 3. Lock the function
   isCreating.value = true;
 
   try {
@@ -206,8 +225,6 @@ const createTournament = async () => {
     const password = Math.random().toString(36).substring(2, 6).toUpperCase();
     const userId = auth.currentUser!.uid;
 
-    const batch = writeBatch(db);
-
     const tournamentRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', id);
     const secretRef = doc(db, 'artifacts', appId, 'public', 'data', 'secrets', id);
     const adminRef = doc(db, 'artifacts', appId, 'public', 'data', 'admins', `${id}_${userId}`);
@@ -215,6 +232,7 @@ const createTournament = async () => {
     const newTourney: Tournament = {
       id,
       name: newTournamentName.value,
+      seasonId: selectedSeasonId.value || undefined,
       status: 'registration',
       stage: 'groups',
       players: [],
@@ -227,15 +245,19 @@ const createTournament = async () => {
       createdAt: new Date().toISOString(),
     };
 
+    // Step 1: Create tournament + secret first
+    // (admin doc creation reads the secret via get(), so the secret must exist first)
+    const batch = writeBatch(db);
     batch.set(tournamentRef, newTourney);
     batch.set(secretRef, { password: password });
-    batch.set(adminRef, {
+    await batch.commit();
+
+    // Step 2: Create admin doc (now the secret exists for the security rule to verify)
+    await setDoc(adminRef, {
       tournamentId: id,
       userId: userId,
       password: password
     });
-
-    await batch.commit();
 
     tournament.value = newTourney;
     localAdminPassword.value = password;
@@ -448,6 +470,15 @@ const handleSeed = async () => {
                      placeholder="Tournament Name"
                      class="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all disabled:opacity-50">
 
+              <select v-model="selectedSeasonId"
+                      :disabled="isCreating || availableSeasons.length === 0"
+                      class="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all disabled:opacity-50 appearance-none cursor-pointer">
+                <option value="" class="text-slate-500">No Season</option>
+                <option v-for="season in availableSeasons" :key="season.id" :value="season.id">
+                  {{ season.name }}
+                </option>
+              </select>
+
               <button @click="createTournament"
                       :disabled="!newTournamentName || isCreating"
                       class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg transition-all shadow-lg shadow-indigo-900/30 flex items-center justify-center gap-2">
@@ -576,6 +607,7 @@ const handleSeed = async () => {
             v-if="tournament.status === 'registration'"
             :tournament="tournament"
             :is-admin="isAdmin"
+            :app-id="appId"
             :secure-update="secureUpdate"
         />
 
