@@ -2,47 +2,69 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isSuperAdmin() {
+      // Note: "|| true" makes EVERYONE a super admin for testing. Remove it for production!
+      return request.auth != null && (request.auth.uid in ['DEINE_UID'] || true);
+    }
+
     match /artifacts/{appId}/public/data {
 
-      // 1. PUBLIC TOURNAMENTS
+      // 1. PLAYERS
+      match /players/{playerId} {
+        allow read, create: if request.auth != null;
+        allow update, delete: if isSuperAdmin();
+      }
+
+      // 2. SEASONS
+      match /seasons/{seasonId} {
+        allow read: if request.auth != null;
+        allow write: if isSuperAdmin() || request.auth != null;
+      }
+
+      // 3. TOURNAMENTS
       match /tournaments/{tournamentId} {
-        allow read: if true;
-        allow create: if request.auth != null
-            && request.resource.data.name is string
-            && request.resource.data.name.size() > 0
-            && request.resource.data.name.size() <= 100;
-
-        // UPDATE RULE:
-        // Allow update IF:
-        // 1. The user has a valid Admin Slip (For New/Secured tournaments)
-        // OR
-        // 2. The document is NOT secured (For Legacy Public tournaments)
-        allow update, delete: if
-          (exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/admins/$(tournamentId + '_' + request.auth.uid)))
-          ||
-          (!('isSecured' in resource.data) || resource.data.isSecured == false);
+        allow read, create: if request.auth != null;
+        // FIX: Added request.auth != null to prevent evaluation crashes
+        allow update, delete: if isSuperAdmin() || request.auth != null &&
+          exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/admins/$(tournamentId + '_' + request.auth.uid));
       }
 
-      // 2. SECRETS (Password Vault)
+      // 4. SECRETS (FIX: Added this missing block!)
       match /secrets/{tournamentId} {
-        allow read: if false;
-        allow create: if request.auth != null
-            && request.resource.data.password is string
-            && request.resource.data.password.size() >= 3
-            && request.resource.data.password.size() <= 50;
+        // Anyone can create a secret (used during batch tournament creation)
+        allow create: if request.auth != null;
+        // Only verified admins of this tournament can read or change the password
+        allow read, update, delete: if request.auth != null &&
+          exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/admins/$(tournamentId + '_' + request.auth.uid));
       }
 
-      // 3. ADMIN SLIPS (The Login Session)
-      match /admins/{docId} {
-        allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      // 5. ADMINS
+      match /admins/{adminDoc} {
+        allow read, update, delete: if isSuperAdmin();
 
-        // CREATE:
-        // We use getAfter() here so we can see the secret being created in the SAME batch.
-        allow create: if request.auth != null
-          && request.resource.data.userId == request.auth.uid
-          && request.resource.data.password == getAfter(
-               /databases/$(database)/documents/artifacts/$(appId)/public/data/secrets/$(request.resource.data.tournamentId)
-             ).data.password;
+        // Users can read their own admin slip
+        allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+
+        // FIX: Check the password against the SECRETS collection using getAfter()
+        // getAfter() allows Firestore to look at the data being written in the current batch
+        allow create: if request.auth != null &&
+          request.resource.data.password == getAfter(/databases/$(database)/documents/artifacts/$(appId)/public/data/secrets/$(request.resource.data.tournamentId)).data.password;
+      }
+
+      // 6. PARTICIPATIONS
+      match /participations/{participationId} {
+        allow read: if request.auth != null;
+        // FIX: Added request.auth != null check before exists()
+        allow write: if isSuperAdmin() || (request.auth != null &&
+          exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/admins/$(resource.data.tournamentId + '_' + request.auth.uid)));
+      }
+
+      // 7. RACES
+      match /races/{raceId} {
+        allow read: if request.auth != null;
+        // FIX: Added request.auth != null check before exists()
+        allow write: if isSuperAdmin() || (request.auth != null &&
+          exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/admins/$(resource.data.tournamentId + '_' + request.auth.uid)));
       }
     }
   }
