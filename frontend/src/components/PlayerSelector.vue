@@ -130,6 +130,16 @@ const handleKeydown = (e: KeyboardEvent) => {
     isDropdownOpen.value = false;
     searchQuery.value = '';
   }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (filteredPlayers.value.length > 0) {
+      // Select the top result
+      selectPlayer(filteredPlayers.value[0]!);
+    } else if (searchQuery.value.trim().length >= 2) {
+      // No results — create as new player directly
+      openAddNew();
+    }
+  }
 };
 </script>
 
@@ -144,6 +154,7 @@ const handleKeydown = (e: KeyboardEvent) => {
           @focus="handleFocus"
           @blur="handleBlur"
           @keydown="handleKeydown"
+          @input="isDropdownOpen = true"
           type="text"
           :placeholder="placeholder || 'Search or add player...'"
           class="w-full bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
@@ -187,24 +198,28 @@ const handleKeydown = (e: KeyboardEvent) => {
         </button>
       </div>
 
-      <!-- No Results / Add New -->
-      <div v-else class="px-4 py-8 text-center">
-        <div v-if="searchQuery.trim().length < 2" class="text-slate-500">
-          <i class="ph ph-keyboard text-3xl mb-2"></i>
-          <p class="text-sm">Type to search players...</p>
-        </div>
+      <!-- No Results -->
+      <div v-if="filteredPlayers.length === 0 && searchQuery.trim().length < 2" class="px-4 py-8 text-center text-slate-500">
+        <i class="ph ph-keyboard text-3xl mb-2"></i>
+        <p class="text-sm">Type to search players...</p>
+      </div>
 
-        <div v-else>
-          <i class="ph ph-user-plus text-4xl text-slate-600 mb-3"></i>
-          <p class="text-slate-400 mb-4">No player found: <span class="text-white font-bold">"{{ searchQuery }}"</span></p>
-          <button
-              @click="openAddNew"
-              class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold transition-colors inline-flex items-center gap-2"
-          >
-            <i class="ph-bold ph-plus-circle"></i>
-            Add as new player
-          </button>
-        </div>
+      <!-- Add New Player option (always visible when typing 2+ chars) -->
+      <div v-if="searchQuery.trim().length >= 2" class="border-t border-slate-800">
+        <button
+            @click="openAddNew"
+            class="w-full px-4 py-3 text-left hover:bg-indigo-900/30 transition-colors flex items-center gap-3 group"
+        >
+          <div class="h-8 w-8 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center flex-shrink-0">
+            <i class="ph-bold ph-plus text-indigo-400"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-indigo-300">Add "<span class="text-white">{{ searchQuery.trim() }}</span>" as new player</div>
+            <div v-if="filteredPlayers.length === 0" class="text-xs text-slate-500 mt-0.5">No existing player found</div>
+            <div v-else class="text-xs text-slate-500 mt-0.5">Or press Enter to select the top result</div>
+          </div>
+          <i class="ph-bold ph-caret-right text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+        </button>
       </div>
 
       <!-- Quick Stats Footer -->

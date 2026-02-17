@@ -9,9 +9,20 @@ export interface ChangeLogEntry {
     }[];
 }
 
-export const APP_VERSION = '1.3.0'; // Update this manually when you deploy
+export const APP_VERSION = '2.0.0'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '2.0.0',
+        date: '2026-02-18',
+        title: 'Analytics, Global Players and Seasons',
+        changes: [
+            { type: 'new', text: 'Analytics Dashboard with cross-tournament player and uma statistics, season filtering, and sortable rankings!' },
+            { type: 'new', text: 'Global Player Pool — players persist across tournaments with unified identities and stats.' },
+            { type: 'new', text: 'Player Selector now supports adding new players even when similar names exist, and Enter key adds the top result instantly.' },
+            { type: 'new', text: 'Season system for grouping tournaments into seasons.' }
+        ]
+    },
     {
         version: '1.3.0',
         date: '2026-02-08',
