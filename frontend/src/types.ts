@@ -45,27 +45,27 @@ export interface Race {
     placements: Record<string, number>; // playerId: position
 }
 
-export interface Tournament {
-    id: string;
-    name: string;
-    password?: string;
-    status: 'registration' | 'draft' | 'active' | 'ban' | 'completed';
-    stage: 'groups' | 'finals';
-    players: Player[];
-    wildcards?: Wildcard[];
-    teams: Team[];
-    races: Race[];
-    bans?: string[];
-    createdAt: string;
-    draft?: {
-        order: string[];
-        currentIdx: number;
-    };
-    isSecured?: boolean;
-    usePlacementTiebreaker?: boolean;
-    pointsSystem?: Record<number, number>;
-    banTimerStart?: string;
-}
+// export interface Tournament {
+//     id: string;
+//     name: string;
+//     password?: string;
+//     status: 'registration' | 'draft' | 'active' | 'ban' | 'completed';
+//     stage: 'groups' | 'finals';
+//     players: Player[];
+//     wildcards?: Wildcard[];
+//     teams: Team[];
+//     races: Race[];
+//     bans?: string[];
+//     createdAt: string;
+//     draft?: {
+//         order: string[];
+//         currentIdx: number;
+//     };
+//     isSecured?: boolean;
+//     usePlacementTiebreaker?: boolean;
+//     pointsSystem?: Record<number, number>;
+//     banTimerStart?: string;
+// }
 
 export type FirestoreUpdate<T> = {
     [K in keyof T]?: T[K] | FieldValue;
@@ -124,4 +124,89 @@ export interface TeamStats {
     value: number;
     subtext: string;
     metadata?: Record<string, any>;
+}
+
+
+// -------------------------------------------------------
+// Neue Datenstruktur nach Migration
+// -------------------------------------------------------
+
+export interface Season {
+    id: string;
+    name: string;                   // z.B. "Season 1", "Winter 2024"
+    startDate: string;              // ISO timestamp
+    endDate?: string;               // ISO timestamp
+    tournamentIds: string[];        // Referenzen zu Turnieren
+    description?: string;
+}
+
+export interface GlobalPlayer {
+    id: string;
+    name: string;
+    aliases?: string[];
+    createdAt: string;
+    metadata: {
+        totalTournaments: number;
+        totalRaces: number;
+        lastPlayed?: string;
+    }
+}
+
+export interface Season {
+    id: string;
+    name: string;
+    startDate: string;
+    endDate?: string;
+    tournamentIds: string[];
+}
+
+export interface TournamentParticipation {
+    id: string;  // tournamentId_playerId
+    tournamentId: string;
+    playerId: string;
+    seasonId?: string;
+    uma: string;
+    teamId?: string;
+    isCaptain: boolean;
+    totalPoints: number;
+    groupPoints: number;
+    finalsPoints: number;
+    createdAt: string;
+}
+
+export interface RaceDocument {
+    id: string;
+    tournamentId: string;
+    seasonId?: string;
+    stage: 'groups' | 'finals';
+    group: 'A' | 'B' | 'C';
+    raceNumber: number;
+    timestamp: string;
+    placements: Record<string, number>;  // playerId: position
+    umaMapping: Record<string, string>;  // playerId: uma
+}
+
+export interface Tournament {
+    id: string;
+    name: string;
+    seasonId?: string;          // NEU
+    password?: string;
+    status: 'registration' | 'draft' | 'active' | 'ban' | 'completed';
+    stage: 'groups' | 'finals';
+    playerIds: string[];        // NEU: Nur IDs statt Player objects
+    players: Player[];          // DEPRECATED: Wird in participations migriert
+    wildcards?: Wildcard[];
+    teams: Team[];
+    races: Race[];              // DEPRECATED: Wird in races/ migriert
+    bans?: string[];
+    createdAt: string;
+    completedAt?: string;       // NEU
+    draft?: {
+        order: string[];
+        currentIdx: number;
+    };
+    isSecured?: boolean;
+    usePlacementTiebreaker?: boolean;
+    pointsSystem?: Record<number, number>;
+    banTimerStart?: string;
 }
