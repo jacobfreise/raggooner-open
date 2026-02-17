@@ -1,5 +1,5 @@
 import {ref, computed, type Ref, watch} from 'vue';
-import type {Tournament, Team, Race, FirestoreUpdate, Player, PointAdjustment, RaceDocument, TournamentParticipation} from '../types';
+import type {Tournament, Team, Race, FirestoreUpdate, Player, PointAdjustment} from '../types';
 import { POINTS_SYSTEM as DEFAULT_POINTS } from '../utils/constants';
 import {compareTeams, getPlayerUma, getPlayerName, recalculateTournamentScores} from '../utils/utils';
 import {
