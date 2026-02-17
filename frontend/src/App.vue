@@ -30,6 +30,7 @@ const getTournamentRef = (id: string) => {
 
 const isDev = import.meta.env.DEV;
 
+
 //version info
 const showChangelog = ref(false);
 const hasNewUpdates = ref(false);
