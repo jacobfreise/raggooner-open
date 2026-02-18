@@ -954,7 +954,7 @@ const getRankIcon = (index: number) => {
       </div>
 
       <!-- Tabs -->
-      <div class="flex gap-2 border-b border-slate-700">
+      <div class="flex justify-center gap-2 border-b border-slate-700">
         <button
             v-for="tab in [
             { id: 'overview', label: 'Overview', icon: 'ph-chart-line' },
@@ -1483,7 +1483,7 @@ const getRankIcon = (index: number) => {
       <div v-if="activeTab === 'tierlist'" class="space-y-4">
 
         <!-- Criteria Toggle -->
-        <div class="flex gap-2 flex-wrap">
+        <div class="flex justify-center gap-2 flex-wrap">
           <button
               v-for="(config, key) in TIER_CRITERIA"
               :key="key"
