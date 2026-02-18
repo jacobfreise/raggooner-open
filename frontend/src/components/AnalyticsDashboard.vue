@@ -4,6 +4,7 @@ import { collection, query, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import type {GlobalPlayer, TournamentParticipation, RaceDocument, Tournament, Season} from '../types';
 import {compareTeams} from "../utils/utils.ts";
+import {POINTS_SYSTEM} from "../utils/constants.ts";
 
 // Inject Changelog functions from App.vue
 const openChangelog = inject<() => void>('openChangelog')!;
@@ -28,14 +29,95 @@ const seasons = ref<Season[]>([]);
 const selectedSeasons = ref<string[]>(['season-2']);
 
 const expandedPlayerId = ref<string | null>(null);
+const playerUmaSortKey = ref('racesPlayed');
+const playerUmaSortDesc = ref(true);
 
 const togglePlayerExpand = (playerId: string) => {
   if (expandedPlayerId.value === playerId) {
-    expandedPlayerId.value = null; // Close if already open
+    expandedPlayerId.value = null;
   } else {
-    expandedPlayerId.value = playerId; // Open new row
+    expandedPlayerId.value = playerId;
+    playerUmaSortKey.value = 'racesPlayed';
+    playerUmaSortDesc.value = true;
   }
 };
+
+const togglePlayerUmaSort = (key: string) => {
+  if (playerUmaSortKey.value === key) {
+    playerUmaSortDesc.value = !playerUmaSortDesc.value;
+  } else {
+    playerUmaSortKey.value = key;
+    playerUmaSortDesc.value = true;
+  }
+};
+
+const expandedPlayerUmas = computed(() => {
+  if (!expandedPlayerId.value) return [];
+  const player = playerRankings.value.find(p => p.player.id === expandedPlayerId.value);
+  if (!player) return [];
+
+  const totalTournaments = filteredTournaments.value.length;
+
+  // Build ban counts per uma for this player's tournaments
+  // (bans are tournament-level, not player-specific, but we show them for context)
+  const playerTournamentIds = new Set(
+    filteredParticipations.value
+      .filter(p => p.playerId === expandedPlayerId.value)
+      .map(p => p.tournamentId)
+  );
+
+  const umaRows = Array.from(player.umas.entries()).map(([name, data]) => {
+    return {
+      name,
+      picks: data.tournamentIds.size,
+      racesPlayed: data.racesPlayed,
+      wins: data.wins,
+      winRate: data.racesPlayed > 0 ? Math.round((data.wins / data.racesPlayed) * 100 * 10) / 10 : 0,
+      avgPoints: data.racesPlayed > 0 ? Math.round((data.totalPoints / data.racesPlayed) * 10) / 10 : 0,
+      avgPosition: data.racesPlayed > 0 ? Math.round((data.totalPosition / data.racesPlayed) * 10) / 10 : 0,
+      opponentsFaced: 0,
+      opponentsBeaten: 0,
+      dominance: 0,
+    };
+  });
+
+  // Calculate per-uma dominance from race data
+  filteredRaces.value.forEach(race => {
+    const playersInRace = Object.keys(race.placements).length;
+    if (playersInRace <= 1) return;
+
+    const playerId = expandedPlayerId.value!;
+    const position = race.placements[playerId];
+    if (position === undefined) return;
+
+    const umaName = race.umaMapping?.[playerId];
+    if (!umaName) return;
+
+    const row = umaRows.find(r => r.name === umaName);
+    if (row) {
+      row.opponentsFaced += (playersInRace - 1);
+      row.opponentsBeaten += (playersInRace - position);
+    }
+  });
+
+  umaRows.forEach(row => {
+    row.dominance = row.opponentsFaced > 0
+      ? Math.round((row.opponentsBeaten / row.opponentsFaced) * 100 * 10) / 10
+      : 0;
+  });
+
+  // Sort
+  umaRows.sort((a, b) => {
+    let valA: any = playerUmaSortKey.value === 'name' ? a.name.toLowerCase() : (a as any)[playerUmaSortKey.value];
+    let valB: any = playerUmaSortKey.value === 'name' ? b.name.toLowerCase() : (b as any)[playerUmaSortKey.value];
+    const modifier = playerUmaSortDesc.value ? -1 : 1;
+    if (valA < valB) return -1 * modifier;
+    if (valA > valB) return 1 * modifier;
+    return 0;
+  });
+
+  return umaRows;
+});
 
 const toggleSeason = (seasonId: string) => {
   const index = selectedSeasons.value.indexOf(seasonId);
@@ -128,7 +210,8 @@ const playerRankings = computed(() => {
       tournamentIds: Set<string>, // Tracks unique tournaments
       racesPlayed: number,        // Tracks total races for math
       wins: number,
-      totalPosition: number
+      totalPosition: number,
+      totalPoints: number
     }>;
     bestTournament: { tId: string, tName: string, points: number } | null;
     mostPickedUmas: { name: string, count: number, wins: number, avgPosition: number }[];
@@ -218,7 +301,8 @@ const playerRankings = computed(() => {
               tournamentIds: new Set(),
               racesPlayed: 0,
               wins: 0,
-              totalPosition: 0
+              totalPosition: 0,
+              totalPoints: 0
             });
           }
           const umaStat = stats.umas.get(umaName)!;
@@ -231,6 +315,11 @@ const playerRankings = computed(() => {
           umaStat.racesPlayed++;
           umaStat.totalPosition += position;
           if (position === 1) umaStat.wins++;
+
+          // Track points using the tournament's point system
+          const t = tournaments.value.find(tourney => tourney.id === race.tournamentId);
+          const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
+          umaStat.totalPoints += pointSystem[position] || 0;
         }
       }
     });
@@ -321,6 +410,8 @@ const umaStats = computed(() => {
     wins: number;
     bans: number;
     totalPosition: number;
+    totalPoints: number;
+    avgPoints: number;
     winRate: number;
     banRate: number;
     pickRate: number;
@@ -344,6 +435,8 @@ const umaStats = computed(() => {
     wins: 0,
     bans: 0,
     totalPosition: 0,
+    totalPoints: 0,
+    avgPoints: 0,
     winRate: 0,
     banRate: 0,
     pickRate: 0,
@@ -404,6 +497,10 @@ const umaStats = computed(() => {
         if (position === 1) stats.wins++;
         stats.opponentsFaced += (playersInRace - 1);
         stats.opponentsBeaten += (playersInRace - position);
+
+        const t = filteredTournaments.value.find(tourney => tourney.id === race.tournamentId);
+        const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
+        stats.totalPoints += pointSystem[position] || 0;
       }
     });
   });
@@ -425,6 +522,9 @@ const umaStats = computed(() => {
 
     stats.winRate = stats.timesPlayed > 0
         ? Math.round((stats.wins / stats.timesPlayed) * 100 * 10) / 10
+        : 0;
+    stats.avgPoints = stats.timesPlayed > 0
+        ? Math.round((stats.totalPoints / stats.timesPlayed) * 10) / 10
         : 0;
     stats.avgPosition = stats.timesPlayed > 0
         ? Math.round((stats.totalPosition / stats.timesPlayed) * 10) / 10
@@ -1011,6 +1111,63 @@ const getRankIcon = (index: number) => {
                           </div>
                         </div>
 
+                        <!-- Player Uma Table -->
+                        <div v-if="expandedPlayerUmas.length > 0" class="col-span-full bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
+                          <div class="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
+                            <i class="ph-fill ph-horse text-indigo-400"></i>
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Uma Performance</span>
+                            <span class="text-xs text-slate-500 ml-auto">{{ expandedPlayerUmas.length }} umas played</span>
+                          </div>
+                          <div class="overflow-x-auto">
+                            <table class="w-full">
+                              <thead class="bg-slate-900 border-b border-slate-700">
+                                <tr>
+                                  <th class="px-3 py-2 text-left text-xs font-bold text-slate-400 uppercase tracking-wider w-8">#</th>
+                                  <th @click="togglePlayerUmaSort('name')" class="px-3 py-2 text-left text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors group select-none">
+                                    <div class="flex items-center gap-1">
+                                      Uma
+                                      <i v-if="playerUmaSortKey === 'name'" class="ph-bold" :class="playerUmaSortDesc ? 'ph-caret-down' : 'ph-caret-up'"></i>
+                                      <i v-else class="ph-bold ph-caret-down opacity-0 group-hover:opacity-50"></i>
+                                    </div>
+                                  </th>
+                                  <th v-for="col in [
+                                    { key: 'picks', label: 'Picks' },
+                                    { key: 'racesPlayed', label: 'Races' },
+                                    { key: 'wins', label: 'Wins' },
+                                    { key: 'winRate', label: 'Win %' },
+                                    { key: 'avgPoints', label: 'Avg Pts' },
+                                    { key: 'dominance', label: 'Dominance' },
+                                    { key: 'avgPosition', label: 'Avg Pos' },
+                                  ]"
+                                    :key="col.key"
+                                    @click="togglePlayerUmaSort(col.key)"
+                                    class="px-3 py-2 text-right text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors group select-none whitespace-nowrap"
+                                  >
+                                    <div class="flex items-center justify-end gap-1">
+                                      {{ col.label }}
+                                      <i v-if="playerUmaSortKey === col.key" class="ph-bold text-indigo-400" :class="playerUmaSortDesc ? 'ph-caret-down' : 'ph-caret-up'"></i>
+                                      <i v-else class="ph-bold ph-caret-down opacity-0 group-hover:opacity-50"></i>
+                                    </div>
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody class="divide-y divide-slate-700">
+                                <tr v-for="(uma, uIdx) in expandedPlayerUmas" :key="uma.name" class="hover:bg-slate-700/50 transition-colors">
+                                  <td class="px-3 py-2 text-xs text-slate-500">{{ uIdx + 1 }}</td>
+                                  <td class="px-3 py-2 text-sm font-bold text-white">{{ uma.name }}</td>
+                                  <td class="px-3 py-2 text-sm text-right text-slate-300">{{ uma.picks }}</td>
+                                  <td class="px-3 py-2 text-sm text-right text-slate-400">{{ uma.racesPlayed }}</td>
+                                  <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ uma.wins }}</td>
+                                  <td class="px-3 py-2 text-sm text-right font-bold text-emerald-400">{{ uma.winRate }}%</td>
+                                  <td class="px-3 py-2 text-sm text-right text-indigo-400">{{ uma.avgPoints }}</td>
+                                  <td class="px-3 py-2 text-sm text-right font-bold text-purple-400">{{ uma.dominance }}%</td>
+                                  <td class="px-3 py-2 text-sm text-right text-slate-400">{{ uma.avgPosition }}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
                       </div>
                     </td>
                   </tr>
@@ -1049,6 +1206,7 @@ const getRankIcon = (index: number) => {
                       { key: 'timesPlayed', label: 'Races' },
                       { key: 'wins', label: 'Race Wins' },
                       { key: 'winRate', label: 'Win Rate' },
+                      { key: 'avgPoints', label: 'Avg Pts' },
                       { key: 'dominance', label: 'Dominance' },
                       { key: 'avgPosition', label: 'Avg Pos' }
                     ]"
@@ -1083,6 +1241,7 @@ const getRankIcon = (index: number) => {
                   <td class="px-4 py-3 text-sm text-right text-slate-400">{{ uma.timesPlayed }}</td>
                   <td class="px-4 py-3 text-sm text-right text-emerald-400">{{ uma.wins }}</td>
                   <td class="px-4 py-3 text-sm text-right font-bold text-emerald-400">{{ uma.winRate }}%</td>
+                  <td class="px-4 py-3 text-sm text-right text-indigo-400">{{ uma.avgPoints }}</td>
                   <td class="px-4 py-3 text-sm text-right font-bold text-purple-400">{{ uma.dominance }}%</td>
                   <td class="px-4 py-3 text-sm text-right text-slate-400">{{ uma.avgPosition }}</td>
                 </tr>
