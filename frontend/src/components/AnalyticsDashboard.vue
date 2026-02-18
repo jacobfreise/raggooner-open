@@ -164,11 +164,37 @@ const expandedPlayerTournaments = computed(() => {
       opponentsBeaten += (playersInRace - position);
     });
 
+    // Determine finals status using tournament teams data
+    const teams = t?.teams || [];
+    const playerTeam = teams.find(tm =>
+      (part.teamId && tm.id === part.teamId) ||
+      tm.captainId === playerId ||
+      tm.memberIds.includes(playerId)
+    );
+    const uniqueGroups = new Set(teams.map(tm => tm.group));
+    const hasGroups = uniqueGroups.size > 1;
+    // Determine the winning team (best finalsPoints among inFinals teams)
+    const finalistTeams = teams.filter(tm => tm.inFinals);
+    const winningTeam = finalistTeams.length > 0 && t
+      ? [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true))[0]
+      : null;
+
+    let finalsStatus: 'winner' | 'no-groups' | 'finals' | 'eliminated' | '-' = '-';
+    if (teams.length === 0 && tStatus === 'active') {
+      finalsStatus = '-';
+    } else if (playerTeam) {
+      if (winningTeam && playerTeam.id === winningTeam.id && tStatus === 'completed') finalsStatus = 'winner';
+      else if (!hasGroups) finalsStatus = 'no-groups';
+      else if (playerTeam.inFinals) finalsStatus = 'finals';
+      else if (hasGroups) finalsStatus = 'eliminated';
+    }
+
     return {
       tournamentId: part.tournamentId,
       tournamentName: tName,
       status: tStatus,
       uma: part.uma || '-',
+      finalsStatus,
       races,
       wins,
       winRate: races > 0 ? Math.round((wins / races) * 100 * 10) / 10 : 0,
@@ -1324,6 +1350,7 @@ const getRankIcon = (index: number) => {
                                   </th>
                                   <th v-for="col in [
                                     { key: 'uma', label: 'Uma' },
+                                    { key: 'finalsStatus', label: 'Finals' },
                                     { key: 'races', label: 'Races' },
                                     { key: 'wins', label: 'Wins' },
                                     { key: 'winRate', label: 'Win %' },
@@ -1353,6 +1380,13 @@ const getRankIcon = (index: number) => {
                                     <span v-if="t.status === 'active'" class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold uppercase">Live</span>
                                   </td>
                                   <td class="px-3 py-2 text-sm text-right text-slate-300">{{ t.uma }}</td>
+                                  <td class="px-3 py-2 text-sm text-right">
+                                    <span v-if="t.finalsStatus === 'winner'" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-bold uppercase">Winner</span>
+                                    <span v-else-if="t.finalsStatus === 'finals'" class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-bold uppercase">Finals</span>
+                                    <span v-else-if="t.finalsStatus === 'eliminated'" class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 font-bold uppercase">Out</span>
+                                    <span v-else-if="t.finalsStatus === 'no-groups'" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-400 font-bold uppercase">N/A</span>
+                                    <span v-else class="text-slate-600">-</span>
+                                  </td>
                                   <td class="px-3 py-2 text-sm text-right text-slate-400">{{ t.races }}</td>
                                   <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ t.wins }}</td>
                                   <td class="px-3 py-2 text-sm text-right font-bold text-emerald-400">{{ t.winRate }}%</td>
