@@ -705,7 +705,7 @@ const TIER_STYLES = [
 const TIER_CRITERIA = {
   dominance:       { label: 'Dominance',     icon: 'ph-fill ph-sword',   thresholds: [66, 50, 30, 10, 3, 0], suffix: '%' },
   tournamentWinRate: { label: 'T. Win Rate', icon: 'ph-fill ph-trophy',  thresholds: [35, 25, 15, 10, 3, 0], suffix: '%' },
-  winRate:          { label: 'Race Win Rate', icon: 'ph-fill ph-flag-checkered', thresholds: [40, 25, 15, 8, 3, 0], suffix: '%' },
+  winRate:          { label: 'Race Win Rate', icon: 'ph-fill ph-flag-checkered', thresholds: [30, 23, 18, 10, 5, 0], suffix: '%' },
 } as const;
 
 type TierCriterion = keyof typeof TIER_CRITERIA;
