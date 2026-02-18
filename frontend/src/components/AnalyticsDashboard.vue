@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import type {GlobalPlayer, TournamentParticipation, RaceDocument, Tournament, Season} from '../types';
 import {compareTeams} from "../utils/utils.ts";
 import {POINTS_SYSTEM} from "../utils/constants.ts";
+import {getCached, setCache} from "../utils/cache.ts";
 
 // Inject Changelog functions from App.vue
 const openChangelog = inject<() => void>('openChangelog')!;
@@ -766,56 +767,72 @@ const umaTierList = computed(() => {
     .filter(t => t.entries.length > 0);
 });
 
-// Fetch all data
-onMounted(async () => {
+// Fetch all data (with 2-hour sessionStorage cache)
+const CACHE_KEY = 'analytics';
+
+async function fetchOrCache<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+  const cached = getCached<T>(`${CACHE_KEY}:${key}`);
+  if (cached) return cached;
+
+  const data = await fetcher();
+  setCache(`${CACHE_KEY}:${key}`, data);
+  return data;
+}
+
+const forceRefreshAnalytics = async () => {
+  // Clear cache and re-fetch
+  sessionStorage.removeItem(`cache:${CACHE_KEY}:seasons`);
+  sessionStorage.removeItem(`cache:${CACHE_KEY}:players`);
+  sessionStorage.removeItem(`cache:${CACHE_KEY}:participations`);
+  sessionStorage.removeItem(`cache:${CACHE_KEY}:races`);
+  sessionStorage.removeItem(`cache:${CACHE_KEY}:tournaments`);
+  await loadData();
+};
+
+async function loadData() {
   loading.value = true;
 
   try {
-    // Fetch Seasons
-    const seasonsSnap = await getDocs(
-        query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'seasons'), orderBy('startDate', 'desc'))
-    );
-    seasons.value = seasonsSnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Season));
+    const col = (name: string) => collection(db, 'artifacts', APP_ID, 'public', 'data', name);
 
-    // Fetch Players
-    const playersSnap = await getDocs(
-        collection(db, 'artifacts', APP_ID, 'public', 'data', 'players')
-    );
-    players.value = playersSnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as GlobalPlayer));
+    seasons.value = await fetchOrCache('seasons', async () => {
+      const snap = await getDocs(query(col('seasons'), orderBy('startDate', 'desc')));
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Season));
+    });
 
-    // Fetch Participations
-    const participationsSnap = await getDocs(
-        collection(db, 'artifacts', APP_ID, 'public', 'data', 'participations')
-    );
-    participations.value = participationsSnap.docs.map(doc => doc.data() as TournamentParticipation);
+    // Fetch players, participations, races, tournaments in parallel
+    const [p, part, r, t] = await Promise.all([
+      fetchOrCache('players', async () => {
+        const snap = await getDocs(col('players'));
+        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as GlobalPlayer));
+      }),
+      fetchOrCache('participations', async () => {
+        const snap = await getDocs(col('participations'));
+        return snap.docs.map(doc => doc.data() as TournamentParticipation);
+      }),
+      fetchOrCache('races', async () => {
+        const snap = await getDocs(col('races'));
+        return snap.docs.map(doc => doc.data() as RaceDocument);
+      }),
+      fetchOrCache('tournaments', async () => {
+        const snap = await getDocs(col('tournaments'));
+        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tournament));
+      }),
+    ]);
 
-    // Fetch Races
-    const racesSnap = await getDocs(
-        collection(db, 'artifacts', APP_ID, 'public', 'data', 'races')
-    );
-    races.value = racesSnap.docs.map(doc => doc.data() as RaceDocument);
-
-    // Fetch Tournaments
-    const tournamentsSnap = await getDocs(
-        collection(db, 'artifacts', APP_ID, 'public', 'data', 'tournaments')
-    );
-    tournaments.value = tournamentsSnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Tournament));
+    players.value = p;
+    participations.value = part;
+    races.value = r;
+    tournaments.value = t;
 
   } catch (e) {
     console.error('Failed to fetch analytics data:', e);
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(loadData);
 
 const getRankColor = (index: number) => {
   if (index === 0) return 'text-yellow-400';
@@ -891,9 +908,20 @@ const getRankIcon = (index: number) => {
           <p class="text-slate-400 mt-1">Cross-tournament statistics and insights</p>
         </div>
 
-        <div v-if="loading" class="flex items-center gap-2 text-slate-400">
-          <i class="ph ph-circle-notch animate-spin"></i>
-          Loading data...
+        <div class="flex items-center gap-3">
+          <div v-if="loading" class="flex items-center gap-2 text-slate-400">
+            <i class="ph ph-circle-notch animate-spin"></i>
+            Loading data...
+          </div>
+          <button
+            v-else
+            @click="forceRefreshAnalytics"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
+            title="Refresh analytics data"
+          >
+            <i class="ph ph-arrows-clockwise"></i>
+            Refresh
+          </button>
         </div>
       </div>
 
