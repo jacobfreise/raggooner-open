@@ -246,8 +246,9 @@ const toggleUmaSort = (key: string) => {
 
 // Overview Stats
 const overviewStats = computed(() => {
+  const uniquePlayerIds = new Set(filteredParticipations.value.map(p => p.playerId));
   return {
-    totalPlayers: players.value.length,
+    totalPlayers: uniquePlayerIds.size,
     totalTournaments: filteredTournaments.value.length,
     totalRaces: filteredRaces.value.length,
     totalParticipations: filteredParticipations.value.length,
@@ -684,9 +685,15 @@ const umaStats = computed(() => {
       });
 });
 
+// Top Players by Total Points (independent of player tab sorting)
+const topPlayersByPoints = computed(() => {
+  return [...playerRankings.value]
+      .sort((a, b) => b.totalPoints - a.totalPoints)
+      .slice(0, 5);
+});
+
 // Top Umas by Win Rate
 const topUmasByWinRate = computed(() => {
-  // Since umaStats is already filtered by the slider, we just sort and slice!
   return [...umaStats.value]
       .sort((a, b) => b.winRate - a.winRate)
       .slice(0, 10);
@@ -1023,7 +1030,7 @@ const getRankIcon = (index: number) => {
 
             <div class="space-y-3">
               <div
-                  v-for="(player, idx) in playerRankings.slice(0, 5)"
+                  v-for="(player, idx) in topPlayersByPoints"
                   :key="player.player.id"
                   class="flex items-center gap-3 p-3 bg-slate-900 rounded-lg border border-slate-700"
               >
