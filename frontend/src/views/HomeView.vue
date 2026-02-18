@@ -156,6 +156,9 @@ const selectTournamentFromHome = (id: string) => {
 onMounted(() => {
   fetchSeasons();
   fetchPublicTournaments();
+  auth.onAuthStateChanged(user => {
+    if (user) console.log('[Auth] Your UID:', user.uid);
+  });
 });
 </script>
 
