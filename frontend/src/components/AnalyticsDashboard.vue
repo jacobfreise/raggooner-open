@@ -158,8 +158,8 @@ const playerRankings = computed(() => {
         tournamentsRecord: [],
         umas: new Map(),
         bestTournament: null,
-        mostPickedUma: [],
-        mostWinningUma: []
+        mostPickedUmas: [],
+        mostWinningUmas: []
       });
     }
 
