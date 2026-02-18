@@ -312,21 +312,68 @@ const playerRankings = computed(() => {
 });
 
 // Uma Stats
+// Uma Stats
 const umaStats = computed(() => {
   const umaData = new Map<string, {
     name: string;
     timesPlayed: number;
+    picks: number;
     wins: number;
+    bans: number;
     totalPosition: number;
     winRate: number;
+    banRate: number;
+    pickRate: number;
+    presence: number;
     avgPosition: number;
     opponentsFaced: number;
     opponentsBeaten: number;
     dominance: number;
-    tournamentIds: Set<string>; // 👈 NEW: Track unique tournaments
-    tournamentCount: number;    // 👈 NEW: Final count
+    tournamentIds: Set<string>;
+    presenceTournaments: Set<string>;
+    pickInstances: Set<string>;
+    tournamentCount: number;
+    totalPicks: number;
   }>();
 
+  // Helper to initialize a clean Uma object
+  const initUma = (name: string) => ({
+    name,
+    timesPlayed: 0,
+    picks: 0,
+    wins: 0,
+    bans: 0,
+    totalPosition: 0,
+    winRate: 0,
+    banRate: 0,
+    pickRate: 0,
+    presence: 0,
+    avgPosition: 0,
+    opponentsFaced: 0,
+    opponentsBeaten: 0,
+    dominance: 0,
+    tournamentIds: new Set<string>(),
+    presenceTournaments: new Set<string>(),
+    pickInstances: new Set<string>(),
+    tournamentCount: 0,
+    totalPicks: 0
+  });
+
+  // 1. Process Bans
+  filteredTournaments.value.forEach(t => {
+    if (t.bans) {
+      t.bans.forEach(bannedUma => {
+        if (!umaData.has(bannedUma)) {
+          umaData.set(bannedUma, initUma(bannedUma));
+        }
+        const stats = umaData.get(bannedUma)!;
+        stats.bans++;
+        stats.presenceTournaments.add(t.id); // Track presence via ban
+      });
+    }
+  });
+
+  // 2. Process Races & Picks
   filteredRaces.value.forEach(race => {
     const playersInRace = Object.keys(race.placements).length;
     if (playersInRace <= 1) return;
@@ -335,27 +382,20 @@ const umaStats = computed(() => {
       if (!uma) return;
 
       if (!umaData.has(uma)) {
-        umaData.set(uma, {
-          name: uma,
-          timesPlayed: 0,
-          wins: 0,
-          totalPosition: 0,
-          winRate: 0,
-          avgPosition: 0,
-          opponentsFaced: 0,
-          opponentsBeaten: 0,
-          dominance: 0,
-          tournamentIds: new Set<string>(),
-          tournamentCount: 0
-        });
+        umaData.set(uma, initUma(uma));
       }
 
       const stats = umaData.get(uma)!;
       stats.timesPlayed++;
 
-      // Track which tournament this race belonged to
       if (race.tournamentId) {
         stats.tournamentIds.add(race.tournamentId);
+        stats.presenceTournaments.add(race.tournamentId); // Track presence via play
+
+        // A "Pick" is a unique combination of a Tournament and a Player
+        stats.pickInstances.add(`${race.tournamentId}_${playerId}`);
+        // A "Pick" is when an Uma has been picked at least once by a Player in a Tournament
+        // stats.pickInstances.add(race.tournamentId);
       }
 
       const position = race.placements[playerId];
@@ -368,9 +408,21 @@ const umaStats = computed(() => {
     });
   });
 
-  // Calculate stats
+  // 3. Calculate final percentages and averages
+  const totalTournaments = filteredTournaments.value.length;
+
+  let totalOverallPicks = 0;
   umaData.forEach(stats => {
-    stats.tournamentCount = stats.tournamentIds.size; // Finalize the count
+    stats.tournamentCount = stats.presenceTournaments.size;
+    stats.picks = stats.pickInstances.size;
+    totalOverallPicks += stats.picks;
+  });
+
+  umaData.forEach(stats => {
+    stats.totalPicks = totalOverallPicks
+    stats.tournamentCount = stats.presenceTournaments.size; // Slider now filters by Presence!
+    stats.picks = stats.pickInstances.size;
+
     stats.winRate = stats.timesPlayed > 0
         ? Math.round((stats.wins / stats.timesPlayed) * 100 * 10) / 10
         : 0;
@@ -380,8 +432,21 @@ const umaStats = computed(() => {
     stats.dominance = stats.opponentsFaced > 0
         ? Math.round((stats.opponentsBeaten / stats.opponentsFaced) * 100 * 10) / 10
         : 0;
+
+    stats.banRate = totalTournaments > 0
+        ? Math.round((stats.bans / totalTournaments) * 100 * 10) / 10
+        : 0;
+    stats.pickRate = totalOverallPicks > 0
+        ? Math.round((stats.picks / totalOverallPicks) * 100 * 10) / 10
+        : 0;
+
+    // Presence = (Picks + Bans) / Total Tournaments
+    stats.presence = totalTournaments > 0
+        ? Math.round((stats.presenceTournaments.size / totalTournaments) * 100 * 10) / 10
+        : 0;
   });
 
+  // 4. Sort and Filter
   return Array.from(umaData.values())
       .filter(u => u.tournamentCount >= minTournaments.value)
       .sort((a, b) => {
@@ -976,12 +1041,17 @@ const getRankIcon = (index: number) => {
                   </th>
 
                   <th v-for="col in [
-                    { key: 'timesPlayed', label: 'Times Played' },
-                    { key: 'wins', label: 'Wins' },
-                    { key: 'winRate', label: 'Win Rate' },
-                    { key: 'dominance', label: 'Dominance' },
-                    { key: 'avgPosition', label: 'Avg Position' }
-                  ]"
+                      { key: 'picks', label: 'Picks' },
+                      { key: 'pickRate', label: 'Pick %' },
+                      { key: 'bans', label: 'Bans' },
+                      { key: 'banRate', label: 'Ban %' },
+                      { key: 'presence', label: 'Presence %' },
+                      { key: 'timesPlayed', label: 'Races' },
+                      { key: 'wins', label: 'Race Wins' },
+                      { key: 'winRate', label: 'Win Rate' },
+                      { key: 'dominance', label: 'Dominance' },
+                      { key: 'avgPosition', label: 'Avg Pos' }
+                    ]"
                       :key="col.key"
                       @click="toggleUmaSort(col.key)"
                       class="px-4 py-3 text-right text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors group select-none">
@@ -994,19 +1064,28 @@ const getRankIcon = (index: number) => {
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-700">
-              <tr
-                  v-for="(uma, idx) in umaStats"
-                  :key="uma.name"
-                  class="hover:bg-slate-700/50 transition-colors"
-              >
-                <td class="px-4 py-3 text-sm text-slate-400">{{ idx + 1 }}</td>
-                <td class="px-4 py-3 text-sm font-bold text-white">{{ uma.name }}</td>
-                <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.timesPlayed }}</td>
-                <td class="px-4 py-3 text-sm text-right text-emerald-400">{{ uma.wins }}</td>
-                <td class="px-4 py-3 text-sm text-right font-bold text-indigo-400">{{ uma.winRate }}%</td>
-                <td class="px-4 py-3 text-sm text-right font-bold text-rose-400">{{ uma.dominance }}%</td>
-                <td class="px-4 py-3 text-sm text-right text-amber-400">{{ uma.avgPosition }}</td>
-              </tr>
+                <tr
+                    v-for="(uma, idx) in umaStats"
+                    :key="uma.name"
+                    class="hover:bg-slate-700/50 transition-colors"
+                >
+                  <td class="px-4 py-3 text-sm text-slate-400">{{ idx + 1 }}</td>
+                  <td class="px-4 py-3 text-sm font-bold text-white">{{ uma.name }}</td>
+
+                  <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.picks }}/{{uma.totalPicks}}</td>
+                  <td class="px-4 py-3 text-sm text-right text-blue-400">{{ uma.pickRate }}%</td>
+
+                  <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.bans }}/{{ filteredTournaments.length}} </td>
+                  <td class="px-4 py-3 text-sm text-right text-rose-400">{{ uma.banRate }}%</td>
+
+                  <td class="px-4 py-3 text-sm text-right font-bold text-amber-400">{{ uma.presence }}%</td>
+
+                  <td class="px-4 py-3 text-sm text-right text-slate-400">{{ uma.timesPlayed }}</td>
+                  <td class="px-4 py-3 text-sm text-right text-emerald-400">{{ uma.wins }}</td>
+                  <td class="px-4 py-3 text-sm text-right font-bold text-emerald-400">{{ uma.winRate }}%</td>
+                  <td class="px-4 py-3 text-sm text-right font-bold text-purple-400">{{ uma.dominance }}%</td>
+                  <td class="px-4 py-3 text-sm text-right text-slate-400">{{ uma.avgPosition }}</td>
+                </tr>
               </tbody>
             </table>
           </div>
