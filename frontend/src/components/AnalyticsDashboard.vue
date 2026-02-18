@@ -23,22 +23,29 @@ const tournaments = ref<Tournament[]>([]);
 
 // Filters
 const searchQuery = ref('');
+const umaSearchQuery = ref('');
 const minTournaments = ref(1);
 
 const seasons = ref<Season[]>([]);
 const selectedSeasons = ref<string[]>(['season-2']);
 
 const expandedPlayerId = ref<string | null>(null);
+const expandedDetailTab = ref<'umas' | 'tournaments'>('tournaments');
 const playerUmaSortKey = ref('racesPlayed');
 const playerUmaSortDesc = ref(true);
+const playerTournamentSortKey = ref('totalPoints');
+const playerTournamentSortDesc = ref(true);
 
 const togglePlayerExpand = (playerId: string) => {
   if (expandedPlayerId.value === playerId) {
     expandedPlayerId.value = null;
   } else {
     expandedPlayerId.value = playerId;
+    expandedDetailTab.value = 'tournaments';
     playerUmaSortKey.value = 'racesPlayed';
     playerUmaSortDesc.value = true;
+    playerTournamentSortKey.value = 'totalPoints';
+    playerTournamentSortDesc.value = true;
   }
 };
 
@@ -107,6 +114,81 @@ const expandedPlayerUmas = computed(() => {
   });
 
   return umaRows;
+});
+
+const togglePlayerTournamentSort = (key: string) => {
+  if (playerTournamentSortKey.value === key) {
+    playerTournamentSortDesc.value = !playerTournamentSortDesc.value;
+  } else {
+    playerTournamentSortKey.value = key;
+    playerTournamentSortDesc.value = true;
+  }
+};
+
+const expandedPlayerTournaments = computed(() => {
+  if (!expandedPlayerId.value) return [];
+  const playerId = expandedPlayerId.value;
+
+  // Get this player's participations
+  const playerParts = filteredParticipations.value.filter(p => p.playerId === playerId);
+  if (playerParts.length === 0) return [];
+
+  const rows = playerParts.map(part => {
+    const t = tournaments.value.find(tourney => tourney.id === part.tournamentId);
+    const tName = t?.name || part.tournamentId;
+    const tStatus = t?.status || 'unknown';
+
+    // Count races, wins, dominance for this player in this tournament
+    const tournamentRaces = filteredRaces.value.filter(r => r.tournamentId === part.tournamentId);
+    let races = 0;
+    let wins = 0;
+    let opponentsFaced = 0;
+    let opponentsBeaten = 0;
+    let totalPosition = 0;
+    let totalPoints = 0;
+
+    const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
+
+    tournamentRaces.forEach(race => {
+      const position = race.placements[playerId];
+      if (position === undefined) return;
+      const playersInRace = Object.keys(race.placements).length;
+      if (playersInRace <= 1) return;
+
+      races++;
+      totalPosition += position;
+      totalPoints += pointSystem[position] || 0;
+      if (position === 1) wins++;
+      opponentsFaced += (playersInRace - 1);
+      opponentsBeaten += (playersInRace - position);
+    });
+
+    return {
+      tournamentId: part.tournamentId,
+      tournamentName: tName,
+      status: tStatus,
+      uma: part.uma || '-',
+      races,
+      wins,
+      winRate: races > 0 ? Math.round((wins / races) * 100 * 10) / 10 : 0,
+      totalPoints,
+      avgPoints: races > 0 ? Math.round((totalPoints / races) * 10) / 10 : 0,
+      dominance: opponentsFaced > 0 ? Math.round((opponentsBeaten / opponentsFaced) * 100 * 10) / 10 : 0,
+      avgPosition: races > 0 ? Math.round((totalPosition / races) * 10) / 10 : 0,
+    };
+  });
+
+  // Sort
+  rows.sort((a, b) => {
+    let valA: any = playerTournamentSortKey.value === 'tournamentName' ? a.tournamentName.toLowerCase() : (a as any)[playerTournamentSortKey.value];
+    let valB: any = playerTournamentSortKey.value === 'tournamentName' ? b.tournamentName.toLowerCase() : (b as any)[playerTournamentSortKey.value];
+    const modifier = playerTournamentSortDesc.value ? -1 : 1;
+    if (valA < valB) return -1 * modifier;
+    if (valA > valB) return 1 * modifier;
+    return 0;
+  });
+
+  return rows;
 });
 
 const toggleSeason = (seasonId: string) => {
@@ -1101,14 +1183,98 @@ const getRankIcon = (index: number) => {
                           </div>
                         </div>
 
-                        <!-- Player Uma Table -->
-                        <div v-if="expandedPlayerUmas.length > 0" class="col-span-full bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
-                          <div class="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
-                            <i class="ph-fill ph-horse text-indigo-400"></i>
-                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Uma Performance</span>
-                            <span class="text-xs text-slate-500 ml-auto">{{ expandedPlayerUmas.length }} umas played</span>
+                        <!-- Detail Tables with Tab Toggle -->
+                        <div class="col-span-full bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
+                          <!-- Tab Toggle -->
+                          <div class="px-4 py-3 border-b border-slate-700 flex items-center gap-3">
+                            <button
+                                @click="expandedDetailTab = 'tournaments'"
+                                class="px-3 py-1.5 text-xs font-bold rounded-full transition-colors border flex items-center gap-1.5"
+                                :class="expandedDetailTab === 'tournaments'
+                                  ? 'bg-indigo-600 border-indigo-500 text-white'
+                                  : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'"
+                            >
+                              <i class="ph-fill ph-trophy"></i>
+                              Tournaments
+                              <span class="opacity-60">({{ expandedPlayerTournaments.length }})</span>
+                            </button>
+                            <button
+                                @click="expandedDetailTab = 'umas'"
+                                class="px-3 py-1.5 text-xs font-bold rounded-full transition-colors border flex items-center gap-1.5"
+                                :class="expandedDetailTab === 'umas'
+                                  ? 'bg-indigo-600 border-indigo-500 text-white'
+                                  : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'"
+                            >
+                              <i class="ph-fill ph-horse"></i>
+                              Umas
+                              <span class="opacity-60">({{ expandedPlayerUmas.length }})</span>
+                            </button>
                           </div>
-                          <div class="overflow-x-auto">
+
+                          <!-- Tournament History Table -->
+                          <div v-if="expandedDetailTab === 'tournaments'" class="overflow-x-auto">
+                            <table class="w-full">
+                              <thead class="bg-slate-900 border-b border-slate-700">
+                                <tr>
+                                  <th class="px-3 py-2 text-left text-xs font-bold text-slate-400 uppercase tracking-wider w-8">#</th>
+                                  <th @click="togglePlayerTournamentSort('tournamentName')" class="px-3 py-2 text-left text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors group select-none">
+                                    <div class="flex items-center gap-1">
+                                      Tournament
+                                      <i v-if="playerTournamentSortKey === 'tournamentName'" class="ph-bold" :class="playerTournamentSortDesc ? 'ph-caret-down' : 'ph-caret-up'"></i>
+                                      <i v-else class="ph-bold ph-caret-down opacity-0 group-hover:opacity-50"></i>
+                                    </div>
+                                  </th>
+                                  <th v-for="col in [
+                                    { key: 'uma', label: 'Uma' },
+                                    { key: 'races', label: 'Races' },
+                                    { key: 'wins', label: 'Wins' },
+                                    { key: 'winRate', label: 'Win %' },
+                                    { key: 'totalPoints', label: 'Points' },
+                                    { key: 'avgPoints', label: 'Avg Pts' },
+                                    { key: 'dominance', label: 'Dominance' },
+                                    { key: 'avgPosition', label: 'Avg Pos' },
+                                  ]"
+                                    :key="col.key"
+                                    @click="togglePlayerTournamentSort(col.key)"
+                                    class="px-3 py-2 text-right text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors group select-none whitespace-nowrap"
+                                  >
+                                    <div class="flex items-center justify-end gap-1">
+                                      {{ col.label }}
+                                      <i v-if="playerTournamentSortKey === col.key" class="ph-bold text-indigo-400" :class="playerTournamentSortDesc ? 'ph-caret-down' : 'ph-caret-up'"></i>
+                                      <i v-else class="ph-bold ph-caret-down opacity-0 group-hover:opacity-50"></i>
+                                    </div>
+                                  </th>
+                                  <th class="px-3 py-2 w-8"></th>
+                                </tr>
+                              </thead>
+                              <tbody class="divide-y divide-slate-700">
+                                <tr v-for="(t, tIdx) in expandedPlayerTournaments" :key="t.tournamentId" class="hover:bg-slate-700/50 transition-colors">
+                                  <td class="px-3 py-2 text-xs text-slate-500">{{ tIdx + 1 }}</td>
+                                  <td class="px-3 py-2 text-sm font-bold text-white">
+                                    {{ t.tournamentName }}
+                                    <span v-if="t.status === 'active'" class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold uppercase">Live</span>
+                                  </td>
+                                  <td class="px-3 py-2 text-sm text-right text-slate-300">{{ t.uma }}</td>
+                                  <td class="px-3 py-2 text-sm text-right text-slate-400">{{ t.races }}</td>
+                                  <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ t.wins }}</td>
+                                  <td class="px-3 py-2 text-sm text-right font-bold text-emerald-400">{{ t.winRate }}%</td>
+                                  <td class="px-3 py-2 text-sm text-right font-bold text-white">{{ t.totalPoints }}</td>
+                                  <td class="px-3 py-2 text-sm text-right text-indigo-400">{{ t.avgPoints }}</td>
+                                  <td class="px-3 py-2 text-sm text-right font-bold text-purple-400">{{ t.dominance }}%</td>
+                                  <td class="px-3 py-2 text-sm text-right text-slate-400">{{ t.avgPosition }}</td>
+                                  <td class="px-3 py-2 text-right">
+                                    <router-link :to="'/t/' + t.tournamentId" class="text-indigo-400 hover:text-indigo-300 transition-colors">
+                                      <i class="ph-bold ph-arrow-right"></i>
+                                    </router-link>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                            <div v-if="expandedPlayerTournaments.length === 0" class="px-4 py-6 text-center text-slate-500 text-sm">No tournament data</div>
+                          </div>
+
+                          <!-- Uma Performance Table -->
+                          <div v-if="expandedDetailTab === 'umas'" class="overflow-x-auto">
                             <table class="w-full">
                               <thead class="bg-slate-900 border-b border-slate-700">
                                 <tr>
@@ -1155,6 +1321,7 @@ const getRankIcon = (index: number) => {
                                 </tr>
                               </tbody>
                             </table>
+                            <div v-if="expandedPlayerUmas.length === 0" class="px-4 py-6 text-center text-slate-500 text-sm">No uma data</div>
                           </div>
                         </div>
 
@@ -1170,6 +1337,14 @@ const getRankIcon = (index: number) => {
 
       <!-- Umas Tab -->
       <div v-if="activeTab === 'umas'" class="space-y-4">
+
+        <!-- Search -->
+        <input
+            v-model="umaSearchQuery"
+            type="text"
+            placeholder="Search umas..."
+            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+        />
 
         <!-- Uma List -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
@@ -1213,7 +1388,7 @@ const getRankIcon = (index: number) => {
               </thead>
               <tbody class="divide-y divide-slate-700">
                 <tr
-                    v-for="(uma, idx) in umaStats"
+                    v-for="(uma, idx) in umaStats.filter(u => !umaSearchQuery || u.name.toLowerCase().includes(umaSearchQuery.toLowerCase()))"
                     :key="uma.name"
                     class="hover:bg-slate-700/50 transition-colors"
                 >
