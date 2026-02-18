@@ -456,6 +456,34 @@ const getRankIcon = (index: number) => {
     <!-- Header -->
 
     <main class="flex-grow max-w-7xl mx-auto p-4 md:p-6 w-full space-y-6">
+
+      <div class="w-full mt-4 mb-12 animate-fade-in">
+
+        <div class="w-full border-b border-slate-800 pb-12 mb-12">
+
+          <div class="max-w-3xl mx-auto grid grid-cols-2 md:grid-cols-2 gap-4">
+
+            <router-link to="/" class="group bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-center gap-3 hover:border-indigo-500 hover:bg-slate-750 transition-colors cursor-pointer">
+              <i class="ph-fill ph-flag-checkered text-2xl text-indigo-400 group-hover:text-indigo-300"></i>
+              <div>
+                <div class="text-sm font-bold text-white uppercase tracking-widest group-hover:text-indigo-100">Play</div>
+                <div class="text-[10px] text-slate-400">Tournaments</div>
+              </div>
+            </router-link>
+
+            <router-link to="/analytics" class="group bg-indigo-600 border border-indigo-500 rounded-xl p-4 flex items-center gap-3 hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20 cursor-default pointer-events-none">
+              <i class="ph-fill ph-chart-line-up text-2xl text-white"></i>
+              <div>
+                <div class="text-sm font-bold text-white uppercase tracking-widest">Analytics</div>
+                <div class="text-[10px] text-indigo-200">Global Stats</div>
+              </div>
+            </router-link>
+
+          </div>
+        </div>
+      </div>
+
+
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-3xl font-black text-white uppercase tracking-wider">Analytics Dashboard</h1>
