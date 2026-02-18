@@ -20,6 +20,10 @@ import { confirmLiveMode, IS_LIVE, setDoc, deleteDoc, listAll } from './config.m
 // The first name is kept, the second is merged into it.
 // ============================================================
 const MERGE_PAIRS = [
+  ['Synocra', 'Syno'],
+  ['Alfheix', 'Alfheiz'],
+  ['Pines', 'Pinesu'],
+  ['Eva', 'Eva Fotia'],
   ['Carmine', 'CarmineView'],
   ['NarrativeCroc', 'NarrativeCrocodiles'],
 ];
