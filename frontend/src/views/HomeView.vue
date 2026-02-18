@@ -26,7 +26,50 @@ const allTournaments = ref<Tournament[]>([]);
 const loading = ref(false);
 
 const activeTournamentsList = computed(() => allTournaments.value.filter(t => t.status !== 'completed'));
-const pastTournamentsList = computed(() => allTournaments.value.filter(t => t.status === 'completed'));
+// const pastTournamentsList = computed(() => allTournaments.value.filter(t => t.status === 'completed'));
+
+// Replace this:
+// const pastTournamentsList = computed(() => allTournaments.value.filter(t => t.status === 'completed'));
+
+// With this:
+const groupedPastTournaments = computed(() => {
+  const completed = allTournaments.value.filter(t => t.status === 'completed');
+
+  // Create a map to hold tournaments by seasonId
+  const groups = new Map<string, Tournament[]>();
+
+  // Pre-fill the map with known seasons to maintain the descending 'startDate' order
+  availableSeasons.value.forEach(s => groups.set(s.id, []));
+  groups.set('unassigned', []); // Fallback for tournaments without a season
+
+  // Distribute the completed tournaments into their respective season buckets
+  // (They are already sorted by createdAt desc from the Firestore query)
+  completed.forEach(t => {
+    const sid = t.seasonId || 'unassigned';
+    if (groups.has(sid)) {
+      groups.get(sid)!.push(t);
+    } else {
+      groups.get('unassigned')!.push(t);
+    }
+  });
+
+  // Format into an array for the template, omitting empty seasons
+  const result = [];
+
+  availableSeasons.value.forEach(season => {
+    const tourneys = groups.get(season.id) || [];
+    if (tourneys.length > 0) {
+      result.push({ seasonId: season.id, seasonName: season.name, tournaments: tourneys });
+    }
+  });
+
+  const unassignedTourneys = groups.get('unassigned') || [];
+  if (unassignedTourneys.length > 0) {
+    result.push({ seasonId: 'unassigned', seasonName: 'Unassigned / Older', tournaments: unassignedTourneys });
+  }
+
+  return result;
+});
 
 const fetchSeasons = async () => {
   try {
@@ -290,22 +333,35 @@ onMounted(() => {
               <i class="ph-bold ph-caret-down transition-transform duration-300" :class="{ 'rotate-180': showHistory }"></i>
             </button>
 
-            <div v-if="showHistory" class="mt-6 grid md:grid-cols-2 gap-3 animate-fade-in-down">
-              <div v-for="t in pastTournamentsList" :key="t.id"
-                   @click="selectTournamentFromHome(t.id)"
-                   class="flex items-center justify-between bg-slate-900/50 hover:bg-slate-800 border border-slate-800 hover:border-slate-600 rounded-lg p-4 cursor-pointer transition-colors">
-                <div>
-                  <h4 class="font-bold text-slate-300">{{ t.name }}</h4>
-                  <p class="text-xs text-slate-500 mt-1">
-                    {{ new Date(t.createdAt).toLocaleDateString() }}
-                  </p>
-                </div>
-                <span class="text-[10px] uppercase font-bold bg-slate-800 text-slate-500 px-2 py-1 rounded border border-slate-700">
-                  Completed
-                </span>
-              </div>
-              <div v-if="pastTournamentsList.length === 0" class="text-center text-slate-600 col-span-2 py-4">
+            <div v-if="showHistory" class="mt-8 space-y-8 animate-fade-in-down">
+
+              <div v-if="groupedPastTournaments.length === 0" class="text-center text-slate-600 py-4">
                 No completed tournaments yet.
+              </div>
+
+              <div v-for="group in groupedPastTournaments" :key="group.seasonId">
+
+                <div class="flex items-center gap-3 mb-4">
+                  <div class="h-5 w-1.5 bg-slate-600 rounded-full"></div>
+                  <h3 class="text-lg font-bold text-slate-300">{{ group.seasonName }}</h3>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-3">
+                  <div v-for="t in group.tournaments" :key="t.id"
+                       @click="selectTournamentFromHome(t.id)"
+                       class="flex items-center justify-between bg-slate-900/50 hover:bg-slate-800 border border-slate-800 hover:border-slate-600 rounded-lg p-4 cursor-pointer transition-colors">
+                    <div>
+                      <h4 class="font-bold text-slate-300">{{ t.name }}</h4>
+                      <p class="text-xs text-slate-500 mt-1">
+                        {{ new Date(t.createdAt).toLocaleDateString() }}
+                      </p>
+                    </div>
+                    <span class="text-[10px] uppercase font-bold bg-slate-800 text-slate-500 px-2 py-1 rounded border border-slate-700">
+                      Completed
+                    </span>
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>
