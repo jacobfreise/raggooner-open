@@ -27,6 +27,16 @@ const minTournaments = ref(1);
 const seasons = ref<Season[]>([]);
 const selectedSeasons = ref<string[]>([]);
 
+const expandedPlayerId = ref<string | null>(null);
+
+const togglePlayerExpand = (playerId: string) => {
+  if (expandedPlayerId.value === playerId) {
+    expandedPlayerId.value = null; // Close if already open
+  } else {
+    expandedPlayerId.value = playerId; // Open new row
+  }
+};
+
 const toggleSeason = (seasonId: string) => {
   const index = selectedSeasons.value.indexOf(seasonId);
   if (index === -1) {
@@ -101,9 +111,9 @@ const playerRankings = computed(() => {
   const playerStats = new Map<string, {
     player: GlobalPlayer;
     tournaments: number;
-    completedTournaments: number; // NEW: Track only finished tourneys
-    tournamentWins: number;       // NEW: Tourney Wins
-    tournamentWinRate: number;    // NEW: Tourney Win Rate
+    completedTournaments: number;
+    tournamentWins: number;
+    tournamentWinRate: number;
     races: number;
     totalPoints: number;
     avgPoints: number;
@@ -112,6 +122,17 @@ const playerRankings = computed(() => {
     opponentsBeaten: number;
     dominance: number;
     winRate: number;
+    // --- NEW: Detailed Tracking ---
+    tournamentsRecord: { tId: string, tName: string, points: number }[];
+    umas: Map<string, {
+      tournamentIds: Set<string>, // Tracks unique tournaments
+      racesPlayed: number,        // Tracks total races for math
+      wins: number,
+      totalPosition: number
+    }>;
+    bestTournament: { tId: string, tName: string, points: number } | null;
+    mostPickedUmas: { name: string, count: number, wins: number, avgPosition: number }[];
+    mostWinningUmas: { name: string, count: number, wins: number, winRate: number }[];
   }>();
 
   // 1. Build stats from participations
@@ -134,6 +155,11 @@ const playerRankings = computed(() => {
         opponentsBeaten: 0,
         dominance: 0,
         winRate: 0,
+        tournamentsRecord: [],
+        umas: new Map(),
+        bestTournament: null,
+        mostPickedUma: [],
+        mostWinningUma: []
       });
     }
 
@@ -141,18 +167,21 @@ const playerRankings = computed(() => {
     stats.tournaments++;
     stats.totalPoints += p.totalPoints || 0;
 
-    // Check if the tournament is actually completed
     const t = tournaments.value.find(tourney => tourney.id === p.tournamentId);
-    if (t && t.status === 'completed') {
-      stats.completedTournaments++;
+    if (t) {
+      if (t.status === 'completed') stats.completedTournaments++;
+      // Track tournament performance
+      stats.tournamentsRecord.push({
+        tId: t.id,
+        tName: t.name,
+        points: p.totalPoints || 0
+      });
     }
   });
 
-  // 2. Count Tournament Wins (using compareTeams for proper tiebreaking)
+  // 2. Count Tournament Wins
   filteredTournaments.value.filter(t => t.status === 'completed').forEach(t => {
     if (!t.teams || t.teams.length === 0) return;
-
-    // Sort finalist teams using compareTeams with isFinals=true
     const finalistTeams = t.teams.filter(team => team.inFinals);
     if (finalistTeams.length === 0) return;
 
@@ -160,7 +189,6 @@ const playerRankings = computed(() => {
     const winningTeam = sorted[0];
     if (!winningTeam) return;
 
-    // Credit players via participations (which map teamId -> global playerId)
     filteredParticipations.value
         .filter(p => p.tournamentId === t.id && p.teamId === winningTeam.id)
         .forEach(p => {
@@ -169,7 +197,7 @@ const playerRankings = computed(() => {
         });
   });
 
-  // 3. Count races, wins, and dominance
+  // 3. Count races, wins, dominance, and specific Uma usage
   filteredRaces.value.forEach(race => {
     const playersInRace = Object.keys(race.placements).length;
     if (playersInRace <= 1) return;
@@ -181,26 +209,92 @@ const playerRankings = computed(() => {
         if (position === 1) stats.wins++;
         stats.opponentsFaced += (playersInRace - 1);
         stats.opponentsBeaten += (playersInRace - position);
+
+        // Track Uma specific to this player
+        const umaName = race.umaMapping?.[playerId];
+        if (umaName) {
+          if (!stats.umas.has(umaName)) {
+            stats.umas.set(umaName, {
+              tournamentIds: new Set(),
+              racesPlayed: 0,
+              wins: 0,
+              totalPosition: 0
+            });
+          }
+          const umaStat = stats.umas.get(umaName)!;
+
+          // Add the tournament ID to the set (Sets automatically prevent duplicates)
+          if (race.tournamentId) {
+            umaStat.tournamentIds.add(race.tournamentId);
+          }
+
+          umaStat.racesPlayed++;
+          umaStat.totalPosition += position;
+          if (position === 1) umaStat.wins++;
+        }
       }
     });
   });
 
-  // 4. Calculate averages and win rates
+  // 4. Calculate averages and find "Bests"
   playerStats.forEach(stats => {
-    stats.avgPoints = stats.races > 0
-        ? Math.round(stats.totalPoints / stats.races * 10) / 10
-        : 0;
-    stats.dominance = stats.opponentsFaced > 0
-        ? Math.round((stats.opponentsBeaten / stats.opponentsFaced) * 100 * 10) / 10
-        : 0;
-    stats.winRate = stats.races > 0
-        ? Math.round((stats.wins / stats.races) * 100 * 10) / 10
-        : 0;
+    stats.avgPoints = stats.races > 0 ? Math.round(stats.totalPoints / stats.races * 10) / 10 : 0;
+    stats.dominance = stats.opponentsFaced > 0 ? Math.round((stats.opponentsBeaten / stats.opponentsFaced) * 100 * 10) / 10 : 0;
+    stats.winRate = stats.races > 0 ? Math.round((stats.wins / stats.races) * 100 * 10) / 10 : 0;
+    stats.tournamentWinRate = stats.completedTournaments > 0 ? Math.round((stats.tournamentWins / stats.completedTournaments) * 100 * 10) / 10 : 0;
 
-    // Calculate Tournament Win Rate (based ONLY on completed tournaments)
-    stats.tournamentWinRate = stats.completedTournaments > 0
-        ? Math.round((stats.tournamentWins / stats.completedTournaments) * 100 * 10) / 10
-        : 0;
+    // Calculate Best Tournament
+    if (stats.tournamentsRecord.length > 0) {
+      stats.bestTournament = [...stats.tournamentsRecord].sort((a, b) => b.points - a.points)[0] || null;
+    }
+
+    // Calculate Most Picked and Most Winning Umas
+    let maxTourneyPicks = 0;
+    let maxWins = 0;
+
+    stats.umas.forEach((val, key) => {
+      const tourneyCount = val.tournamentIds.size;
+
+      // --- MOST PICKED ---
+      if (tourneyCount > maxTourneyPicks) {
+        // New record: reset array
+        maxTourneyPicks = tourneyCount;
+        stats.mostPickedUmas = [{
+          name: key,
+          count: tourneyCount,
+          wins: val.wins,
+          avgPosition: val.racesPlayed > 0 ? Math.round((val.totalPosition / val.racesPlayed) * 10) / 10 : 0
+        }];
+      } else if (tourneyCount === maxTourneyPicks && tourneyCount > 0) {
+        // Tie: add to array
+        stats.mostPickedUmas.push({
+          name: key,
+          count: tourneyCount,
+          wins: val.wins,
+          avgPosition: val.racesPlayed > 0 ? Math.round((val.totalPosition / val.racesPlayed) * 10) / 10 : 0
+        });
+      }
+
+      // --- MOST WINNING ---
+      if (val.wins > maxWins) {
+        // New record: reset array
+        maxWins = val.wins;
+        stats.mostWinningUmas = [{
+          name: key,
+          count: val.racesPlayed,
+          wins: val.wins,
+          winRate: val.racesPlayed > 0 ? Math.round((val.wins / val.racesPlayed) * 100) : 0
+        }];
+      } else if (val.wins === maxWins && maxWins > 0) {
+        // Tie: add to array
+        stats.mostWinningUmas.push({
+          name: key,
+          count: val.racesPlayed,
+          wins: val.wins,
+          winRate: val.racesPlayed > 0 ? Math.round((val.wins / val.racesPlayed) * 100) : 0
+        });
+      }
+    });
   });
 
   // 5. Filter and Sort
@@ -736,31 +830,126 @@ const getRankIcon = (index: number) => {
                 </th>
               </tr>
               </thead>
-              <tbody class="divide-y divide-slate-700">
-                <tr
+              <tbody class="divide-y divide-slate-700 border-t border-slate-700">
+                <template
                     v-for="(player, idx) in playerRankings.filter(p =>
-                      !searchQuery || p.player.name.toLowerCase().includes(searchQuery.toLowerCase())
-                    )"
+                        !searchQuery || p.player.name.toLowerCase().includes(searchQuery.toLowerCase())
+                      )"
                     :key="player.player.id"
-                    class="hover:bg-slate-700/50 transition-colors"
                 >
-                  <td class="px-4 py-3 text-sm" :class="getRankColor(idx)">
-                    <i v-if="idx < 3" :class="getRankIcon(idx)"></i>
-                    <span v-else>{{ idx + 1 }}</span>
-                  </td>
-                  <td class="px-4 py-3 text-sm font-bold text-white">{{ player.player.name }}</td>
+                  <tr
+                      @click="togglePlayerExpand(player.player.id)"
+                      class="hover:bg-slate-700/50 transition-colors cursor-pointer group"
+                      :class="{'bg-slate-800/80': expandedPlayerId === player.player.id}"
+                  >
+                    <td class="px-4 py-3 text-sm" :class="getRankColor(idx)">
+                      <i v-if="idx < 3" :class="getRankIcon(idx)"></i>
+                      <span v-else>{{ idx + 1 }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-sm font-bold text-white flex items-center gap-2">
+                      <i class="ph-bold text-slate-500 group-hover:text-indigo-400 transition-transform duration-200"
+                         :class="expandedPlayerId === player.player.id ? 'ph-caret-down text-indigo-400' : 'ph-caret-right'"></i>
+                      {{ player.player.name }}
+                    </td>
 
-                  <td class="px-4 py-3 text-sm text-right text-slate-300">{{ player.tournaments }}</td>
-                  <td class="px-4 py-3 text-sm text-right font-bold text-amber-400">{{ player.tournamentWins }}</td>
-                  <td class="px-4 py-3 text-sm text-right font-bold text-amber-400">{{ player.tournamentWinRate }}%</td>
+                    <td class="px-4 py-3 text-sm text-right text-slate-300">{{ player.tournaments }}</td>
+                    <td class="px-4 py-3 text-sm text-right font-bold text-amber-400">{{ player.tournamentWins }}</td>
+                    <td class="px-4 py-3 text-sm text-right font-bold text-amber-400">{{ player.tournamentWinRate }}%</td>
 
-                  <td class="px-4 py-3 text-sm text-right text-slate-300">{{ player.races }}</td>
-                  <td class="px-4 py-3 text-sm text-right font-bold text-white">{{ player.totalPoints }}</td>
-                  <td class="px-4 py-3 text-sm text-right text-indigo-400">{{ player.avgPoints }}</td>
-                  <td class="px-4 py-3 text-sm text-right font-bold text-rose-400">{{ player.dominance }}%</td>
-                  <td class="px-4 py-3 text-sm text-right text-emerald-400">{{ player.wins }}</td>
-                  <td class="px-4 py-3 text-sm text-right font-bold text-emerald-400">{{ player.winRate }}%</td>
-                </tr>
+                    <td class="px-4 py-3 text-sm text-right text-slate-300">{{ player.races }}</td>
+                    <td class="px-4 py-3 text-sm text-right font-bold text-white">{{ player.totalPoints }}</td>
+                    <td class="px-4 py-3 text-sm text-right text-indigo-400">{{ player.avgPoints }}</td>
+                    <td class="px-4 py-3 text-sm text-right font-bold text-rose-400">{{ player.dominance }}%</td>
+                    <td class="px-4 py-3 text-sm text-right text-emerald-400">{{ player.wins }}</td>
+                    <td class="px-4 py-3 text-sm text-right font-bold text-emerald-400">{{ player.winRate }}%</td>
+                  </tr>
+
+                  <tr v-if="expandedPlayerId === player.player.id" class="bg-slate-900/50">
+                    <td colspan="11" class="p-0 border-b-2 border-indigo-500/30">
+                      <div class="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-down">
+
+                        <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                          <div class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                            <i class="ph-fill ph-trophy text-amber-400"></i> Best Tournament
+                          </div>
+                          <div v-if="player.bestTournament">
+                            <div class="font-bold text-white truncate" :title="player.bestTournament.tName">
+                              {{ player.bestTournament.tName }}
+                            </div>
+                            <div class="text-2xl font-black text-indigo-400 mt-1">
+                              {{ player.bestTournament.points }} <span class="text-xs text-slate-500 font-medium">pts</span>
+                            </div>
+                            <router-link :to="'/t/' + player.bestTournament.tId" class="text-xs text-indigo-400 hover:text-indigo-300 mt-2 inline-flex items-center gap-1">
+                              View Results <i class="ph-bold ph-arrow-right"></i>
+                            </router-link>
+                          </div>
+                          <div v-else class="text-slate-500 text-sm italic">No data yet</div>
+                        </div>
+
+                        <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                          <div class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                            <i class="ph-fill ph-horse text-purple-400"></i> Most Picked Uma
+                          </div>
+                          <div v-if="player.mostPickedUmas.length > 0">
+                            <div class="font-bold text-white break-words text-sm" :title="player.mostPickedUmas.map(u => u.name).join(', ')">
+                              {{ player.mostPickedUmas.map(u => u.name).join(', ') }}
+                            </div>
+                            <div class="flex items-end gap-3 mt-1">
+                              <div class="text-2xl font-black text-purple-400">
+                                {{ player.mostPickedUmas[0]!.count }} <span class="text-xs text-slate-500 font-medium">picks</span>
+                              </div>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-2 break-words">
+                              Avg. Placement: <span class="font-bold text-white">{{ player.mostPickedUmas.map(u => u.avgPosition).join(' / ') }}</span>
+                            </div>
+                          </div>
+                          <div v-else class="text-slate-500 text-sm italic">No data yet</div>
+                        </div>
+
+                        <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                          <div class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                            <i class="ph-fill ph-medal text-emerald-400"></i> Best Performing Uma
+                          </div>
+                          <div v-if="player.mostWinningUmas.length > 0">
+                            <div class="font-bold text-white truncate text-sm" :title="player.mostWinningUmas.map(u => u.name).join(', ')">
+                              {{ player.mostWinningUmas.map(u => u.name).join(', ') }}
+                            </div>
+                            <div class="flex items-end gap-3 mt-1">
+                              <div class="text-2xl font-black text-emerald-400">
+                                {{ player.mostWinningUmas[0]!.wins }} <span class="text-xs text-slate-500 font-medium">wins</span>
+                              </div>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-2 truncate">
+                              Win Rate: <span class="font-bold text-white">{{ player.mostWinningUmas.map(u => u.winRate + '%').join(' / ') }}</span>
+                            </div>
+                          </div>
+                          <div v-else class="text-slate-500 text-sm italic">No wins recorded yet</div>
+                        </div>
+
+                        <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                          <div class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                            <i class="ph-fill ph-trend-up text-blue-400"></i> Career Averages
+                          </div>
+                          <div class="space-y-2 mt-2">
+                            <div class="flex justify-between items-center text-sm">
+                              <span class="text-slate-400">Pts / Tournament</span>
+                              <span class="font-bold text-white">
+                                  {{ player.tournaments > 0 ? Math.round(player.totalPoints / player.tournaments) : 0 }}
+                                </span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm">
+                              <span class="text-slate-400">Opponents Beaten</span>
+                              <span class="font-bold text-white">
+                                  {{ player.opponentsBeaten }} <span class="text-xs text-slate-500">/ {{ player.opponentsFaced }}</span>
+                                </span>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </td>
+                  </tr>
+                </template>
               </tbody>
             </table>
           </div>
