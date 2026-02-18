@@ -184,7 +184,7 @@ onMounted(() => {
 
         <div class="grid grid-cols-2 md:grid-cols-2 gap-4 mb-12 border-b border-slate-800 pb-12">
 
-          <router-link to="/t" class="group bg-indigo-600 border border-indigo-500 rounded-xl p-4 flex items-center gap-3 hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20 cursor-default pointer-events-none">
+          <router-link to="/" class="group bg-indigo-600 border border-indigo-500 rounded-xl p-4 flex items-center gap-3 hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20 cursor-default pointer-events-none">
             <i class="ph-fill ph-flag-checkered text-2xl text-white"></i>
             <div>
               <div class="text-sm font-bold text-white uppercase tracking-widest">Play</div>
