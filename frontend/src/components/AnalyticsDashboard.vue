@@ -56,16 +56,6 @@ const expandedPlayerUmas = computed(() => {
   const player = playerRankings.value.find(p => p.player.id === expandedPlayerId.value);
   if (!player) return [];
 
-  const totalTournaments = filteredTournaments.value.length;
-
-  // Build ban counts per uma for this player's tournaments
-  // (bans are tournament-level, not player-specific, but we show them for context)
-  const playerTournamentIds = new Set(
-    filteredParticipations.value
-      .filter(p => p.playerId === expandedPlayerId.value)
-      .map(p => p.tournamentId)
-  );
-
   const umaRows = Array.from(player.umas.entries()).map(([name, data]) => {
     return {
       name,
