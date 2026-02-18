@@ -50,6 +50,14 @@
             <span class="text-[10px] uppercase tracking-wider opacity-60 font-mono">{{ msg.length }} chars</span>
           </button>
         </div>
+
+        <button
+            @click="copyToClipboard('single')"
+            class="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all active:scale-95">
+          <i class="ph-bold ph-crown"></i>
+          I have Nitro
+          <span class="text-xs opacity-75 font-mono">({{ singleMessageLength }} chars)</span>
+        </button>
       </div>
     </div>
 

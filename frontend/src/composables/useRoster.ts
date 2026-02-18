@@ -21,7 +21,6 @@ export function useRoster(
 
     // Wildcard State
     const showWildcardModal = ref(false);
-    const newWildcardName = ref('');
     const wildcardTargetGroup = ref<'A' | 'B' | 'C' | 'Finals' | ''>('');
 
     // --- COMPUTED: VALIDATION ---
@@ -98,14 +97,14 @@ export function useRoster(
         showWildcardModal.value = true;
     };
 
-    const addWildcard = async () => {
-        if (!tournament.value || !newWildcardName.value || !wildcardTargetGroup.value) return;
+    const addWildcard = async (globalPlayer: { id: string; name: string }) => {
+        if (!tournament.value || !wildcardTargetGroup.value) return;
 
-        // 1. Create the Player
+        // 1. Create the Player entry (uses global player ID)
         const newPlayer: Player = {
-            id: crypto.randomUUID(),
-            name: newWildcardName.value,
-            isCaptain: false, // Wildcards are never captains
+            id: globalPlayer.id,
+            name: globalPlayer.name,
+            isCaptain: false,
             uma: ''
         };
 
@@ -116,8 +115,6 @@ export function useRoster(
         };
 
         // 3. Update Firestore
-        // We use arrayUnion for both.
-        // Note: Firestore updates are atomic, but we are passing a single object update here.
         await secureUpdate({
             players: arrayUnion(newPlayer),
             playerIds: arrayUnion(newPlayer.id),
@@ -125,7 +122,6 @@ export function useRoster(
         });
 
         // Reset
-        newWildcardName.value = '';
         showWildcardModal.value = false;
     };
 
@@ -215,7 +211,6 @@ export function useRoster(
         // State
         newPlayerName,
         showWildcardModal,
-        newWildcardName,
         wildcardTargetGroup,
         showUmaModal,
         // Computed

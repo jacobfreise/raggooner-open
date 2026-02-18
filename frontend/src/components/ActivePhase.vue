@@ -12,12 +12,17 @@ import {
 import {getRaceWinnerGif} from "../utils/umaGifs.ts";
 import HallOfFame from "./HallOfFame.vue";
 import DiscordExportPreview from "./DiscordExportPreview.vue";
+import PlayerSelector from "./PlayerSelector.vue";
+import type {GlobalPlayer} from "../types";
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   tournamentProp: Tournament;
   isAdmin: boolean;
+  appId?: string;
   secureUpdate: (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
-}>();
+}>(), {
+  appId: 'default-app'
+});
 
 // Create Refs for composables
 const tournament = toRef(props, 'tournamentProp');
@@ -79,10 +84,19 @@ const {
   getUmaList,
   showWildcardModal,
   openWildcardModal,
-  newWildcardName,
   wildcardTargetGroup,
   addWildcard,
 } = useRoster(tournament, props.secureUpdate, isAdminRef);
+
+// Handle wildcard player selection from PlayerSelector
+const handleWildcardSelect = (globalPlayer: GlobalPlayer) => {
+  addWildcard(globalPlayer);
+};
+
+// IDs to exclude from wildcard selector (already in this tournament)
+const tournamentPlayerIds = computed(() => {
+  return props.tournamentProp.players?.map(p => p.id) || [];
+});
 
 const showBans = ref(false);
 const showPlayerOrUmaName = ref(true);
@@ -1300,8 +1314,8 @@ const structuredPlayerStats = computed(() => {
       </div>
     </div>
 
-    <div v-if="showWildcardModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-sm w-full p-6 shadow-2xl">
+    <div v-if="showWildcardModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" @click.self="showWildcardModal = false">
+      <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl">
         <div class="flex justify-between items-center mb-4">
           <h3 class="text-xl font-bold text-white flex items-center gap-2">
             <i class="ph-fill ph-ghost text-indigo-400"></i>
@@ -1315,19 +1329,12 @@ const structuredPlayerStats = computed(() => {
           They will not belong to a team but can participate in races.
         </p>
 
-        <div class="space-y-4">
-          <input v-model="newWildcardName"
-                 @keyup.enter="addWildcard"
-                 type="text"
-                 placeholder="Player Name"
-                 class="w-full bg-slate-800 border border-slate-700 rounded p-3 text-white focus:outline-none focus:border-indigo-500 transition-colors">
-
-          <button @click="addWildcard"
-                  :disabled="!newWildcardName"
-                  class="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2">
-            Add Player
-          </button>
-        </div>
+        <PlayerSelector
+            :app-id="props.appId"
+            :exclude-ids="tournamentPlayerIds"
+            placeholder="Search or add wildcard player..."
+            @select="handleWildcardSelect"
+        />
       </div>
     </div>
 

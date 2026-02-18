@@ -169,6 +169,7 @@ const savePointsSystem = async () => {
         <ActivePhase v-else-if="tournament.status === 'active' || tournament.status === 'completed'"
                      :tournament-prop="tournament"
                      :is-admin="isAdmin"
+                     :app-id="appId"
                      :secure-update="secureUpdate" />
       </div>
     </main>
