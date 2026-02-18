@@ -42,7 +42,7 @@ const SPECIAL_CASE_MAP: Record<string, string> = {
 
 // 1. Define a global version number.
 // Whenever you upload new GIFs and redeploy, simply change this number (e.g. to '2', '3', etc.)
-const GIF_VERSION = '2';
+const GIF_VERSION = '3';
 
 export const getRaceWinnerGif = (race: any, players: any[]): string | undefined => {
     const winnerId = Object.keys(race.placements).find(pid => race.placements[pid] === 1);
