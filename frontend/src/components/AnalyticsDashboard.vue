@@ -25,7 +25,7 @@ const searchQuery = ref('');
 const minTournaments = ref(1);
 
 const seasons = ref<Season[]>([]);
-const selectedSeasons = ref<string[]>([]);
+const selectedSeasons = ref<string[]>(['season-2']);
 
 const expandedPlayerId = ref<string | null>(null);
 
@@ -675,12 +675,12 @@ const getRankIcon = (index: number) => {
                 v-model.number="minTournaments"
                 type="range"
                 min="1"
-                :max="Math.max(1, tournaments.length)"
+                :max="20"
                 class="w-full h-2 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-indigo-500 hover:accent-indigo-400 transition-all"
             />
             <div class="flex justify-between text-[10px] text-slate-500 font-bold mt-2 px-1">
               <span>1</span>
-              <span>{{ Math.max(1, tournaments.length) }}</span>
+              <span>{{ 20 }}</span>
             </div>
           </div>
         </div>
