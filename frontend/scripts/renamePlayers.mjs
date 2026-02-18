@@ -19,7 +19,7 @@ import { confirmLiveMode, IS_LIVE, setDoc, listAll } from './config.mjs';
 // ============================================================
 const RENAME_PAIRS = [
   // ['OldName', 'NewName'],
-    ['NiSe', 'NiSE']
+    ['SumpfNew', 'Sumpfranze']
 ];
 
 // --- Main ---

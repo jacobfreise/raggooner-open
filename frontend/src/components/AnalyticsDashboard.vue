@@ -485,6 +485,7 @@ const umaStats = computed(() => {
     totalPoints: number;
     avgPoints: number;
     winRate: number;
+    tournamentWinRate: number;
     banRate: number;
     pickRate: number;
     presence: number;
@@ -495,6 +496,8 @@ const umaStats = computed(() => {
     tournamentIds: Set<string>;
     presenceTournaments: Set<string>;
     pickInstances: Set<string>;
+    teamInstances: Set<string>;
+    teamWins: number;
     tournamentCount: number;
     totalPicks: number;
   }>();
@@ -510,6 +513,7 @@ const umaStats = computed(() => {
     totalPoints: 0,
     avgPoints: 0,
     winRate: 0,
+    tournamentWinRate: 0,
     banRate: 0,
     pickRate: 0,
     presence: 0,
@@ -520,6 +524,8 @@ const umaStats = computed(() => {
     tournamentIds: new Set<string>(),
     presenceTournaments: new Set<string>(),
     pickInstances: new Set<string>(),
+    teamInstances: new Set<string>(),
+    teamWins: 0,
     tournamentCount: 0,
     totalPicks: 0
   });
@@ -577,6 +583,49 @@ const umaStats = computed(() => {
     });
   });
 
+  // 2b. Calculate tournament win rate per uma
+  // Build: which teams used which uma (via participations linking playerId -> teamId)
+  // Then check which of those teams won their tournament
+
+  // First, build winning team IDs per tournament
+  const winningTeamByTournament = new Map<string, string>();
+  filteredTournaments.value.filter(t => t.status === 'completed').forEach(t => {
+    if (!t.teams || t.teams.length === 0) return;
+    const finalistTeams = t.teams.filter(team => team.inFinals);
+    if (finalistTeams.length === 0) return;
+    const sorted = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true));
+    if (sorted[0]) winningTeamByTournament.set(t.id, sorted[0].id);
+  });
+
+  // Build player -> teamId lookup per tournament from participations
+  const playerTeamMap = new Map<string, string>(); // key: "tournamentId_playerId" -> teamId
+  filteredParticipations.value.forEach(p => {
+    if (p.teamId) playerTeamMap.set(`${p.tournamentId}_${p.playerId}`, p.teamId);
+  });
+
+  // For each uma, track unique (tournament, team) pairs and count wins
+  // We need to iterate races again to link uma -> player -> team -> tournament
+  filteredRaces.value.forEach(race => {
+    if (!race.tournamentId) return;
+    Object.entries(race.umaMapping || {}).forEach(([playerId, uma]) => {
+      if (!uma) return;
+      const stats = umaData.get(uma);
+      if (!stats) return;
+
+      const teamId = playerTeamMap.get(`${race.tournamentId}_${playerId}`);
+      if (!teamId) return; // wildcard player, no team
+
+      const teamKey = `${race.tournamentId}_${teamId}`;
+      if (!stats.teamInstances.has(teamKey)) {
+        stats.teamInstances.add(teamKey);
+        // Check if this team won the tournament
+        if (winningTeamByTournament.get(race.tournamentId) === teamId) {
+          stats.teamWins++;
+        }
+      }
+    });
+  });
+
   // 3. Calculate final percentages and averages
   const totalTournaments = filteredTournaments.value.length;
 
@@ -594,6 +643,9 @@ const umaStats = computed(() => {
 
     stats.winRate = stats.timesPlayed > 0
         ? Math.round((stats.wins / stats.timesPlayed) * 100 * 10) / 10
+        : 0;
+    stats.tournamentWinRate = stats.teamInstances.size > 0
+        ? Math.round((stats.teamWins / stats.teamInstances.size) * 100 * 10) / 10
         : 0;
     stats.avgPoints = stats.timesPlayed > 0
         ? Math.round((stats.totalPoints / stats.timesPlayed) * 10) / 10
@@ -641,57 +693,68 @@ const topUmasByWinRate = computed(() => {
 });
 
 // Tier List
-const TIERS = [
-  { tier: 'S', min: 66, color: 'from-amber-500/20 to-amber-600/5', border: 'border-amber-500/50', text: 'text-amber-400', badge: 'bg-amber-500' },
-  { tier: 'A', min: 50, color: 'from-emerald-500/20 to-emerald-600/5', border: 'border-emerald-500/50', text: 'text-emerald-400', badge: 'bg-emerald-500' },
-  { tier: 'B', min: 30, color: 'from-blue-500/20 to-blue-600/5', border: 'border-blue-500/50', text: 'text-blue-400', badge: 'bg-blue-500' },
-  { tier: 'C', min: 10, color: 'from-purple-500/20 to-purple-600/5', border: 'border-purple-500/50', text: 'text-purple-400', badge: 'bg-purple-500' },
-  { tier: 'D', min: 3, color: 'from-orange-500/20 to-orange-600/5', border: 'border-orange-500/50', text: 'text-orange-400', badge: 'bg-orange-500' },
-  { tier: 'F', min: 0, color: 'from-red-500/20 to-red-600/5', border: 'border-red-500/50', text: 'text-red-400', badge: 'bg-red-500' },
+const TIER_STYLES = [
+  { tier: 'S', color: 'from-amber-500/20 to-amber-600/5', border: 'border-amber-500/50', text: 'text-amber-400', badge: 'bg-amber-500' },
+  { tier: 'A', color: 'from-emerald-500/20 to-emerald-600/5', border: 'border-emerald-500/50', text: 'text-emerald-400', badge: 'bg-emerald-500' },
+  { tier: 'B', color: 'from-blue-500/20 to-blue-600/5', border: 'border-blue-500/50', text: 'text-blue-400', badge: 'bg-blue-500' },
+  { tier: 'C', color: 'from-purple-500/20 to-purple-600/5', border: 'border-purple-500/50', text: 'text-purple-400', badge: 'bg-purple-500' },
+  { tier: 'D', color: 'from-orange-500/20 to-orange-600/5', border: 'border-orange-500/50', text: 'text-orange-400', badge: 'bg-orange-500' },
+  { tier: 'F', color: 'from-red-500/20 to-red-600/5', border: 'border-red-500/50', text: 'text-red-400', badge: 'bg-red-500' },
 ] as const;
 
-const tierListMode = ref<'players' | 'umas'>('players');
+const TIER_CRITERIA = {
+  dominance:       { label: 'Dominance',     icon: 'ph-fill ph-sword',   thresholds: [66, 50, 30, 10, 3, 0], suffix: '%' },
+  tournamentWinRate: { label: 'T. Win Rate', icon: 'ph-fill ph-trophy',  thresholds: [35, 25, 15, 10, 3, 0], suffix: '%' },
+  winRate:          { label: 'Race Win Rate', icon: 'ph-fill ph-flag-checkered', thresholds: [40, 25, 15, 8, 3, 0], suffix: '%' },
+} as const;
 
-function assignTier(dominance: number) {
-  for (const t of TIERS) {
-    if (dominance >= t.min) return t.tier;
+type TierCriterion = keyof typeof TIER_CRITERIA;
+const tierCriterion = ref<TierCriterion>('dominance');
+
+function assignTier(value: number): string {
+  const thresholds = TIER_CRITERIA[tierCriterion.value].thresholds;
+  for (let i = 0; i < thresholds.length; i++) {
+    if (value >= thresholds[i]!) return TIER_STYLES[i]!.tier;
   }
   return 'F';
 }
 
+function getStatValue(item: any): number {
+  return item[tierCriterion.value] || 0;
+}
+
 const playerTierList = computed(() => {
   const tiers = new Map<string, typeof playerRankings.value>();
-  for (const t of TIERS) tiers.set(t.tier, []);
+  for (const t of TIER_STYLES) tiers.set(t.tier, []);
 
   for (const p of playerRankings.value) {
-    const tier = assignTier(p.dominance);
+    const tier = assignTier(getStatValue(p));
     tiers.get(tier)!.push(p);
   }
 
-  // Sort within each tier by dominance descending
   for (const [, entries] of tiers) {
-    entries.sort((a, b) => b.dominance - a.dominance);
+    entries.sort((a, b) => getStatValue(b) - getStatValue(a));
   }
 
-  return TIERS
+  return TIER_STYLES
     .map(t => ({ ...t, entries: tiers.get(t.tier)! }))
     .filter(t => t.entries.length > 0);
 });
 
 const umaTierList = computed(() => {
   const tiers = new Map<string, typeof umaStats.value>();
-  for (const t of TIERS) tiers.set(t.tier, []);
+  for (const t of TIER_STYLES) tiers.set(t.tier, []);
 
   for (const u of umaStats.value) {
-    const tier = assignTier(u.dominance);
+    const tier = assignTier(getStatValue(u));
     tiers.get(tier)!.push(u);
   }
 
   for (const [, entries] of tiers) {
-    entries.sort((a, b) => b.dominance - a.dominance);
+    entries.sort((a, b) => getStatValue(b) - getStatValue(a));
   }
 
-  return TIERS
+  return TIER_STYLES
     .map(t => ({ ...t, entries: tiers.get(t.tier)! }))
     .filter(t => t.entries.length > 0);
 });
@@ -1419,98 +1482,99 @@ const getRankIcon = (index: number) => {
       <!-- Tier List Tab -->
       <div v-if="activeTab === 'tierlist'" class="space-y-4">
 
-        <!-- Toggle Players / Umas -->
-        <div class="flex gap-2">
+        <!-- Criteria Toggle -->
+        <div class="flex gap-2 flex-wrap">
           <button
-              @click="tierListMode = 'players'"
-              class="px-4 py-2 rounded-lg font-bold text-sm transition-colors"
-              :class="tierListMode === 'players'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'"
+              v-for="(config, key) in TIER_CRITERIA"
+              :key="key"
+              @click="tierCriterion = key"
+              class="px-3 py-1.5 text-xs font-bold rounded-full transition-colors border flex items-center gap-1.5"
+              :class="tierCriterion === key
+                ? 'bg-indigo-600 border-indigo-500 text-white'
+                : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'"
           >
-            <i class="ph-fill ph-users mr-1"></i> Players
-          </button>
-          <button
-              @click="tierListMode = 'umas'"
-              class="px-4 py-2 rounded-lg font-bold text-sm transition-colors"
-              :class="tierListMode === 'umas'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'"
-          >
-            <i class="ph-fill ph-horse mr-1"></i> Umas
+            <i :class="config.icon"></i>
+            {{ config.label }}
           </button>
         </div>
 
-        <!-- Player Tier List -->
-        <div v-if="tierListMode === 'players'" class="space-y-3">
-          <div
-              v-for="tier in playerTierList"
-              :key="tier.tier"
-              class="rounded-xl border overflow-hidden"
-              :class="tier.border"
-          >
-            <div class="flex items-stretch">
-              <!-- Tier Badge -->
-              <div
-                  class="w-16 md:w-20 flex-shrink-0 flex items-center justify-center bg-gradient-to-r"
-                  :class="tier.color"
-              >
-                <span class="text-3xl md:text-4xl font-black" :class="tier.text">{{ tier.tier }}</span>
-              </div>
+        <!-- Side by Side Lists -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-              <!-- Entries -->
-              <div class="flex-1 flex flex-wrap gap-2 p-3 bg-slate-900/50">
-                <div
-                    v-for="p in tier.entries"
-                    :key="p.player.id"
-                    class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 flex items-center gap-2 hover:border-slate-500 transition-colors"
-                >
-                  <span class="font-bold text-white text-sm">{{ p.player.name }}</span>
-                  <span class="text-xs px-1.5 py-0.5 rounded font-bold" :class="tier.text + ' bg-slate-900'">{{ p.dominance }}%</span>
+          <!-- Player Tier List -->
+          <div>
+            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <i class="ph-fill ph-users text-indigo-400"></i> Players
+            </h3>
+            <div class="space-y-3">
+              <div
+                  v-for="tier in playerTierList"
+                  :key="tier.tier"
+                  class="rounded-xl border overflow-hidden"
+                  :class="tier.border"
+              >
+                <div class="flex items-stretch">
+                  <div
+                      class="w-12 md:w-16 flex-shrink-0 flex items-center justify-center bg-gradient-to-r"
+                      :class="tier.color"
+                  >
+                    <span class="text-2xl md:text-3xl font-black" :class="tier.text">{{ tier.tier }}</span>
+                  </div>
+                  <div class="flex-1 flex flex-wrap gap-2 p-3 bg-slate-900/50">
+                    <div
+                        v-for="p in tier.entries"
+                        :key="p.player.id"
+                        class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 flex items-center gap-2 hover:border-slate-500 transition-colors"
+                    >
+                      <span class="font-bold text-white text-sm">{{ p.player.name }}</span>
+                      <span class="text-xs px-1.5 py-0.5 rounded font-bold" :class="tier.text + ' bg-slate-900'">{{ getStatValue(p) }}{{ TIER_CRITERIA[tierCriterion].suffix }}</span>
+                    </div>
+                  </div>
                 </div>
+              </div>
+              <div v-if="playerTierList.length === 0" class="bg-slate-800 border border-slate-700 rounded-xl p-6 text-center text-slate-400">
+                No players match the current filters.
               </div>
             </div>
           </div>
 
-          <div v-if="playerTierList.length === 0" class="bg-slate-800 border border-slate-700 rounded-xl p-6 text-center text-slate-400">
-            No players match the current filters.
-          </div>
-        </div>
-
-        <!-- Uma Tier List -->
-        <div v-if="tierListMode === 'umas'" class="space-y-3">
-          <div
-              v-for="tier in umaTierList"
-              :key="tier.tier"
-              class="rounded-xl border overflow-hidden"
-              :class="tier.border"
-          >
-            <div class="flex items-stretch">
-              <!-- Tier Badge -->
+          <!-- Uma Tier List -->
+          <div>
+            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <i class="ph-fill ph-horse text-indigo-400"></i> Umas
+            </h3>
+            <div class="space-y-3">
               <div
-                  class="w-16 md:w-20 flex-shrink-0 flex items-center justify-center bg-gradient-to-r"
-                  :class="tier.color"
+                  v-for="tier in umaTierList"
+                  :key="tier.tier"
+                  class="rounded-xl border overflow-hidden"
+                  :class="tier.border"
               >
-                <span class="text-3xl md:text-4xl font-black" :class="tier.text">{{ tier.tier }}</span>
-              </div>
-
-              <!-- Entries -->
-              <div class="flex-1 flex flex-wrap gap-2 p-3 bg-slate-900/50">
-                <div
-                    v-for="u in tier.entries"
-                    :key="u.name"
-                    class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 flex items-center gap-2 hover:border-slate-500 transition-colors"
-                >
-                  <span class="font-bold text-white text-sm">{{ u.name }}</span>
-                  <span class="text-xs px-1.5 py-0.5 rounded font-bold" :class="tier.text + ' bg-slate-900'">{{ u.dominance }}%</span>
+                <div class="flex items-stretch">
+                  <div
+                      class="w-12 md:w-16 flex-shrink-0 flex items-center justify-center bg-gradient-to-r"
+                      :class="tier.color"
+                  >
+                    <span class="text-2xl md:text-3xl font-black" :class="tier.text">{{ tier.tier }}</span>
+                  </div>
+                  <div class="flex-1 flex flex-wrap gap-2 p-3 bg-slate-900/50">
+                    <div
+                        v-for="u in tier.entries"
+                        :key="u.name"
+                        class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 flex items-center gap-2 hover:border-slate-500 transition-colors"
+                    >
+                      <span class="font-bold text-white text-sm">{{ u.name }}</span>
+                      <span class="text-xs px-1.5 py-0.5 rounded font-bold" :class="tier.text + ' bg-slate-900'">{{ getStatValue(u) }}{{ TIER_CRITERIA[tierCriterion].suffix }}</span>
+                    </div>
+                  </div>
                 </div>
+              </div>
+              <div v-if="umaTierList.length === 0" class="bg-slate-800 border border-slate-700 rounded-xl p-6 text-center text-slate-400">
+                No umas match the current filters.
               </div>
             </div>
           </div>
 
-          <div v-if="umaTierList.length === 0" class="bg-slate-800 border border-slate-700 rounded-xl p-6 text-center text-slate-400">
-            No umas match the current filters.
-          </div>
         </div>
       </div>
 
