@@ -233,7 +233,7 @@ const categories: FameCategory[] = [
   },
   {
     id: 'choker',
-    title: 'The Choker',
+    title: 'The Group Stage Merchant',
     description: 'Biggest performance drop-off in Finals',
     icon: 'ph-skull', // or ph-warning-circle
     color: 'text-rose-500', // Distinct red for "Danger"
@@ -1088,7 +1088,7 @@ const categories: FameCategory[] = [
   },
   {
     id: 'phalanx',
-    title: 'The Phalanx',
+    title: 'The Power of Friendship',
     description: 'Smallest point gap between teammates. Weighted by total pts and # of races.',
     isTeam: true,
     icon: 'ph-shield-check',
@@ -1613,7 +1613,7 @@ onUnmounted(() => {
               </div>
 
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-black uppercase tracking-widest text-slate-100 group-hover:text-white transition-colors leading-tight truncate">
+                <div class="text-sm font-black uppercase tracking-widest text-slate-100 group-hover:text-white transition-colors leading-tight break-words">
                   {{ stat.title }}
                 </div>
                 <div class="text-[10px] font-medium text-slate-500 leading-tight mt-1 line-clamp-2">
