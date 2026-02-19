@@ -193,14 +193,14 @@ export interface Tournament {
     password?: string;
     status: 'registration' | 'draft' | 'active' | 'ban' | 'completed';
     stage: 'groups' | 'finals';
-    playerIds: string[];        // NEU: Nur IDs statt Player objects
-    players: Player[];          // DEPRECATED: Wird in participations migriert
+    playerIds: string[];
+    players: Player[];
     wildcards?: Wildcard[];
     teams: Team[];
-    races: Race[];              // DEPRECATED: Wird in races/ migriert
+    races: Race[];
     bans?: string[];
     createdAt: string;
-    completedAt?: string;       // NEU
+    completedAt?: string;
     draft?: {
         order: string[];
         currentIdx: number;

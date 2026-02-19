@@ -14,7 +14,7 @@ import { readFileSync } from 'fs';
 import { confirmLiveMode, IS_LIVE, HEADERS, toFirestoreFields, rawDocUrl } from './config.mjs';
 
 const DRY_RUN = process.argv.includes('--dry-run');
-const BACKUP_FILE = './live3-database-backup.json';
+const BACKUP_FILE = './live4-database-backup.json';
 
 async function main() {
   await confirmLiveMode();
