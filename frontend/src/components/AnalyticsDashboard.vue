@@ -1018,9 +1018,9 @@ async function fetchOrCache<T extends any[]>(key: string, fetcher: () => Promise
 }
 
 const forceRefreshAnalytics = async () => {
-  sessionStorage.removeItem(`cache:${CACHE_KEY}:seasons`);
-  sessionStorage.removeItem(`cache:${CACHE_KEY}:players`);
-  sessionStorage.removeItem(`cache:${CACHE_KEY}:tournaments`);
+  localStorage.removeItem(`cache:${CACHE_KEY}:seasons`);
+  localStorage.removeItem(`cache:${CACHE_KEY}:players`);
+  localStorage.removeItem(`cache:${CACHE_KEY}:tournaments`);
   await loadData();
 };
 

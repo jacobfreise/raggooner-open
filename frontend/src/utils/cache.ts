@@ -1,6 +1,6 @@
 /**
- * Simple TTL cache using sessionStorage.
- * Data persists across route navigations but clears when the tab is closed.
+ * Simple TTL cache using localStorage.
+ * Data persists across tabs and browser restarts until the TTL expires.
  */
 
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -12,12 +12,12 @@ interface CacheEntry<T> {
 
 export function getCached<T>(key: string): T | null {
     try {
-        const raw = sessionStorage.getItem(`cache:${key}`);
+        const raw = localStorage.getItem(`cache:${key}`);
         if (!raw) return null;
 
         const entry: CacheEntry<T> = JSON.parse(raw);
         if (Date.now() > entry.expiresAt) {
-            sessionStorage.removeItem(`cache:${key}`);
+            localStorage.removeItem(`cache:${key}`);
             return null;
         }
 
@@ -33,18 +33,18 @@ export function setCache<T>(key: string, data: T, ttlMs: number = DEFAULT_TTL_MS
             data,
             expiresAt: Date.now() + ttlMs,
         };
-        sessionStorage.setItem(`cache:${key}`, JSON.stringify(entry));
+        localStorage.setItem(`cache:${key}`, JSON.stringify(entry));
     } catch {
-        // sessionStorage full or unavailable — silently ignore
+        // localStorage full or unavailable — silently ignore
     }
 }
 
 export function clearCache(key?: string): void {
     if (key) {
-        sessionStorage.removeItem(`cache:${key}`);
+        localStorage.removeItem(`cache:${key}`);
     } else {
         // Clear all cache entries
-        const keys = Object.keys(sessionStorage).filter(k => k.startsWith('cache:'));
-        keys.forEach(k => sessionStorage.removeItem(k));
+        const keys = Object.keys(localStorage).filter(k => k.startsWith('cache:'));
+        keys.forEach(k => localStorage.removeItem(k));
     }
 }
