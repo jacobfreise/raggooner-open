@@ -80,6 +80,13 @@ service cloud.firestore {
         allow read: if isSuperAdmin() || (request.auth != null && userId == 'analyticsMetadata');
         allow create, update: if request.auth != null && request.auth.uid == userId;
       }
+
+      // 9. ANALYTICS (analytics tracking)
+      match /analytics/analyticsMetadata {
+        // analyticsMetadata: any auth user can read, only superadmin writes (via script)
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
     }
   }
 }
