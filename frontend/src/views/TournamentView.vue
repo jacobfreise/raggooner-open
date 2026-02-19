@@ -60,6 +60,7 @@ const subscribeToTournament = (id: string) => {
       const data = docSnap.data() as Tournament;
       if (data.password) delete data.password;
       tournament.value = data;
+      if (!localAdminPassword.value) autoLoginIfSuperAdmin();
       if (!hasInitialViewLoaded.value && tournament.value.stage === 'finals') {
         currentView.value = 'finals';
         hasInitialViewLoaded.value = true;
@@ -78,11 +79,7 @@ const subscribeToTournament = (id: string) => {
 watch(() => route.params.id, (newId) => {
   if (newId) {
     const savedPwd = localStorage.getItem(`admin_pwd_${newId}`);
-    if (savedPwd) {
-      localAdminPassword.value = savedPwd;
-    } else {
-      autoLoginIfSuperAdmin();
-    }
+    if (savedPwd) localAdminPassword.value = savedPwd;
     subscribeToTournament(newId as string);
   }
 }, { immediate: true });
