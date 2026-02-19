@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Storage Rules! Don't need storage anymore, actually. test3
+// Storage Rules! Don't need storage anymore, actually. test4
 service firebase.storage {
   match /b/{bucket}/o {
 
