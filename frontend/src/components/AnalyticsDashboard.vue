@@ -179,6 +179,12 @@ const expandedPlayerTournaments = computed(() => {
       ? [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true))[0]
       : null;
 
+    // Check if player was a wildcard
+    const wildcards = t?.wildcards || [];
+    const playerWildcards = wildcards.filter(wc => wc.playerId === playerId);
+    const isWildcard = playerWildcards.length > 0;
+    const wildcardGroups = playerWildcards.map(wc => wc.group);
+
     let finalsStatus: 'winner' | 'no-groups' | 'finals' | 'eliminated' | '-' = '-';
     if (teams.length === 0 && tStatus === 'active') {
       finalsStatus = '-';
@@ -194,6 +200,8 @@ const expandedPlayerTournaments = computed(() => {
       tournamentName: tName,
       status: tStatus,
       uma: part.uma || '-',
+      isWildcard,
+      wildcardGroups,
       finalsStatus,
       races,
       wins,
@@ -1381,11 +1389,14 @@ const getRankIcon = (index: number) => {
                                   </td>
                                   <td class="px-3 py-2 text-sm text-right text-slate-300">{{ t.uma }}</td>
                                   <td class="px-3 py-2 text-sm text-right">
-                                    <span v-if="t.finalsStatus === 'winner'" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-bold uppercase">Winner</span>
-                                    <span v-else-if="t.finalsStatus === 'finals'" class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-bold uppercase">Finals</span>
-                                    <span v-else-if="t.finalsStatus === 'eliminated'" class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 font-bold uppercase">Out</span>
-                                    <span v-else-if="t.finalsStatus === 'no-groups'" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-400 font-bold uppercase">N/A</span>
-                                    <span v-else class="text-slate-600">-</span>
+                                    <div class="flex items-center justify-end gap-1 flex-wrap">
+                                      <span v-if="t.isWildcard" class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-bold uppercase">WC {{ t.wildcardGroups.join('+') }}</span>
+                                      <span v-if="t.finalsStatus === 'winner'" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-bold uppercase">Winner</span>
+                                      <span v-else-if="t.finalsStatus === 'finals'" class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-bold uppercase">Finals</span>
+                                      <span v-else-if="t.finalsStatus === 'eliminated'" class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 font-bold uppercase">Out</span>
+                                      <span v-else-if="t.finalsStatus === 'no-groups'" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-400 font-bold uppercase">Small</span>
+                                      <span v-else-if="!t.isWildcard" class="text-slate-600">-</span>
+                                    </div>
                                   </td>
                                   <td class="px-3 py-2 text-sm text-right text-slate-400">{{ t.races }}</td>
                                   <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ t.wins }}</td>

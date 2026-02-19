@@ -22,7 +22,7 @@ const DRY_RUN = process.argv.includes('--dry-run');
 // ============================================================
 const RENAME_PAIRS = [
   // ['OldName', 'NewName'],
-    ['SumpfNew', 'Sumpfranze']
+    ['Alfheiz', 'Alfheix']
 ];
 
 // --- Main ---
