@@ -9,10 +9,13 @@
  *
  * Usage:
  *   node scripts/renamePlayers.mjs                        # emulator (default)
+ *   node scripts/renamePlayers.mjs --dry-run               # preview without writing
  *   node scripts/renamePlayers.mjs --live --token <TOKEN>  # live database
  */
 
 import { confirmLiveMode, IS_LIVE, setDoc, listAll } from './config.mjs';
+
+const DRY_RUN = process.argv.includes('--dry-run');
 
 // ============================================================
 // CONFIGURE RENAMES HERE: [currentName, newName]
@@ -32,7 +35,7 @@ async function main() {
 
   await confirmLiveMode();
 
-  console.log(`=== Player Rename Tool${IS_LIVE ? ' (LIVE)' : ''} ===\n`);
+  console.log(`=== Player Rename Tool${IS_LIVE ? ' (LIVE)' : ''}${DRY_RUN ? ' [DRY RUN]' : ''} ===\n`);
 
   // Load all players
   console.log('Loading players...');
@@ -93,8 +96,8 @@ async function main() {
     updated.name = newName;
     updated.aliases = aliases;
 
-    await setDoc('players', player.id, updated);
-    console.log(`  Updated player doc: name="${newName}", aliases=${JSON.stringify(aliases)}`);
+    if (!DRY_RUN) await setDoc('players', player.id, updated);
+    console.log(`  ${DRY_RUN ? '[preview] ' : ''}Updated player doc: name="${newName}", aliases=${JSON.stringify(aliases)}`);
   }
 
   // 2. Update tournaments: players[] names and team names
@@ -143,17 +146,20 @@ async function main() {
     }
 
     if (changed) {
-      const updatedTournament = { ...tournament };
-      delete updatedTournament._docId;
-      updatedTournament.players = players;
-      updatedTournament.teams = teams;
-      await setDoc('tournaments', tournament._docId || tournament.id, updatedTournament);
       tournamentsUpdated++;
-      console.log(`  Updated tournament: "${tournament.name}" (${tournament._docId || tournament.id})`);
+      if (!DRY_RUN) {
+        const updatedTournament = { ...tournament };
+        delete updatedTournament._docId;
+        updatedTournament.players = players;
+        updatedTournament.teams = teams;
+        await setDoc('tournaments', tournament._docId || tournament.id, updatedTournament);
+      }
+      console.log(`  ${DRY_RUN ? '[preview] ' : ''}Updated tournament: "${tournament.name}" (${tournament._docId || tournament.id})`);
     }
   }
 
   console.log(`\n  Tournaments updated: ${tournamentsUpdated}`);
+  if (DRY_RUN) console.log('\n[DRY RUN] No data was written.');
   console.log('\nAll renames complete!');
   process.exit(0);
 }

@@ -4,16 +4,19 @@
  * Sets up Season 1 and Season 2, then assigns all tournaments to the correct season.
  *
  * Usage:
- *   node scripts/setupSeasons.mjs              # emulator (default)
+ *   node scripts/setupSeasons.mjs                        # emulator (default)
+ *   node scripts/setupSeasons.mjs --dry-run               # preview without writing
  *   node scripts/setupSeasons.mjs --live --token <TOKEN>  # live database
  */
 
 import { confirmLiveMode, IS_LIVE, setDoc, updateDoc, listAll } from './config.mjs';
 
+const DRY_RUN = process.argv.includes('--dry-run');
+
 async function main() {
   await confirmLiveMode();
 
-  console.log(`=== Season Setup${IS_LIVE ? ' (LIVE)' : ''} ===\n`);
+  console.log(`=== Season Setup${IS_LIVE ? ' (LIVE)' : ''}${DRY_RUN ? ' [DRY RUN]' : ''} ===\n`);
 
   // Step 1: Create seasons
   console.log('Step 1/3: Creating seasons...');
@@ -35,8 +38,10 @@ async function main() {
     description: 'Second season',
   };
 
-  await setDoc('seasons', 'season-1', season1);
-  await setDoc('seasons', 'season-2', season2);
+  if (!DRY_RUN) {
+    await setDoc('seasons', 'season-1', season1);
+    await setDoc('seasons', 'season-2', season2);
+  }
   console.log('  Created Season 1 & Season 2');
 
   // Step 2: Fetch all tournaments and assign to seasons
@@ -53,7 +58,10 @@ async function main() {
     const isS2 = name.includes('S2') || name.includes('Season 2');
     const targetSeasonId = isS2 ? 'season-2' : 'season-1';
 
-    await updateDoc('tournaments', t.id, { seasonId: targetSeasonId });
+    if (!DRY_RUN) {
+      await updateDoc('tournaments', t.id, { seasonId: targetSeasonId });
+    }
+    console.log(`    ${name || t.id} → ${targetSeasonId}`);
 
     if (isS2) {
       season2Ids.push(t.id);
@@ -68,9 +76,12 @@ async function main() {
   // Step 3: Update season docs with tournament references
   console.log('Step 3/3: Updating season docs with tournament IDs...');
 
-  await setDoc('seasons', 'season-1', { ...season1, tournamentIds: season1Ids });
-  await setDoc('seasons', 'season-2', { ...season2, tournamentIds: season2Ids });
+  if (!DRY_RUN) {
+    await setDoc('seasons', 'season-1', { ...season1, tournamentIds: season1Ids });
+    await setDoc('seasons', 'season-2', { ...season2, tournamentIds: season2Ids });
+  }
 
+  if (DRY_RUN) console.log('\n[DRY RUN] No data was written.');
   console.log('\nDone! Season setup complete.');
   process.exit(0);
 }

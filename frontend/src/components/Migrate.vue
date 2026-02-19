@@ -284,15 +284,91 @@ const migrateToNewStructure = async (dryRun: boolean) => {
     stats.value.races = races.length;
     addLog(`Prepared ${races.length} race documents`, 'success');
 
+    // === UPDATE TOURNAMENT DOCS: replace old player IDs with global IDs ===
+    addLog('Updating tournament docs with global player IDs...', 'info');
+    let tournamentsUpdated = 0;
+
+    for (const tournament of tournaments) {
+      let changed = false;
+
+      // Update players[] array
+      for (const player of (tournament.players || [])) {
+        const globalId = playerIdMapping.get(player.id);
+        if (globalId && globalId !== player.id) {
+          player.id = globalId;
+          changed = true;
+        }
+      }
+
+      // Update teams[] — captainId and memberIds
+      for (const team of (tournament.teams || [])) {
+        const newCaptainId = playerIdMapping.get(team.captainId);
+        if (newCaptainId && newCaptainId !== team.captainId) {
+          team.captainId = newCaptainId;
+          changed = true;
+        }
+        if (team.memberIds) {
+          for (let i = 0; i < team.memberIds.length; i++) {
+            const newId = playerIdMapping.get(team.memberIds[i]!);
+            if (newId && newId !== team.memberIds[i]) {
+              team.memberIds[i] = newId;
+              changed = true;
+            }
+          }
+        }
+      }
+
+      // Update wildcards[] — playerId
+      for (const wc of (tournament.wildcards || [])) {
+        const newId = playerIdMapping.get(wc.playerId);
+        if (newId && newId !== wc.playerId) {
+          wc.playerId = newId;
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        tournamentsUpdated++;
+        addLog(`  Updated tournament: "${tournament.name}"`, 'info');
+      }
+    }
+
+    addLog(`Tournaments to update: ${tournamentsUpdated}`, 'success');
+
     // === COMMIT TO FIRESTORE ===
     if (!dryRun) {
       currentStep.value = 'complete';
       addLog('Writing to Firestore...', 'info');
 
-      // Write Players (batched)
+      // Write updated Tournaments (batched)
       let batch = writeBatch(db);
       let batchCount = 0;
       let totalBatches = 0;
+
+      for (const tournament of tournaments) {
+        const tournamentRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'tournaments', tournament.id);
+        const { id, ...data } = tournament;
+        batch.set(tournamentRef, data);
+        batchCount++;
+
+        if (batchCount >= 500) {
+          await batch.commit();
+          totalBatches++;
+          addLog(`  Committed batch ${totalBatches} (Tournaments)`, 'info');
+          batch = writeBatch(db);
+          batchCount = 0;
+        }
+      }
+      if (batchCount > 0) {
+        await batch.commit();
+        totalBatches++;
+      }
+      addLog(`✓ Tournaments written (${totalBatches} batches)`, 'success');
+
+      // Write Players (batched)
+      batch = writeBatch(db);
+      batchCount = 0;
+      totalBatches = 0;
 
       for (const [_, player] of playersMap) {
         const playerRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'players', player.id);
