@@ -699,6 +699,7 @@ const umaStats = computed(() => {
     teamInstances: Set<string>;
     teamWins: number;
     tournamentCount: number;
+    tournamentsPicked: number;
     totalPicks: number;
   }>();
 
@@ -727,6 +728,7 @@ const umaStats = computed(() => {
     teamInstances: new Set<string>(),
     teamWins: 0,
     tournamentCount: 0,
+    tournamentsPicked: 0,
     totalPicks: 0
   });
 
@@ -840,6 +842,7 @@ const umaStats = computed(() => {
     stats.totalPicks = totalOverallPicks
     stats.tournamentCount = stats.presenceTournaments.size; // Slider now filters by Presence!
     stats.picks = stats.pickInstances.size;
+    stats.tournamentsPicked = stats.tournamentIds.size;
 
     stats.winRate = stats.timesPlayed > 0
         ? Math.round((stats.wins / stats.timesPlayed) * 100 * 10) / 10
@@ -885,17 +888,31 @@ const umaStats = computed(() => {
 });
 
 // Top Players by Total Points (independent of player tab sorting)
-const topPlayersByPoints = computed(() => {
+const TOP5_CRITERIA = {
+  totalPoints:       { label: 'Total Points',      suffix: 'pts',   playerKey: 'totalPoints',       umaKey: 'totalPoints' },
+  avgPoints:         { label: 'Avg Points',         suffix: 'avg',   playerKey: 'avgPoints',         umaKey: 'avgPoints' },
+  winRate:           { label: 'Race Win Rate',      suffix: '%',     playerKey: 'winRate',           umaKey: 'winRate' },
+  tournamentWinRate: { label: 'Tournament Win Rate', suffix: '%',    playerKey: 'tournamentWinRate', umaKey: 'tournamentWinRate' },
+  tournaments:       { label: 'Tournaments Played', suffix: '',      playerKey: 'tournaments',       umaKey: 'tournamentsPicked' },
+  dominance:         { label: 'Dominance',          suffix: '%',     playerKey: 'dominance',         umaKey: 'dominance' },
+} as const;
+
+type Top5Key = keyof typeof TOP5_CRITERIA;
+const topPlayerCriterion = ref<Top5Key>('totalPoints');
+const topUmaCriterion = ref<Top5Key>('winRate');
+
+const topPlayers = computed(() => {
+  const key = TOP5_CRITERIA[topPlayerCriterion.value].playerKey;
   return [...playerRankings.value]
-      .sort((a, b) => b.totalPoints - a.totalPoints)
+      .sort((a, b) => (b as any)[key] - (a as any)[key])
       .slice(0, 5);
 });
 
-// Top Umas by Win Rate
-const topUmasByWinRate = computed(() => {
+const topUmas = computed(() => {
+  const key = TOP5_CRITERIA[topUmaCriterion.value].umaKey;
   return [...umaStats.value]
-      .sort((a, b) => b.winRate - a.winRate)
-      .slice(0, 10);
+      .sort((a, b) => (b as any)[key] - (a as any)[key])
+      .slice(0, 5);
 });
 
 // Tier List
@@ -1249,14 +1266,22 @@ const getRankIcon = (index: number) => {
 
           <!-- Top Players -->
           <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <i class="ph-fill ph-trophy text-amber-400"></i>
-              Top 5 Players by Total Points
-            </h3>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                <i class="ph-fill ph-trophy text-amber-400"></i>
+                Top 5 Players
+              </h3>
+              <select
+                  v-model="topPlayerCriterion"
+                  class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs font-bold text-slate-300 focus:outline-none focus:border-indigo-500"
+              >
+                <option v-for="(cfg, key) in TOP5_CRITERIA" :key="key" :value="key">{{ cfg.label }}</option>
+              </select>
+            </div>
 
             <div class="space-y-3">
               <div
-                  v-for="(player, idx) in topPlayersByPoints"
+                  v-for="(player, idx) in topPlayers"
                   :key="player.player.id"
                   class="flex items-center gap-3 p-3 bg-slate-900 rounded-lg border border-slate-700"
               >
@@ -1272,8 +1297,8 @@ const getRankIcon = (index: number) => {
                 </div>
 
                 <div class="text-right">
-                  <div class="text-lg font-bold text-white">{{ player.totalPoints }}</div>
-                  <div class="text-xs text-slate-400">pts</div>
+                  <div class="text-lg font-bold text-white">{{ (player as any)[TOP5_CRITERIA[topPlayerCriterion].playerKey] }}{{ TOP5_CRITERIA[topPlayerCriterion].suffix }}</div>
+                  <div class="text-xs text-slate-400">{{ TOP5_CRITERIA[topPlayerCriterion].label.toLowerCase() }}</div>
                 </div>
               </div>
             </div>
@@ -1281,14 +1306,22 @@ const getRankIcon = (index: number) => {
 
           <!-- Top Umas -->
           <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <i class="ph-fill ph-horse text-indigo-400"></i>
-              Top 5 Umas by Win Rate (min. 10 races)
-            </h3>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                <i class="ph-fill ph-horse text-indigo-400"></i>
+                Top 5 Umas
+              </h3>
+              <select
+                  v-model="topUmaCriterion"
+                  class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs font-bold text-slate-300 focus:outline-none focus:border-indigo-500"
+              >
+                <option v-for="(cfg, key) in TOP5_CRITERIA" :key="key" :value="key">{{ cfg.label }}</option>
+              </select>
+            </div>
 
             <div class="space-y-3">
               <div
-                  v-for="(uma, idx) in topUmasByWinRate.slice(0, 5)"
+                  v-for="(uma, idx) in topUmas"
                   :key="uma.name"
                   class="flex items-center gap-3 p-3 bg-slate-900 rounded-lg border border-slate-700"
               >
@@ -1299,13 +1332,13 @@ const getRankIcon = (index: number) => {
                 <div class="flex-1 min-w-0">
                   <div class="font-bold text-white truncate">{{ uma.name }}</div>
                   <div class="text-xs text-slate-400">
-                    {{ uma.timesPlayed }} races • {{ uma.wins }} wins
+                    {{ uma.picks }} picks • {{ uma.timesPlayed }} races
                   </div>
                 </div>
 
                 <div class="text-right">
-                  <div class="text-lg font-bold text-emerald-400">{{ uma.winRate }}%</div>
-                  <div class="text-xs text-slate-400">win rate</div>
+                  <div class="text-lg font-bold text-emerald-400">{{ (uma as any)[TOP5_CRITERIA[topUmaCriterion].umaKey] }}{{ TOP5_CRITERIA[topUmaCriterion].suffix }}</div>
+                  <div class="text-xs text-slate-400">{{ TOP5_CRITERIA[topUmaCriterion].label.toLowerCase() }}</div>
                 </div>
               </div>
             </div>
