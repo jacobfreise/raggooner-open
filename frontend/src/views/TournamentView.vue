@@ -45,7 +45,7 @@ const secureUpdate = async (data: FirestoreUpdate<Tournament>) => {
 
 const {
   adminPasswordInput, localAdminPassword, showAdminModal, isDangerZoneOpen, isDeleting, editedName, editedTiebreaker,
-  isAdmin, loginAsAdmin, copyPassword, updateTournamentName, togglePlacementTiebreaker, deleteTournament
+  isAdmin, loginAsAdmin, copyPassword, updateTournamentName, togglePlacementTiebreaker, deleteTournament, autoLoginIfSuperAdmin
 } = useAdmin(tournament, secureUpdate, async () => { await router.push('/'); }, appId);
 
 const { currentView } = useGameLogic(tournament, secureUpdate, appId);
@@ -78,7 +78,11 @@ const subscribeToTournament = (id: string) => {
 watch(() => route.params.id, (newId) => {
   if (newId) {
     const savedPwd = localStorage.getItem(`admin_pwd_${newId}`);
-    if (savedPwd) localAdminPassword.value = savedPwd;
+    if (savedPwd) {
+      localAdminPassword.value = savedPwd;
+    } else {
+      autoLoginIfSuperAdmin();
+    }
     subscribeToTournament(newId as string);
   }
 }, { immediate: true });

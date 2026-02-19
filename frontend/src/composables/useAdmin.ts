@@ -8,6 +8,8 @@ import type { Tournament, FirestoreUpdate } from '../types';
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament>) => Promise<void>;
 type FetchTournamentsFn = () => Promise<void>;
 
+const SUPERADMIN_UIDS = ['mehTFP5BuqdrT6mw4xqnaNrHSMk1', 'j7kIBg1mIXO5m824GeBQmXYfb6q2'];
+
 export function useAdmin(
     tournament: Ref<Tournament | null>,
     secureUpdate: SecureUpdateFn,
@@ -82,6 +84,30 @@ export function useAdmin(
         } catch (e: any) {
             console.error("Login failed", e);
             alert("Incorrect Password");
+        }
+    };
+
+    const autoLoginIfSuperAdmin = async () => {
+        if (!tournament.value) return;
+        if (!auth.currentUser) return;
+
+        const uid = auth.currentUser.uid;
+        if (!SUPERADMIN_UIDS.includes(uid)) return;
+
+        const tId = tournament.value.id;
+
+        try {
+            const adminRef = doc(db, 'artifacts', appId, 'public', 'data', 'admins', `${tId}_${uid}`);
+            await setDoc(adminRef, {
+                tournamentId: tId,
+                userId: uid,
+                password: 'SUPERADMIN'
+            });
+
+            localAdminPassword.value = 'SUPERADMIN';
+            localStorage.setItem(`admin_pwd_${tId}`, 'SUPERADMIN');
+        } catch (e) {
+            console.error('Superadmin auto-login failed', e);
         }
     };
 
@@ -196,6 +222,7 @@ export function useAdmin(
         copyPassword,
         updateTournamentName,
         togglePlacementTiebreaker,
-        deleteTournament
+        deleteTournament,
+        autoLoginIfSuperAdmin
     };
 }

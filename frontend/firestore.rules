@@ -44,7 +44,7 @@ service cloud.firestore {
 
       // 5. ADMINS
       match /admins/{adminDoc} {
-        allow read, update, delete: if isSuperAdmin();
+        allow read, create, update, delete: if isSuperAdmin();
 
         // Users can read their own admin slip
         allow get: if request.auth != null && resource.data.userId == request.auth.uid;
