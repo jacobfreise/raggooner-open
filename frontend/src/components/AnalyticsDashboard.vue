@@ -1056,8 +1056,8 @@ const getRankIcon = (index: number) => {
                             <i class="ph-fill ph-horse text-purple-400"></i> Most Picked Uma
                           </div>
                           <div v-if="player.mostPickedUmas.length > 0">
-                            <div class="font-bold text-white break-words text-sm" :title="player.mostPickedUmas.map(u => u.name).join(', ')">
-                              {{ player.mostPickedUmas.map(u => u.name).join(', ') }}
+                            <div class="font-bold text-white break-words text-sm" :title="player.mostPickedUmas.map((u: any) => u.name).join(', ')">
+                              {{ player.mostPickedUmas.map((u: any) => u.name).join(', ') }}
                             </div>
                             <div class="flex items-end gap-3 mt-1">
                               <div class="text-2xl font-black text-purple-400">
@@ -1065,7 +1065,7 @@ const getRankIcon = (index: number) => {
                               </div>
                             </div>
                             <div class="text-xs text-slate-400 mt-2 break-words">
-                              Avg. Placement: <span class="font-bold text-white">{{ player.mostPickedUmas.map(u => u.avgPosition).join(' / ') }}</span>
+                              Avg. Placement: <span class="font-bold text-white">{{ player.mostPickedUmas.map((u: any) => u.avgPosition).join(' / ') }}</span>
                             </div>
                           </div>
                           <div v-else class="text-slate-500 text-sm italic">No data yet</div>
@@ -1076,8 +1076,8 @@ const getRankIcon = (index: number) => {
                             <i class="ph-fill ph-medal text-emerald-400"></i> Best Performing Uma
                           </div>
                           <div v-if="player.mostWinningUmas.length > 0">
-                            <div class="font-bold text-white truncate text-sm" :title="player.mostWinningUmas.map(u => u.name).join(', ')">
-                              {{ player.mostWinningUmas.map(u => u.name).join(', ') }}
+                            <div class="font-bold text-white truncate text-sm" :title="player.mostWinningUmas.map((u: any) => u.name).join(', ')">
+                              {{ player.mostWinningUmas.map((u: any) => u.name).join(', ') }}
                             </div>
                             <div class="flex items-end gap-3 mt-1">
                               <div class="text-2xl font-black text-emerald-400">
@@ -1085,7 +1085,7 @@ const getRankIcon = (index: number) => {
                               </div>
                             </div>
                             <div class="text-xs text-slate-400 mt-2 truncate">
-                              Win Rate: <span class="font-bold text-white">{{ player.mostWinningUmas.map(u => u.winRate + '%').join(' / ') }}</span>
+                              Win Rate: <span class="font-bold text-white">{{ player.mostWinningUmas.map((u: any) => u.winRate + '%').join(' / ') }}</span>
                             </div>
                           </div>
                           <div v-else class="text-slate-500 text-sm italic">No wins recorded yet</div>
