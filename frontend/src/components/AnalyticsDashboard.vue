@@ -986,13 +986,15 @@ const umaTierList = computed(() => {
 const CACHE_KEY = 'analytics';
 
 let fetchCount = 0;
+let readOps = 0;
 
-async function fetchOrCache<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+async function fetchOrCache<T extends any[]>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const cached = getCached<T>(`${CACHE_KEY}:${key}`);
   if (cached) return cached;
 
   fetchCount++;
   const data = await fetcher();
+  readOps += Math.max(data.length, 1); // min 1 read per query even if empty
   setCache(`${CACHE_KEY}:${key}`, data);
   return data;
 }
@@ -1007,12 +1009,13 @@ const forceRefreshAnalytics = async () => {
   await loadData();
 };
 
-async function trackUsage(fetches: number) {
+async function trackUsage(fetches: number, reads: number) {
   try {
     const uid = auth.currentUser?.uid || 'anonymous';
     const usageRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'usage', uid);
     await setDoc(usageRef, {
       requestCount: increment(fetches),
+      readOps: increment(reads),
       lastAccess: new Date().toISOString(),
     }, { merge: true });
   } catch {
@@ -1023,6 +1026,7 @@ async function trackUsage(fetches: number) {
 async function loadData() {
   loading.value = true;
   fetchCount = 0;
+  readOps = 0;
 
   try {
     const col = (name: string) => collection(db, 'artifacts', APP_ID, 'public', 'data', name);
@@ -1058,7 +1062,7 @@ async function loadData() {
     tournaments.value = t;
 
     // Track usage if any actual Firestore fetches were made
-    if (fetchCount > 0) trackUsage(fetchCount);
+    if (fetchCount > 0) trackUsage(fetchCount, readOps);
 
   } catch (e) {
     console.error('Failed to fetch analytics data:', e);
