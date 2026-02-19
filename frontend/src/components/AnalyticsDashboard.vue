@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {ref, computed, onMounted, inject, type Ref} from 'vue';
-import { collection, query, getDocs, orderBy } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, query, getDocs, orderBy, doc, setDoc, increment } from 'firebase/firestore';
+import { db, auth } from '../firebase';
 import type {GlobalPlayer, TournamentParticipation, RaceDocument, Tournament, Season} from '../types';
 import {compareTeams} from "../utils/utils.ts";
 import {POINTS_SYSTEM} from "../utils/constants.ts";
@@ -985,10 +985,13 @@ const umaTierList = computed(() => {
 // Fetch all data (with 2-hour sessionStorage cache)
 const CACHE_KEY = 'analytics';
 
+let fetchCount = 0;
+
 async function fetchOrCache<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const cached = getCached<T>(`${CACHE_KEY}:${key}`);
   if (cached) return cached;
 
+  fetchCount++;
   const data = await fetcher();
   setCache(`${CACHE_KEY}:${key}`, data);
   return data;
@@ -1004,8 +1007,22 @@ const forceRefreshAnalytics = async () => {
   await loadData();
 };
 
+async function trackUsage(fetches: number) {
+  try {
+    const uid = auth.currentUser?.uid || 'anonymous';
+    const usageRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'usage', uid);
+    await setDoc(usageRef, {
+      requestCount: increment(fetches),
+      lastAccess: new Date().toISOString(),
+    }, { merge: true });
+  } catch {
+    // Usage tracking is best-effort — don't break the dashboard
+  }
+}
+
 async function loadData() {
   loading.value = true;
+  fetchCount = 0;
 
   try {
     const col = (name: string) => collection(db, 'artifacts', APP_ID, 'public', 'data', name);
@@ -1039,6 +1056,9 @@ async function loadData() {
     participations.value = part;
     races.value = r;
     tournaments.value = t;
+
+    // Track usage if any actual Firestore fetches were made
+    if (fetchCount > 0) trackUsage(fetchCount);
 
   } catch (e) {
     console.error('Failed to fetch analytics data:', e);
