@@ -76,7 +76,8 @@ service cloud.firestore {
 
       // 8. USAGE (analytics tracking)
       match /usage/{userId} {
-        allow read: if isSuperAdmin();
+        // analyticsMetadata: any auth user can read, only superadmin writes (via script)
+        allow read: if isSuperAdmin() || (request.auth != null && userId == 'analyticsMetadata');
         allow create, update: if request.auth != null && request.auth.uid == userId;
       }
     }

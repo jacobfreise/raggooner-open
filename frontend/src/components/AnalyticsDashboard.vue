@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import {ref, computed, onMounted, inject, type Ref} from 'vue';
-import { collection, query, getDocs, orderBy, doc, setDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, setDoc as firestoreSetDoc, increment } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import type {GlobalPlayer, TournamentParticipation, RaceDocument, Tournament, Season} from '../types';
-import {compareTeams} from "../utils/utils.ts";
-import {POINTS_SYSTEM} from "../utils/constants.ts";
 import {getCached, setCache} from "../utils/cache.ts";
 
 // Inject Changelog functions from App.vue
@@ -16,18 +13,15 @@ const APP_ID = 'default-app';
 const loading = ref(true);
 const activeTab = ref<'overview' | 'players' | 'umas' | 'tierlist' | 'tournaments'>('overview');
 
-// Data
-const players = ref<GlobalPlayer[]>([]);
-const participations = ref<TournamentParticipation[]>([]);
-const races = ref<RaceDocument[]>([]);
-const tournaments = ref<Tournament[]>([]);
+// Pre-aggregated analytics JSON blob
+const analyticsData = ref<any>(null);
 
 // Filters
 const searchQuery = ref('');
 const umaSearchQuery = ref('');
 const minTournaments = ref(1);
 
-const seasons = ref<Season[]>([]);
+const seasons = ref<any[]>([]);
 const selectedSeasons = ref<string[]>(['season-2']);
 
 const expandedPlayerId = ref<string | null>(null);
@@ -97,55 +91,233 @@ const toggleUmaTournamentSort = (key: string) => {
   }
 };
 
+// --- Helpers for rounding (matches generation script) ---
+function round1(v: number) { return Math.round(v * 10) / 10; }
+function pct1(num: number, den: number) { return den > 0 ? round1((num / den) * 100) : 0; }
+
+// --- Season key resolution ---
+// Empty selectedSeasons = "All Time" = '_all'
+// Single season = direct lookup
+// Multiple seasons = merge from individual season keys
+const seasonKeys = computed<string[]>(() => {
+  if (selectedSeasons.value.length === 0) return ['_all'];
+  return selectedSeasons.value;
+});
+
+const isSingleKey = computed(() => seasonKeys.value.length === 1);
+
+// --- Merge helpers for multi-season ---
+
+function mergePlayerStatsArrays(data: any, keys: string[]): any[] {
+  if (keys.length === 1) return data.playerStats[keys[0]!] || [];
+
+  const merged = new Map<string, any>();
+  for (const key of keys) {
+    for (const ps of (data.playerStats[key] || [])) {
+      if (!merged.has(ps.playerId)) {
+        merged.set(ps.playerId, {
+          ...ps,
+          tournamentDetails: [...ps.tournamentDetails],
+          umaDetails: [...ps.umaDetails],
+        });
+      } else {
+        const m = merged.get(ps.playerId)!;
+        m.tournaments += ps.tournaments;
+        m.completedTournaments += ps.completedTournaments;
+        m.tournamentWins += ps.tournamentWins;
+        m.races += ps.races;
+        m.wins += ps.wins;
+        m.totalPoints += ps.totalPoints;
+        m.opponentsFaced += ps.opponentsFaced;
+        m.opponentsBeaten += ps.opponentsBeaten;
+        m.tournamentDetails.push(...ps.tournamentDetails);
+        m.umaDetails.push(...ps.umaDetails);
+      }
+    }
+  }
+
+  // Recompute derived fields and re-aggregate uma details
+  for (const [, m] of merged) {
+    m.avgPoints = m.races > 0 ? round1(m.totalPoints / m.races) : 0;
+    m.dominance = pct1(m.opponentsBeaten, m.opponentsFaced);
+    m.winRate = pct1(m.wins, m.races);
+    m.tournamentWinRate = pct1(m.tournamentWins, m.completedTournaments);
+
+    // Re-aggregate umaDetails by name
+    const umaMap = new Map<string, any>();
+    for (const u of m.umaDetails) {
+      if (!umaMap.has(u.name)) {
+        umaMap.set(u.name, { ...u });
+      } else {
+        const ex = umaMap.get(u.name)!;
+        ex.picks += u.picks;
+        ex.racesPlayed += u.racesPlayed;
+        ex.wins += u.wins;
+        ex.totalPoints += u.totalPoints;
+        ex.totalPosition += u.totalPosition;
+        ex.opponentsFaced += u.opponentsFaced;
+        ex.opponentsBeaten += u.opponentsBeaten;
+      }
+    }
+    // Recompute derived uma fields
+    for (const [, u] of umaMap) {
+      u.winRate = pct1(u.wins, u.racesPlayed);
+      u.avgPoints = u.racesPlayed > 0 ? round1(u.totalPoints / u.racesPlayed) : 0;
+      u.avgPosition = u.racesPlayed > 0 ? round1(u.totalPosition / u.racesPlayed) : 0;
+      u.dominance = pct1(u.opponentsBeaten, u.opponentsFaced);
+    }
+    m.umaDetails = Array.from(umaMap.values());
+
+    // Recompute bestTournament from merged tournamentDetails
+    if (m.tournamentDetails.length > 0) {
+      m.bestTournament = [...m.tournamentDetails].sort((a: any, b: any) => b.totalPoints - a.totalPoints)[0];
+      m.bestTournament = { tId: m.bestTournament.tournamentId, tName: m.bestTournament.tournamentName, points: m.bestTournament.totalPoints };
+    }
+
+    // Recompute mostPickedUmas / mostWinningUmas from merged umaDetails
+    let maxPicks = 0, maxWins = 0;
+    m.mostPickedUmas = [];
+    m.mostWinningUmas = [];
+    for (const u of m.umaDetails) {
+      if (u.picks > maxPicks) {
+        maxPicks = u.picks;
+        m.mostPickedUmas = [{ name: u.name, count: u.picks, wins: u.wins, avgPosition: u.avgPosition }];
+      } else if (u.picks === maxPicks && u.picks > 0) {
+        m.mostPickedUmas.push({ name: u.name, count: u.picks, wins: u.wins, avgPosition: u.avgPosition });
+      }
+      if (u.wins > maxWins) {
+        maxWins = u.wins;
+        m.mostWinningUmas = [{ name: u.name, count: u.racesPlayed, wins: u.wins, winRate: u.winRate }];
+      } else if (u.wins === maxWins && u.wins > 0) {
+        m.mostWinningUmas.push({ name: u.name, count: u.racesPlayed, wins: u.wins, winRate: u.winRate });
+      }
+    }
+  }
+
+  return Array.from(merged.values());
+}
+
+function mergeUmaStatsArrays(data: any, keys: string[]): any[] {
+  if (keys.length === 1) return data.umaStats[keys[0]!] || [];
+
+  const merged = new Map<string, any>();
+  for (const key of keys) {
+    for (const us of (data.umaStats[key] || [])) {
+      if (!merged.has(us.name)) {
+        merged.set(us.name, {
+          ...us,
+          tournamentAppearances: [...us.tournamentAppearances],
+          playerAggregates: [...us.playerAggregates],
+        });
+      } else {
+        const m = merged.get(us.name)!;
+        m.timesPlayed += us.timesPlayed;
+        m.picks += us.picks;
+        m.wins += us.wins;
+        m.bans += us.bans;
+        m.totalPoints += us.totalPoints;
+        m.totalPosition += us.totalPosition;
+        m.opponentsFaced += us.opponentsFaced;
+        m.opponentsBeaten += us.opponentsBeaten;
+        m.tournamentsPicked += us.tournamentsPicked;
+        m.tournamentCount += us.tournamentCount;
+        m.totalPicks += us.totalPicks;
+        m.tournamentAppearances.push(...us.tournamentAppearances);
+        m.playerAggregates.push(...us.playerAggregates);
+      }
+    }
+  }
+
+  // Recompute derived fields and re-aggregate playerAggregates
+  const totalTournaments = keys.reduce((sum, k) => sum + (data.overview[k]?.totalTournaments || 0), 0);
+  let totalOverallPicks = 0;
+  for (const [, m] of merged) totalOverallPicks += m.picks;
+
+  for (const [, m] of merged) {
+    m.winRate = pct1(m.wins, m.timesPlayed);
+    m.avgPoints = m.timesPlayed > 0 ? round1(m.totalPoints / m.timesPlayed) : 0;
+    m.avgPosition = m.timesPlayed > 0 ? round1(m.totalPosition / m.timesPlayed) : 0;
+    m.dominance = pct1(m.opponentsBeaten, m.opponentsFaced);
+    m.banRate = pct1(m.bans, totalTournaments);
+    m.pickRate = pct1(m.picks, totalOverallPicks);
+    m.presence = pct1(m.tournamentCount, totalTournaments);
+    m.totalPicks = totalOverallPicks;
+
+    // Re-aggregate playerAggregates by playerId
+    const playerMap = new Map<string, any>();
+    for (const pa of m.playerAggregates) {
+      if (!playerMap.has(pa.playerId)) {
+        playerMap.set(pa.playerId, { ...pa });
+      } else {
+        const ex = playerMap.get(pa.playerId)!;
+        ex.tournaments += pa.tournaments;
+        ex.racesPlayed += pa.racesPlayed;
+        ex.wins += pa.wins;
+        ex.totalPoints += pa.totalPoints;
+        ex.totalPosition += pa.totalPosition;
+        ex.opponentsFaced += pa.opponentsFaced;
+        ex.opponentsBeaten += pa.opponentsBeaten;
+      }
+    }
+    for (const [, pa] of playerMap) {
+      pa.winRate = pct1(pa.wins, pa.racesPlayed);
+      pa.avgPoints = pa.racesPlayed > 0 ? round1(pa.totalPoints / pa.racesPlayed) : 0;
+      pa.avgPosition = pa.racesPlayed > 0 ? round1(pa.totalPosition / pa.racesPlayed) : 0;
+      pa.dominance = pct1(pa.opponentsBeaten, pa.opponentsFaced);
+    }
+    m.playerAggregates = Array.from(playerMap.values());
+  }
+
+  return Array.from(merged.values());
+}
+
+function mergeOverview(data: any, keys: string[], playerCount: number): any {
+  if (keys.length === 1) return data.overview[keys[0]!] || {};
+  const result = { totalPlayers: 0, totalTournaments: 0, totalRaces: 0, totalParticipations: 0, avgPlayersPerTournament: 0, avgRacesPerTournament: 0 };
+
+  for (const key of keys) {
+    const o = data.overview[key];
+    if (!o) continue;
+    result.totalTournaments += o.totalTournaments;
+    result.totalRaces += o.totalRaces;
+    result.totalParticipations += o.totalParticipations;
+  }
+
+  result.totalPlayers = playerCount;
+
+  result.avgPlayersPerTournament = result.totalTournaments > 0
+    ? round1(result.totalParticipations / result.totalTournaments) : 0;
+  result.avgRacesPerTournament = result.totalTournaments > 0
+    ? round1(result.totalRaces / result.totalTournaments) : 0;
+
+  return result;
+}
+
+// --- Computed: current stats from pre-aggregated data ---
+
+const currentPlayerStatsRaw = computed(() => {
+  if (!analyticsData.value) return [];
+  return mergePlayerStatsArrays(analyticsData.value, seasonKeys.value);
+});
+
+const currentUmaStatsRaw = computed(() => {
+  if (!analyticsData.value) return [];
+  return mergeUmaStatsArrays(analyticsData.value, seasonKeys.value);
+});
+
+// --- Drilldowns from pre-aggregated data ---
+
 const expandedPlayerUmas = computed(() => {
   if (!expandedPlayerId.value) return [];
   const player = playerRankings.value.find(p => p.player.id === expandedPlayerId.value);
   if (!player) return [];
 
-  const umaRows = Array.from(player.umas.entries()).map(([name, data]) => {
-    return {
-      name,
-      picks: data.tournamentIds.size,
-      racesPlayed: data.racesPlayed,
-      wins: data.wins,
-      winRate: data.racesPlayed > 0 ? Math.round((data.wins / data.racesPlayed) * 100 * 10) / 10 : 0,
-      avgPoints: data.racesPlayed > 0 ? Math.round((data.totalPoints / data.racesPlayed) * 10) / 10 : 0,
-      avgPosition: data.racesPlayed > 0 ? Math.round((data.totalPosition / data.racesPlayed) * 10) / 10 : 0,
-      opponentsFaced: 0,
-      opponentsBeaten: 0,
-      dominance: 0,
-    };
-  });
-
-  // Calculate per-uma dominance from race data
-  filteredRaces.value.forEach(race => {
-    const playersInRace = Object.keys(race.placements).length;
-    if (playersInRace <= 1) return;
-
-    const playerId = expandedPlayerId.value!;
-    const position = race.placements[playerId];
-    if (position === undefined) return;
-
-    const umaName = race.umaMapping?.[playerId];
-    if (!umaName) return;
-
-    const row = umaRows.find(r => r.name === umaName);
-    if (row) {
-      row.opponentsFaced += (playersInRace - 1);
-      row.opponentsBeaten += (playersInRace - position);
-    }
-  });
-
-  umaRows.forEach(row => {
-    row.dominance = row.opponentsFaced > 0
-      ? Math.round((row.opponentsBeaten / row.opponentsFaced) * 100 * 10) / 10
-      : 0;
-  });
+  const umaRows = [...(player.umaDetails || [])];
 
   // Sort
-  umaRows.sort((a, b) => {
-    let valA: any = playerUmaSortKey.value === 'name' ? a.name.toLowerCase() : (a as any)[playerUmaSortKey.value];
-    let valB: any = playerUmaSortKey.value === 'name' ? b.name.toLowerCase() : (b as any)[playerUmaSortKey.value];
+  umaRows.sort((a: any, b: any) => {
+    let valA: any = playerUmaSortKey.value === 'name' ? a.name.toLowerCase() : a[playerUmaSortKey.value];
+    let valB: any = playerUmaSortKey.value === 'name' ? b.name.toLowerCase() : b[playerUmaSortKey.value];
     const modifier = playerUmaSortDesc.value ? -1 : 1;
     if (valA < valB) return -1 * modifier;
     if (valA > valB) return 1 * modifier;
@@ -166,95 +338,15 @@ const togglePlayerTournamentSort = (key: string) => {
 
 const expandedPlayerTournaments = computed(() => {
   if (!expandedPlayerId.value) return [];
-  const playerId = expandedPlayerId.value;
+  const player = playerRankings.value.find(p => p.player.id === expandedPlayerId.value);
+  if (!player) return [];
 
-  // Get this player's participations
-  const playerParts = filteredParticipations.value.filter(p => p.playerId === playerId);
-  if (playerParts.length === 0) return [];
-
-  const rows = playerParts.map(part => {
-    const t = tournaments.value.find(tourney => tourney.id === part.tournamentId);
-    const tName = t?.name || part.tournamentId;
-    const tStatus = t?.status || 'unknown';
-
-    // Count races, wins, dominance for this player in this tournament
-    const tournamentRaces = filteredRaces.value.filter(r => r.tournamentId === part.tournamentId);
-    let races = 0;
-    let wins = 0;
-    let opponentsFaced = 0;
-    let opponentsBeaten = 0;
-    let totalPosition = 0;
-    let totalPoints = 0;
-
-    const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
-
-    tournamentRaces.forEach(race => {
-      const position = race.placements[playerId];
-      if (position === undefined) return;
-      const playersInRace = Object.keys(race.placements).length;
-      if (playersInRace <= 1) return;
-
-      races++;
-      totalPosition += position;
-      totalPoints += pointSystem[position] || 0;
-      if (position === 1) wins++;
-      opponentsFaced += (playersInRace - 1);
-      opponentsBeaten += (playersInRace - position);
-    });
-
-    // Determine finals status using tournament teams data
-    const teams = t?.teams || [];
-    const playerTeam = teams.find(tm =>
-      (part.teamId && tm.id === part.teamId) ||
-      tm.captainId === playerId ||
-      tm.memberIds.includes(playerId)
-    );
-    const uniqueGroups = new Set(teams.map(tm => tm.group));
-    const hasGroups = uniqueGroups.size > 1;
-    // Determine the winning team (best finalsPoints among inFinals teams)
-    const finalistTeams = teams.filter(tm => tm.inFinals);
-    const winningTeam = finalistTeams.length > 0 && t
-      ? [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true))[0]
-      : null;
-
-    // Check if player was a wildcard
-    const wildcards = t?.wildcards || [];
-    const playerWildcards = wildcards.filter(wc => wc.playerId === playerId);
-    const isWildcard = playerWildcards.length > 0;
-    const wildcardGroups = playerWildcards.map(wc => wc.group);
-
-    let finalsStatus: 'winner' | 'no-groups' | 'finals' | 'eliminated' | '-' = '-';
-    if (teams.length === 0 && tStatus === 'active') {
-      finalsStatus = '-';
-    } else if (playerTeam) {
-      if (winningTeam && playerTeam.id === winningTeam.id && tStatus === 'completed') finalsStatus = 'winner';
-      else if (!hasGroups) finalsStatus = 'no-groups';
-      else if (playerTeam.inFinals) finalsStatus = 'finals';
-      else if (hasGroups) finalsStatus = 'eliminated';
-    }
-
-    return {
-      tournamentId: part.tournamentId,
-      tournamentName: tName,
-      status: tStatus,
-      uma: part.uma || '-',
-      isWildcard,
-      wildcardGroups,
-      finalsStatus,
-      races,
-      wins,
-      winRate: races > 0 ? Math.round((wins / races) * 100 * 10) / 10 : 0,
-      totalPoints,
-      avgPoints: races > 0 ? Math.round((totalPoints / races) * 10) / 10 : 0,
-      dominance: opponentsFaced > 0 ? Math.round((opponentsBeaten / opponentsFaced) * 100 * 10) / 10 : 0,
-      avgPosition: races > 0 ? Math.round((totalPosition / races) * 10) / 10 : 0,
-    };
-  });
+  const rows = [...(player.tournamentDetails || [])];
 
   // Sort
-  rows.sort((a, b) => {
-    let valA: any = playerTournamentSortKey.value === 'tournamentName' ? a.tournamentName.toLowerCase() : (a as any)[playerTournamentSortKey.value];
-    let valB: any = playerTournamentSortKey.value === 'tournamentName' ? b.tournamentName.toLowerCase() : (b as any)[playerTournamentSortKey.value];
+  rows.sort((a: any, b: any) => {
+    let valA: any = playerTournamentSortKey.value === 'tournamentName' ? a.tournamentName.toLowerCase() : a[playerTournamentSortKey.value];
+    let valB: any = playerTournamentSortKey.value === 'tournamentName' ? b.tournamentName.toLowerCase() : b[playerTournamentSortKey.value];
     const modifier = playerTournamentSortDesc.value ? -1 : 1;
     if (valA < valB) return -1 * modifier;
     if (valA > valB) return 1 * modifier;
@@ -267,55 +359,15 @@ const expandedPlayerTournaments = computed(() => {
 // --- UMA DRILLDOWN: Tournament appearances ---
 const expandedUmaTournaments = computed(() => {
   if (!expandedUmaName.value) return [];
-  const umaName = expandedUmaName.value;
+  const uma = umaStats.value.find(u => u.name === expandedUmaName.value);
+  if (!uma) return [];
 
-  // Find all participations where this uma was picked
-  const umaParts = filteredParticipations.value.filter(p => p.uma === umaName);
-  if (umaParts.length === 0) return [];
+  const rows = [...(uma.tournamentAppearances || [])];
 
-  const rows = umaParts.map(part => {
-    const t = tournaments.value.find(tourney => tourney.id === part.tournamentId);
-    const tName = t?.name || part.tournamentId;
-    const player = players.value.find(p => p.id === part.playerId);
-    const playerName = player?.name || part.playerId;
-
-    // Race stats for this player in this tournament
-    const tournamentRaces = filteredRaces.value.filter(r => r.tournamentId === part.tournamentId);
-    let races = 0, wins = 0, opponentsFaced = 0, opponentsBeaten = 0, totalPosition = 0, totalPoints = 0;
-    const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
-
-    tournamentRaces.forEach(race => {
-      const position = race.placements[part.playerId];
-      if (position === undefined) return;
-      const playersInRace = Object.keys(race.placements).length;
-      if (playersInRace <= 1) return;
-      races++;
-      totalPosition += position;
-      totalPoints += pointSystem[position] || 0;
-      if (position === 1) wins++;
-      opponentsFaced += (playersInRace - 1);
-      opponentsBeaten += (playersInRace - position);
-    });
-
-    return {
-      tournamentId: part.tournamentId,
-      tournamentName: tName,
-      playerId: part.playerId,
-      playerName,
-      races,
-      wins,
-      winRate: races > 0 ? Math.round((wins / races) * 100 * 10) / 10 : 0,
-      totalPoints,
-      avgPoints: races > 0 ? Math.round((totalPoints / races) * 10) / 10 : 0,
-      dominance: opponentsFaced > 0 ? Math.round((opponentsBeaten / opponentsFaced) * 100 * 10) / 10 : 0,
-      avgPosition: races > 0 ? Math.round((totalPosition / races) * 10) / 10 : 0,
-    };
-  });
-
-  rows.sort((a, b) => {
+  rows.sort((a: any, b: any) => {
     const key = umaTournamentSortKey.value;
-    let valA: any = key === 'tournamentName' ? a.tournamentName.toLowerCase() : key === 'playerName' ? a.playerName.toLowerCase() : (a as any)[key];
-    let valB: any = key === 'tournamentName' ? b.tournamentName.toLowerCase() : key === 'playerName' ? b.playerName.toLowerCase() : (b as any)[key];
+    let valA: any = key === 'tournamentName' ? a.tournamentName.toLowerCase() : key === 'playerName' ? a.playerName.toLowerCase() : a[key];
+    let valB: any = key === 'tournamentName' ? b.tournamentName.toLowerCase() : key === 'playerName' ? b.playerName.toLowerCase() : b[key];
     const modifier = umaTournamentSortDesc.value ? -1 : 1;
     if (valA < valB) return -1 * modifier;
     if (valA > valB) return 1 * modifier;
@@ -328,59 +380,15 @@ const expandedUmaTournaments = computed(() => {
 // --- UMA DRILLDOWN: Per-player stats ---
 const expandedUmaPlayers = computed(() => {
   if (!expandedUmaName.value) return [];
-  const umaName = expandedUmaName.value;
+  const uma = umaStats.value.find(u => u.name === expandedUmaName.value);
+  if (!uma) return [];
 
-  const umaParts = filteredParticipations.value.filter(p => p.uma === umaName);
-  if (umaParts.length === 0) return [];
+  const rows = [...(uma.playerAggregates || [])];
 
-  // Group by player
-  const playerMap = new Map<string, { playerId: string; playerName: string; tournaments: number; races: number; wins: number; opponentsFaced: number; opponentsBeaten: number; totalPosition: number; totalPoints: number }>();
-
-  for (const part of umaParts) {
-    const player = players.value.find(p => p.id === part.playerId);
-    const playerName = player?.name || part.playerId;
-
-    if (!playerMap.has(part.playerId)) {
-      playerMap.set(part.playerId, { playerId: part.playerId, playerName, tournaments: 0, races: 0, wins: 0, opponentsFaced: 0, opponentsBeaten: 0, totalPosition: 0, totalPoints: 0 });
-    }
-    const entry = playerMap.get(part.playerId)!;
-    entry.tournaments++;
-
-    const t = tournaments.value.find(tourney => tourney.id === part.tournamentId);
-    const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
-    const tournamentRaces = filteredRaces.value.filter(r => r.tournamentId === part.tournamentId);
-
-    tournamentRaces.forEach(race => {
-      const position = race.placements[part.playerId];
-      if (position === undefined) return;
-      const playersInRace = Object.keys(race.placements).length;
-      if (playersInRace <= 1) return;
-      entry.races++;
-      entry.totalPosition += position;
-      entry.totalPoints += (pointSystem[position] || 0);
-      if (position === 1) entry.wins++;
-      entry.opponentsFaced += (playersInRace - 1);
-      entry.opponentsBeaten += (playersInRace - position);
-    });
-  }
-
-  const rows = Array.from(playerMap.values()).map(e => ({
-    playerId: e.playerId,
-    playerName: e.playerName,
-    tournaments: e.tournaments,
-    racesPlayed: e.races,
-    wins: e.wins,
-    winRate: e.races > 0 ? Math.round((e.wins / e.races) * 100 * 10) / 10 : 0,
-    totalPoints: e.totalPoints,
-    avgPoints: e.races > 0 ? Math.round((e.totalPoints / e.races) * 10) / 10 : 0,
-    dominance: e.opponentsFaced > 0 ? Math.round((e.opponentsBeaten / e.opponentsFaced) * 100 * 10) / 10 : 0,
-    avgPosition: e.races > 0 ? Math.round((e.totalPosition / e.races) * 10) / 10 : 0,
-  }));
-
-  rows.sort((a, b) => {
+  rows.sort((a: any, b: any) => {
     const key = umaPlayerSortKey.value;
-    let valA: any = key === 'playerName' ? a.playerName.toLowerCase() : (a as any)[key];
-    let valB: any = key === 'playerName' ? b.playerName.toLowerCase() : (b as any)[key];
+    let valA: any = key === 'playerName' ? a.playerName.toLowerCase() : a[key];
+    let valB: any = key === 'playerName' ? b.playerName.toLowerCase() : b[key];
     const modifier = umaPlayerSortDesc.value ? -1 : 1;
     if (valA < valB) return -1 * modifier;
     if (valA > valB) return 1 * modifier;
@@ -406,31 +414,17 @@ const playerSortDesc = ref(true);
 const umaSortKey = ref('dominance');
 const umaSortDesc = ref(true);
 
-// --- FILTERED DATA PIPELINES ---
-// These ensure all downstream stats only look at the selected seasons!
-const filteredTournaments = computed(() => {
-  if (selectedSeasons.value.length === 0) return tournaments.value; // Empty = All Time
-  return tournaments.value.filter(t => t.seasonId && selectedSeasons.value.includes(t.seasonId));
-});
-
-const validTournamentIds = computed(() => {
-  return new Set(filteredTournaments.value.map(t => t.id));
-});
-
-const filteredParticipations = computed(() => {
-  return participations.value.filter(p => validTournamentIds.value.has(p.tournamentId));
-});
-
-const filteredRaces = computed(() => {
-  return races.value.filter(r => r.tournamentId && validTournamentIds.value.has(r.tournamentId));
-});
+// Template uses filteredTournaments.length for display
+const filteredTournaments = computed(() => ({
+  length: overviewStats.value.totalTournaments,
+}));
 
 const togglePlayerSort = (key: string) => {
   if (playerSortKey.value === key) {
-    playerSortDesc.value = !playerSortDesc.value; // Toggle direction
+    playerSortDesc.value = !playerSortDesc.value;
   } else {
     playerSortKey.value = key;
-    playerSortDesc.value = true; // New columns default to Descending
+    playerSortDesc.value = true;
   }
 };
 
@@ -445,446 +439,48 @@ const toggleUmaSort = (key: string) => {
 
 // Overview Stats
 const overviewStats = computed(() => {
-  const uniquePlayerIds = new Set(filteredParticipations.value.map(p => p.playerId));
-  return {
-    totalPlayers: uniquePlayerIds.size,
-    totalTournaments: filteredTournaments.value.length,
-    totalRaces: filteredRaces.value.length,
-    totalParticipations: filteredParticipations.value.length,
-    avgPlayersPerTournament: filteredTournaments.value.length > 0
-        ? Math.round(filteredParticipations.value.length / filteredTournaments.value.length * 10) / 10
-        : 0,
-    avgRacesPerTournament: filteredTournaments.value.length > 0
-        ? Math.round(filteredRaces.value.length / filteredTournaments.value.length * 10) / 10
-        : 0
-  };
+  if (!analyticsData.value) return { totalPlayers: 0, totalTournaments: 0, totalRaces: 0, totalParticipations: 0, avgPlayersPerTournament: 0, avgRacesPerTournament: 0 };
+  if (isSingleKey.value) return analyticsData.value.overview[seasonKeys.value[0]!] || { totalPlayers: 0, totalTournaments: 0, totalRaces: 0, totalParticipations: 0, avgPlayersPerTournament: 0, avgRacesPerTournament: 0 };
+  return mergeOverview(analyticsData.value, seasonKeys.value, currentPlayerStatsRaw.value.length);
 });
 
-// Player Rankings
+// Player Rankings — wraps pre-aggregated data with `.player` object for template compatibility
 const playerRankings = computed(() => {
-  const playerStats = new Map<string, {
-    player: GlobalPlayer;
-    tournaments: number;
-    completedTournaments: number;
-    tournamentWins: number;
-    tournamentWinRate: number;
-    races: number;
-    totalPoints: number;
-    avgPoints: number;
-    wins: number;
-    opponentsFaced: number;
-    opponentsBeaten: number;
-    dominance: number;
-    winRate: number;
-    // --- NEW: Detailed Tracking ---
-    tournamentsRecord: { tId: string, tName: string, points: number }[];
-    umas: Map<string, {
-      tournamentIds: Set<string>, // Tracks unique tournaments
-      racesPlayed: number,        // Tracks total races for math
-      wins: number,
-      totalPosition: number,
-      totalPoints: number
-    }>;
-    bestTournament: { tId: string, tName: string, points: number } | null;
-    mostPickedUmas: { name: string, count: number, wins: number, avgPosition: number }[];
-    mostWinningUmas: { name: string, count: number, wins: number, winRate: number }[];
-  }>();
+  if (!analyticsData.value) return [];
+  const players = analyticsData.value.players || {};
 
-  // 1. Build stats from participations
-  filteredParticipations.value.forEach(p => {
-    const player = players.value.find(pl => pl.id === p.playerId);
-    if (!player) return;
+  return currentPlayerStatsRaw.value
+    .filter((p: any) => p.tournaments >= minTournaments.value)
+    .map((p: any) => ({
+      ...p,
+      player: players[p.playerId] || { id: p.playerId, name: p.playerId },
+    }))
+    .sort((a: any, b: any) => {
+      let valA: any = playerSortKey.value === 'name' ? a.player.name.toLowerCase() : a[playerSortKey.value];
+      let valB: any = playerSortKey.value === 'name' ? b.player.name.toLowerCase() : b[playerSortKey.value];
 
-    if (!playerStats.has(p.playerId)) {
-      playerStats.set(p.playerId, {
-        player,
-        tournaments: 0,
-        completedTournaments: 0,
-        tournamentWins: 0,
-        tournamentWinRate: 0,
-        races: 0,
-        totalPoints: 0,
-        avgPoints: 0,
-        wins: 0,
-        opponentsFaced: 0,
-        opponentsBeaten: 0,
-        dominance: 0,
-        winRate: 0,
-        tournamentsRecord: [],
-        umas: new Map(),
-        bestTournament: null,
-        mostPickedUmas: [],
-        mostWinningUmas: []
-      });
-    }
-
-    const stats = playerStats.get(p.playerId)!;
-    stats.tournaments++;
-    stats.totalPoints += p.totalPoints || 0;
-
-    const t = tournaments.value.find(tourney => tourney.id === p.tournamentId);
-    if (t) {
-      if (t.status === 'completed') stats.completedTournaments++;
-      // Track tournament performance
-      stats.tournamentsRecord.push({
-        tId: t.id,
-        tName: t.name,
-        points: p.totalPoints || 0
-      });
-    }
-  });
-
-  // 2. Count Tournament Wins
-  filteredTournaments.value.filter(t => t.status === 'completed').forEach(t => {
-    if (!t.teams || t.teams.length === 0) return;
-    const finalistTeams = t.teams.filter(team => team.inFinals);
-    if (finalistTeams.length === 0) return;
-
-    const sorted = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true));
-    const winningTeam = sorted[0];
-    if (!winningTeam) return;
-
-    filteredParticipations.value
-        .filter(p => p.tournamentId === t.id && p.teamId === winningTeam.id)
-        .forEach(p => {
-          const stats = playerStats.get(p.playerId);
-          if (stats) stats.tournamentWins++;
-        });
-  });
-
-  // 3. Count races, wins, dominance, and specific Uma usage
-  filteredRaces.value.forEach(race => {
-    const playersInRace = Object.keys(race.placements).length;
-    if (playersInRace <= 1) return;
-
-    Object.entries(race.placements).forEach(([playerId, position]) => {
-      const stats = playerStats.get(playerId);
-      if (stats) {
-        stats.races++;
-        if (position === 1) stats.wins++;
-        stats.opponentsFaced += (playersInRace - 1);
-        stats.opponentsBeaten += (playersInRace - position);
-
-        // Track Uma specific to this player
-        const umaName = race.umaMapping?.[playerId];
-        if (umaName) {
-          if (!stats.umas.has(umaName)) {
-            stats.umas.set(umaName, {
-              tournamentIds: new Set(),
-              racesPlayed: 0,
-              wins: 0,
-              totalPosition: 0,
-              totalPoints: 0
-            });
-          }
-          const umaStat = stats.umas.get(umaName)!;
-
-          // Add the tournament ID to the set (Sets automatically prevent duplicates)
-          if (race.tournamentId) {
-            umaStat.tournamentIds.add(race.tournamentId);
-          }
-
-          umaStat.racesPlayed++;
-          umaStat.totalPosition += position;
-          if (position === 1) umaStat.wins++;
-
-          // Track points using the tournament's point system
-          const t = tournaments.value.find(tourney => tourney.id === race.tournamentId);
-          const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
-          umaStat.totalPoints += pointSystem[position] || 0;
-        }
-      }
+      const modifier = playerSortDesc.value ? -1 : 1;
+      if (valA < valB) return -1 * modifier;
+      if (valA > valB) return 1 * modifier;
+      return 0;
     });
-  });
-
-  // 4. Calculate averages and find "Bests"
-  playerStats.forEach(stats => {
-    stats.avgPoints = stats.races > 0 ? Math.round(stats.totalPoints / stats.races * 10) / 10 : 0;
-    stats.dominance = stats.opponentsFaced > 0 ? Math.round((stats.opponentsBeaten / stats.opponentsFaced) * 100 * 10) / 10 : 0;
-    stats.winRate = stats.races > 0 ? Math.round((stats.wins / stats.races) * 100 * 10) / 10 : 0;
-    stats.tournamentWinRate = stats.completedTournaments > 0 ? Math.round((stats.tournamentWins / stats.completedTournaments) * 100 * 10) / 10 : 0;
-
-    // Calculate Best Tournament
-    if (stats.tournamentsRecord.length > 0) {
-      stats.bestTournament = [...stats.tournamentsRecord].sort((a, b) => b.points - a.points)[0] || null;
-    }
-
-    // Calculate Most Picked and Most Winning Umas
-    let maxTourneyPicks = 0;
-    let maxWins = 0;
-
-    stats.umas.forEach((val, key) => {
-      const tourneyCount = val.tournamentIds.size;
-
-      // --- MOST PICKED ---
-      if (tourneyCount > maxTourneyPicks) {
-        // New record: reset array
-        maxTourneyPicks = tourneyCount;
-        stats.mostPickedUmas = [{
-          name: key,
-          count: tourneyCount,
-          wins: val.wins,
-          avgPosition: val.racesPlayed > 0 ? Math.round((val.totalPosition / val.racesPlayed) * 10) / 10 : 0
-        }];
-      } else if (tourneyCount === maxTourneyPicks && tourneyCount > 0) {
-        // Tie: add to array
-        stats.mostPickedUmas.push({
-          name: key,
-          count: tourneyCount,
-          wins: val.wins,
-          avgPosition: val.racesPlayed > 0 ? Math.round((val.totalPosition / val.racesPlayed) * 10) / 10 : 0
-        });
-      }
-
-      // --- MOST WINNING ---
-      if (val.wins > maxWins) {
-        // New record: reset array
-        maxWins = val.wins;
-        stats.mostWinningUmas = [{
-          name: key,
-          count: val.racesPlayed,
-          wins: val.wins,
-          winRate: val.racesPlayed > 0 ? Math.round((val.wins / val.racesPlayed) * 100) : 0
-        }];
-      } else if (val.wins === maxWins && maxWins > 0) {
-        // Tie: add to array
-        stats.mostWinningUmas.push({
-          name: key,
-          count: val.racesPlayed,
-          wins: val.wins,
-          winRate: val.racesPlayed > 0 ? Math.round((val.wins / val.racesPlayed) * 100) : 0
-        });
-      }
-    });
-  });
-
-  // 5. Filter and Sort
-  return Array.from(playerStats.values())
-      .filter(p => p.tournaments >= minTournaments.value)
-      .sort((a, b) => {
-        let valA: any = playerSortKey.value === 'name' ? a.player.name.toLowerCase() : (a as any)[playerSortKey.value];
-        let valB: any = playerSortKey.value === 'name' ? b.player.name.toLowerCase() : (b as any)[playerSortKey.value];
-
-        const modifier = playerSortDesc.value ? -1 : 1;
-        if (valA < valB) return -1 * modifier;
-        if (valA > valB) return 1 * modifier;
-        return 0;
-      });
 });
 
-// Uma Stats
 // Uma Stats
 const umaStats = computed(() => {
-  const umaData = new Map<string, {
-    name: string;
-    timesPlayed: number;
-    picks: number;
-    wins: number;
-    bans: number;
-    totalPosition: number;
-    totalPoints: number;
-    avgPoints: number;
-    winRate: number;
-    tournamentWinRate: number;
-    banRate: number;
-    pickRate: number;
-    presence: number;
-    avgPosition: number;
-    opponentsFaced: number;
-    opponentsBeaten: number;
-    dominance: number;
-    tournamentIds: Set<string>;
-    presenceTournaments: Set<string>;
-    pickInstances: Set<string>;
-    teamInstances: Set<string>;
-    teamWins: number;
-    tournamentCount: number;
-    tournamentsPicked: number;
-    totalPicks: number;
-  }>();
+  if (!analyticsData.value) return [];
 
-  // Helper to initialize a clean Uma object
-  const initUma = (name: string) => ({
-    name,
-    timesPlayed: 0,
-    picks: 0,
-    wins: 0,
-    bans: 0,
-    totalPosition: 0,
-    totalPoints: 0,
-    avgPoints: 0,
-    winRate: 0,
-    tournamentWinRate: 0,
-    banRate: 0,
-    pickRate: 0,
-    presence: 0,
-    avgPosition: 0,
-    opponentsFaced: 0,
-    opponentsBeaten: 0,
-    dominance: 0,
-    tournamentIds: new Set<string>(),
-    presenceTournaments: new Set<string>(),
-    pickInstances: new Set<string>(),
-    teamInstances: new Set<string>(),
-    teamWins: 0,
-    tournamentCount: 0,
-    tournamentsPicked: 0,
-    totalPicks: 0
-  });
+  return currentUmaStatsRaw.value
+    .filter((u: any) => u.tournamentCount >= minTournaments.value)
+    .sort((a: any, b: any) => {
+      let valA: any = umaSortKey.value === 'name' ? a.name.toLowerCase() : a[umaSortKey.value];
+      let valB: any = umaSortKey.value === 'name' ? b.name.toLowerCase() : b[umaSortKey.value];
 
-  // 1. Process Bans
-  filteredTournaments.value.forEach(t => {
-    if (t.bans) {
-      t.bans.forEach(bannedUma => {
-        if (!umaData.has(bannedUma)) {
-          umaData.set(bannedUma, initUma(bannedUma));
-        }
-        const stats = umaData.get(bannedUma)!;
-        stats.bans++;
-        stats.presenceTournaments.add(t.id); // Track presence via ban
-      });
-    }
-  });
-
-  // 2. Process Races & Picks
-  filteredRaces.value.forEach(race => {
-    const playersInRace = Object.keys(race.placements).length;
-    if (playersInRace <= 1) return;
-
-    Object.entries(race.umaMapping || {}).forEach(([playerId, uma]) => {
-      if (!uma) return;
-
-      if (!umaData.has(uma)) {
-        umaData.set(uma, initUma(uma));
-      }
-
-      const stats = umaData.get(uma)!;
-      stats.timesPlayed++;
-
-      if (race.tournamentId) {
-        stats.tournamentIds.add(race.tournamentId);
-        stats.presenceTournaments.add(race.tournamentId); // Track presence via play
-
-        // A "Pick" is a unique combination of a Tournament and a Player
-        stats.pickInstances.add(`${race.tournamentId}_${playerId}`);
-        // A "Pick" is when an Uma has been picked at least once by a Player in a Tournament
-        // stats.pickInstances.add(race.tournamentId);
-      }
-
-      const position = race.placements[playerId];
-      if (position) {
-        stats.totalPosition += position;
-        if (position === 1) stats.wins++;
-        stats.opponentsFaced += (playersInRace - 1);
-        stats.opponentsBeaten += (playersInRace - position);
-
-        const t = filteredTournaments.value.find(tourney => tourney.id === race.tournamentId);
-        const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
-        stats.totalPoints += pointSystem[position] || 0;
-      }
+      const modifier = umaSortDesc.value ? -1 : 1;
+      if (valA < valB) return -1 * modifier;
+      if (valA > valB) return 1 * modifier;
+      return 0;
     });
-  });
-
-  // 2b. Calculate tournament win rate per uma
-  // Build: which teams used which uma (via participations linking playerId -> teamId)
-  // Then check which of those teams won their tournament
-
-  // First, build winning team IDs per tournament
-  const winningTeamByTournament = new Map<string, string>();
-  filteredTournaments.value.filter(t => t.status === 'completed').forEach(t => {
-    if (!t.teams || t.teams.length === 0) return;
-    const finalistTeams = t.teams.filter(team => team.inFinals);
-    if (finalistTeams.length === 0) return;
-    const sorted = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true));
-    if (sorted[0]) winningTeamByTournament.set(t.id, sorted[0].id);
-  });
-
-  // Build player -> teamId lookup per tournament from participations
-  const playerTeamMap = new Map<string, string>(); // key: "tournamentId_playerId" -> teamId
-  filteredParticipations.value.forEach(p => {
-    if (p.teamId) playerTeamMap.set(`${p.tournamentId}_${p.playerId}`, p.teamId);
-  });
-
-  // For each uma, track unique (tournament, team) pairs and count wins
-  // We need to iterate races again to link uma -> player -> team -> tournament
-  filteredRaces.value.forEach(race => {
-    if (!race.tournamentId) return;
-    Object.entries(race.umaMapping || {}).forEach(([playerId, uma]) => {
-      if (!uma) return;
-      const stats = umaData.get(uma);
-      if (!stats) return;
-
-      const teamId = playerTeamMap.get(`${race.tournamentId}_${playerId}`);
-      if (!teamId) return; // wildcard player, no team
-
-      const teamKey = `${race.tournamentId}_${teamId}`;
-      if (!stats.teamInstances.has(teamKey)) {
-        stats.teamInstances.add(teamKey);
-        // Check if this team won the tournament
-        if (winningTeamByTournament.get(race.tournamentId) === teamId) {
-          stats.teamWins++;
-        }
-      }
-    });
-  });
-
-  // 3. Calculate final percentages and averages
-  const totalTournaments = filteredTournaments.value.length;
-
-  let totalOverallPicks = 0;
-  umaData.forEach(stats => {
-    stats.tournamentCount = stats.presenceTournaments.size;
-    stats.picks = stats.pickInstances.size;
-    totalOverallPicks += stats.picks;
-  });
-
-  umaData.forEach(stats => {
-    stats.totalPicks = totalOverallPicks
-    stats.tournamentCount = stats.presenceTournaments.size; // Slider now filters by Presence!
-    stats.picks = stats.pickInstances.size;
-    stats.tournamentsPicked = stats.tournamentIds.size;
-
-    stats.winRate = stats.timesPlayed > 0
-        ? Math.round((stats.wins / stats.timesPlayed) * 100 * 10) / 10
-        : 0;
-    stats.tournamentWinRate = stats.teamInstances.size > 0
-        ? Math.round((stats.teamWins / stats.teamInstances.size) * 100 * 10) / 10
-        : 0;
-    stats.avgPoints = stats.timesPlayed > 0
-        ? Math.round((stats.totalPoints / stats.timesPlayed) * 10) / 10
-        : 0;
-    stats.avgPosition = stats.timesPlayed > 0
-        ? Math.round((stats.totalPosition / stats.timesPlayed) * 10) / 10
-        : 0;
-    stats.dominance = stats.opponentsFaced > 0
-        ? Math.round((stats.opponentsBeaten / stats.opponentsFaced) * 100 * 10) / 10
-        : 0;
-
-    stats.banRate = totalTournaments > 0
-        ? Math.round((stats.bans / totalTournaments) * 100 * 10) / 10
-        : 0;
-    stats.pickRate = totalOverallPicks > 0
-        ? Math.round((stats.picks / totalOverallPicks) * 100 * 10) / 10
-        : 0;
-
-    // Presence = (Picks + Bans) / Total Tournaments
-    stats.presence = totalTournaments > 0
-        ? Math.round((stats.presenceTournaments.size / totalTournaments) * 100 * 10) / 10
-        : 0;
-  });
-
-  // 4. Sort and Filter
-  return Array.from(umaData.values())
-      .filter(u => u.tournamentCount >= minTournaments.value)
-      .sort((a, b) => {
-        let valA: any = umaSortKey.value === 'name' ? a.name.toLowerCase() : (a as any)[umaSortKey.value];
-        let valB: any = umaSortKey.value === 'name' ? b.name.toLowerCase() : (b as any)[umaSortKey.value];
-
-        const modifier = umaSortDesc.value ? -1 : 1;
-        if (valA < valB) return -1 * modifier;
-        if (valA > valB) return 1 * modifier;
-        return 0;
-      });
 });
 
 // Top Players by Total Points (independent of player tab sorting)
@@ -982,87 +578,66 @@ const umaTierList = computed(() => {
     .filter(t => t.entries.length > 0);
 });
 
-// Fetch all data (with 2-hour sessionStorage cache)
-const CACHE_KEY = 'analytics';
-
-let fetchCount = 0;
-let readOps = 0;
-
-async function fetchOrCache<T extends any[]>(key: string, fetcher: () => Promise<T>): Promise<T> {
-  const cached = getCached<T>(`${CACHE_KEY}:${key}`);
-  if (cached) return cached;
-
-  fetchCount++;
-  const data = await fetcher();
-  readOps += Math.max(data.length, 1); // min 1 read per query even if empty
-  setCache(`${CACHE_KEY}:${key}`, data);
-  return data;
-}
+// --- Data fetching: metadata doc + pre-aggregated JSON ---
+const CACHE_KEY = 'analytics:json';
 
 const forceRefreshAnalytics = async () => {
-  // Clear cache and re-fetch
-  sessionStorage.removeItem(`cache:${CACHE_KEY}:seasons`);
-  sessionStorage.removeItem(`cache:${CACHE_KEY}:players`);
-  sessionStorage.removeItem(`cache:${CACHE_KEY}:participations`);
-  sessionStorage.removeItem(`cache:${CACHE_KEY}:races`);
-  sessionStorage.removeItem(`cache:${CACHE_KEY}:tournaments`);
+  sessionStorage.removeItem(`cache:${CACHE_KEY}`);
   await loadData();
 };
 
-async function trackUsage(fetches: number, reads: number) {
+async function trackUsage(reads: number) {
   try {
     const uid = auth.currentUser?.uid || 'anonymous';
     const usageRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'usage', uid);
-    await setDoc(usageRef, {
-      requestCount: increment(fetches),
+    await firestoreSetDoc(usageRef, {
+      requestCount: increment(1),
       readOps: increment(reads),
       lastAccess: new Date().toISOString(),
     }, { merge: true });
   } catch {
-    // Usage tracking is best-effort — don't break the dashboard
+    // Usage tracking is best-effort
   }
 }
 
 async function loadData() {
   loading.value = true;
-  fetchCount = 0;
-  readOps = 0;
 
   try {
-    const col = (name: string) => collection(db, 'artifacts', APP_ID, 'public', 'data', name);
+    // Check sessionStorage cache first
+    const cached = getCached<any>(CACHE_KEY);
+    if (cached) {
+      analyticsData.value = cached;
+      seasons.value = cached.seasons || [];
+      loading.value = false;
+      return;
+    }
 
-    seasons.value = await fetchOrCache('seasons', async () => {
-      const snap = await getDocs(query(col('seasons'), orderBy('startDate', 'desc')));
-      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Season));
-    });
+    // 1. Read metadata doc from Firestore (1 read)
+    const metadataRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'usage', 'analyticsMetadata');
+    const metadataSnap = await getDoc(metadataRef);
 
-    // Fetch players, participations, races, tournaments in parallel
-    const [p, part, r, t] = await Promise.all([
-      fetchOrCache('players', async () => {
-        const snap = await getDocs(col('players'));
-        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as GlobalPlayer));
-      }),
-      fetchOrCache('participations', async () => {
-        const snap = await getDocs(col('participations'));
-        return snap.docs.map(doc => doc.data() as TournamentParticipation);
-      }),
-      fetchOrCache('races', async () => {
-        const snap = await getDocs(col('races'));
-        return snap.docs.map(doc => doc.data() as RaceDocument);
-      }),
-      fetchOrCache('tournaments', async () => {
-        const snap = await getDocs(col('tournaments'));
-        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tournament));
-      }),
-    ]);
+    if (!metadataSnap.exists()) {
+      console.error('Analytics metadata not found. Run generateAnalytics.mjs first.');
+      loading.value = false;
+      return;
+    }
 
-    players.value = p;
-    participations.value = part;
-    races.value = r;
-    tournaments.value = t;
+    const metadata = metadataSnap.data();
+    const jsonUrl = metadata.url;
 
-    // Track usage if any actual Firestore fetches were made
-    if (fetchCount > 0) trackUsage(fetchCount, readOps);
+    // 2. Fetch the pre-aggregated JSON from Cloud Storage
+    const resp = await fetch(jsonUrl);
+    if (!resp.ok) throw new Error(`Failed to fetch analytics JSON: ${resp.status}`);
+    const data = await resp.json();
+
+    // 3. Store in cache and reactive state
+    setCache(CACHE_KEY, data);
+    analyticsData.value = data;
+    seasons.value = data.seasons || [];
+
+    // Track usage: 1 metadata read
+    trackUsage(1);
 
   } catch (e) {
     console.error('Failed to fetch analytics data:', e);
