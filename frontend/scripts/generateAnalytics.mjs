@@ -241,7 +241,7 @@ async function main() {
 
   // 6. Write Firestore metadata doc
   console.log('Writing metadata to Firestore...');
-  await setDoc('usage', 'analyticsMetadata', {
+  await setDoc('analytics', 'analyticsMetadata', {
     url: downloadUrl,
     generatedAt: output.generatedAt,
     version: output.version,
