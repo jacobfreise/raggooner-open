@@ -5,8 +5,6 @@ import { useDraft } from '../composables/useDraft';
 import { useGameLogic } from '../composables/useGameLogic';
 import { UMAS } from '../utils/constants';
 import { getPlayerName } from '../utils/utils';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
 
 const props = defineProps<{
   tournament: Tournament;
@@ -38,12 +36,7 @@ let timerInterval: number | null = null;
 
 // Action: Start the Timer (Admin Only)
 const startBanTimer = async () => {
-  if (!props.tournament.id) return;
-  const tRef = doc(db, 'artifacts', 'default-app', 'public', 'data', 'tournaments', props.tournament.id);
-
-  await updateDoc(tRef, {
-    banTimerStart: new Date().toISOString()
-  });
+  await props.secureUpdate({ banTimerStart: new Date().toISOString() });
 };
 
 onMounted(() => {
@@ -76,13 +69,7 @@ const formattedTime = computed(() => {
 
 // Action: Reset Timer (Optional, if they messed up)
 const resetBanTimer = async () => {
-  if (!props.tournament.id) return;
-  const tRef = doc(db, 'artifacts', 'default-app', 'public', 'data', 'tournaments', props.tournament.id);
-
-  // Use Firestore deleteField() or just set to null/undefined
-  await updateDoc(tRef, {
-    banTimerStart: null
-  });
+  await props.secureUpdate({ banTimerStart: null });
 };
 </script>
 
