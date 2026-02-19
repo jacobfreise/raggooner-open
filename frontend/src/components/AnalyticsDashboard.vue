@@ -614,7 +614,7 @@ async function loadData() {
     }
 
     // 1. Read metadata doc from Firestore (1 read)
-    const metadataRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'usage', 'analyticsMetadata');
+    const metadataRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'analytics', 'analyticsMetadata');
     const metadataSnap = await getDoc(metadataRef);
 
     if (!metadataSnap.exists()) {
