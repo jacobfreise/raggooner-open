@@ -73,6 +73,12 @@ service cloud.firestore {
         allow update, delete: if isSuperAdmin() || (request.auth != null &&
           exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/admins/$(resource.data.tournamentId + '_' + request.auth.uid)));
       }
+
+      // 8. USAGE (analytics tracking)
+      match /usage/{userId} {
+        allow read: if isSuperAdmin();
+        allow create, update: if request.auth != null && request.auth.uid == userId;
+      }
     }
   }
 }
