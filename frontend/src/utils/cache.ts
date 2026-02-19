@@ -3,7 +3,7 @@
  * Data persists across route navigations but clears when the tab is closed.
  */
 
-const DEFAULT_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 interface CacheEntry<T> {
     data: T;
