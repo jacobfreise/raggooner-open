@@ -30,12 +30,13 @@ jobs:
           projectId: raggooneropen
           entryPoint: ./frontend
 
-      # 3. Deploy FIRESTORE & STORAGE RULES
-      - name: Deploy Firebase Rules
+      # 3. NEW STEP: Deploy FIRESTORE RULES
+      - name: Deploy Firestore Rules
         uses: w9jds/firebase-action@master
         with:
-          # This deploys both rule files at the same time
-          args: deploy --only firestore:rules,storage
+          args: deploy --only firestore:rules
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RAGGOONEROPEN }}
+          # IMPORTANT: If your firestore.rules file is inside the 'frontend' folder,
+          # uncomment the line below. If it is in the root, leave it commented out.
           PROJECT_PATH: ./frontend
