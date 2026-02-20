@@ -218,3 +218,38 @@ export interface Tournament {
     pointsSystem?: Record<number, number>;
     banTimerStart?: string;
 }
+
+
+// UMAS not yet used
+export type AptitudeGrade = 'G' | 'F' | 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
+
+export interface SurfaceAptitude {
+    turf: AptitudeGrade;
+    dirt: AptitudeGrade;
+}
+
+export interface DistanceAptitude {
+    sprint: AptitudeGrade;
+    mile: AptitudeGrade;
+    medium: AptitudeGrade;
+    long: AptitudeGrade;
+}
+
+export interface StyleAptitude {
+    frontRunner: AptitudeGrade; // Nige (Runner)
+    paceChaser: AptitudeGrade;  // Senkou (Leader)
+    lateSurger: AptitudeGrade;  // Sashi (Betweener)
+    endCloser: AptitudeGrade;   // Oikomi (Chaser)
+}
+
+export interface UmaData {
+    id: string;           // A URL/DB safe slug (e.g., 'special-week')
+    name: string;         // The display name you currently use
+    releaseDate: string;  // ISO string 'YYYY-MM-DD'
+    aptitudes: {
+        surface: SurfaceAptitude;
+        distance: DistanceAptitude;
+        style: StyleAptitude;
+    };
+    // Future fields can go here (e.g., rarity, iconUrl, growthRates)
+}
