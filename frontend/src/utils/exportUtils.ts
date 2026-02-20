@@ -1,6 +1,6 @@
 import type {Tournament, Team, Player, Race, Wildcard} from '../types';
 
-export const generateDiscordReport = (t: Tournament): string => {
+export const generateDiscordReport = (t: Tournament, shortened = false): string => {
     const lines: string[] = [];
     const playerMap = new Map(t.players.map(p => [p.id, p]));
 
@@ -32,7 +32,8 @@ export const generateDiscordReport = (t: Tournament): string => {
                 groupTeams,
                 groupRaces,
                 t.wildcards || [],
-                playerMap
+                playerMap,
+                shortened
             ));
         }
     });
@@ -54,7 +55,8 @@ export const generateDiscordReport = (t: Tournament): string => {
             finalsTeams,
             finalsRaces,
             t.wildcards || [],
-            playerMap
+            playerMap,
+            shortened
         ));
     }
 
@@ -81,7 +83,8 @@ const buildCompactStageSection = (
     teams: Team[],
     races: Race[],
     wildcards: Wildcard[],
-    playerMap: Map<string, Player>
+    playerMap: Map<string, Player>,
+    shortened = false
 ): string => {
     const lines: string[] = [];
     const currentStage = groupIdentifier === 'Finals' ? 'finals' : 'groups';
@@ -164,11 +167,23 @@ const buildCompactStageSection = (
     if (races.length > 0) {
         lines.push('**🏇 Race Winners:**');
         lines.push('```');
-        races.forEach((race, idx) => {
+
+        // Collect winner info first to determine padding
+        const winners = races.map(race => {
             const winnerId = Object.keys(race.placements).find(pid => race.placements[pid] === 1);
             const winner = winnerId ? playerMap.get(winnerId) : null;
-            const name = (winner?.name || '?').substring(0, 12).padEnd(12);
-            const uma = (winner?.uma || '?').substring(0, 19);
+            return { name: winner?.name || '?', uma: winner?.uma || '?' };
+        });
+
+        const padWidth = shortened
+            ? 12
+            : Math.max(...winners.map(w => w.name.length)) +1;
+
+        winners.forEach((w, idx) => {
+            const name = shortened
+                ? w.name.substring(0, 12).padEnd(padWidth)
+                : w.name.padEnd(padWidth);
+            const uma = shortened ? w.uma.substring(0, 19) : w.uma;
             lines.push(`${idx + 1}. ${name} ${uma}`);
         });
         lines.push('```');
@@ -180,7 +195,7 @@ const buildCompactStageSection = (
 // ==========================================
 // ALTERNATIVE: Split into multiple messages
 // ==========================================
-export const generateDiscordReportSplit = (t: Tournament): string[] => {
+export const generateDiscordReportSplit = (t: Tournament, shortened = false): string[] => {
     const messages: string[] = [];
     const playerMap = new Map(t.players.map(p => [p.id, p]));
 
@@ -204,7 +219,8 @@ export const generateDiscordReportSplit = (t: Tournament): string[] => {
                 groupTeams,
                 groupRaces,
                 t.wildcards || [],
-                playerMap
+                playerMap,
+                shortened
             ));
         }
     });
@@ -223,7 +239,8 @@ export const generateDiscordReportSplit = (t: Tournament): string[] => {
             finalsTeams,
             finalsRaces,
             t.wildcards || [],
-            playerMap
+            playerMap,
+            shortened
         ));
 
         // Bans
@@ -236,6 +253,87 @@ export const generateDiscordReportSplit = (t: Tournament): string[] => {
         }
 
         messages.push(msg2.join('\n'));
+    }
+
+    return messages;
+};
+
+// ==========================================
+// ALTERNATIVE: Split into 3 messages
+// ==========================================
+export const generateDiscordReportSplit3 = (t: Tournament, shortened = false): string[] => {
+    const messages: string[] = [];
+    const playerMap = new Map(t.players.map(p => [p.id, p]));
+
+    const groupEmojis = { A: '🔵', B: '🔴', C: '🟢' };
+
+    // Message 1: Header + Group A
+    const msg1: string[] = [];
+    msg1.push('```');
+    msg1.push(`🏆 ${t.name.toUpperCase()}`);
+    msg1.push('```');
+
+    const groupARaces = t.races.filter(r => r.stage === 'groups' && r.group === 'A');
+    const groupATeams = t.teams.filter(team => team.group === 'A');
+    if (groupARaces.length > 0 && groupATeams.length > 0) {
+        msg1.push(buildCompactStageSection(
+            `${groupEmojis.A} A`,
+            'A',
+            groupATeams,
+            groupARaces,
+            t.wildcards || [],
+            playerMap,
+            shortened
+        ));
+    }
+    messages.push(msg1.join('\n'));
+
+    // Message 2: Group B (+ Group C if exists)
+    const msg2: string[] = [];
+    (['B', 'C'] as const).forEach(groupName => {
+        const groupRaces = t.races.filter(r => r.stage === 'groups' && r.group === groupName);
+        const groupTeams = t.teams.filter(team => team.group === groupName);
+        if (groupRaces.length > 0 && groupTeams.length > 0) {
+            msg2.push(buildCompactStageSection(
+                `${groupEmojis[groupName]} ${groupName}`,
+                groupName,
+                groupTeams,
+                groupRaces,
+                t.wildcards || [],
+                playerMap,
+                shortened
+            ));
+        }
+    });
+    if (msg2.length > 0) {
+        messages.push(msg2.join('\n'));
+    }
+
+    // Message 3: Finals + Bans
+    const finalsRaces = t.races.filter(r => r.stage === 'finals');
+    const finalsTeams = t.teams.filter(team => team.inFinals);
+
+    if (finalsRaces.length > 0 && finalsTeams.length > 0) {
+        const msg3: string[] = [];
+        msg3.push(buildCompactStageSection(
+            '🏁 Finals',
+            'Finals',
+            finalsTeams,
+            finalsRaces,
+            t.wildcards || [],
+            playerMap,
+            shortened
+        ));
+
+        if (t.bans && t.bans.length > 0) {
+            const banCounts = countFrequencies(t.bans);
+            const banList = Object.entries(banCounts)
+                .map(([name, count]) => count > 1 ? `${name}(×${count})` : name)
+                .join(', ');
+            msg3.push(`🚫 **Bans:** ${banList}`);
+        }
+
+        messages.push(msg3.join('\n'));
     }
 
     return messages;
