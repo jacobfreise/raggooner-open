@@ -223,7 +223,7 @@ onMounted(() => {
 
         </div>
 
-        <div v-if="!loading" class="max-w-3xl mx-auto mt-8 space-y-12">
+        <div v-if="!loading" class="max-w-lg mx-auto mt-8 space-y-12">
 
           <div class="text-center space-y-4">
             <h1 class="text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Racc Open</h1>
@@ -368,7 +368,7 @@ onMounted(() => {
                       <p class="text-xs text-slate-500 mt-1 flex items-center gap-2">
                         <span>{{ new Date(t.createdAt).toLocaleDateString() }}</span>
                         <span class="text-slate-600">•</span>
-                        <span class="font-mono text-[10px] text-slate-600 tracking-wider">ID: {{ t.id }}</span>
+                        <span class="font-mono text-[10px] text-slate-600 tracking-wider">{{ t.id }}</span>
                       </p>
                     </div>
                     <span class="text-[10px] uppercase font-bold bg-slate-800 text-slate-500 px-2 py-1 rounded border border-slate-700">
