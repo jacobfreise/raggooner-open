@@ -452,7 +452,7 @@ const toggleSeason = (seasonId: string) => {
 };
 
 // --- SORTING STATE ---
-const playerSortKey = ref('totalPoints');
+const playerSortKey = ref('dominance');
 const playerSortDesc = ref(true);
 
 const umaSortKey = ref('dominance');
