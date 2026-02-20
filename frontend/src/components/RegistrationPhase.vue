@@ -238,13 +238,19 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
             </div>
 
             <!-- Remove Button -->
-            <button
-                v-if="isAdmin"
-                @click.stop="removePlayer(player.id)"
-                class="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-300 transition-all p-2 rounded hover:bg-slate-900/50"
-                title="Remove player"
-            >
-              <i class="ph-bold ph-x text-lg"></i>
+<!--            <button-->
+<!--                v-if="isAdmin"-->
+<!--                @click.stop="removePlayer(player.id)"-->
+<!--                class="opacity-0 group-hover:opacity-100 items-center justify-center text-rose-400 hover:text-rose-300 transition-all p-2 rounded hover:bg-slate-900/50"-->
+<!--                title="Remove player"-->
+<!--            >-->
+<!--              <i class="ph-bold ph-x text-lg"></i>-->
+<!--            </button>-->
+            <button @click.stop="removePlayer(player.id)"
+                    :disabled="!isAdmin"
+                    title="Remove Player"
+                    class="opacity-0 group-hover:opacity-100 w-8 h-8 flex items-center justify-center rounded text-slate-600 hover:bg-red-500/10 hover:text-red-400 transition-colors">
+              <i class="ph-bold ph-trash"></i>
             </button>
           </div>
         </div>
