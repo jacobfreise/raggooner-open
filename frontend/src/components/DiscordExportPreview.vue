@@ -95,7 +95,7 @@
                 </div>
 
                 <div
-                    class="text-[#dcddde] text-[0.9375rem] leading-[1.375rem] whitespace-pre-wrap break-words font-discord"
+                    class="text-[#dcddde] text-[0.9375rem] leading-[1.375rem] whitespace-pre-wrap break-words font-discord text-start"
                     v-html="renderDiscordMarkdown(msg)">
                 </div>
               </div>
@@ -172,8 +172,9 @@ const displayMessages = computed<string[]>(() => {
 
 // Messages shown in the preview
 const previewMessages = computed<string[]>(() => {
-  if (tier.value === 'single') return [fullSingle.value];
-  return displayMessages.value;
+  // if (tier.value === 'single') return [fullSingle.value];
+  // return displayMessages.value;
+  return [fullSingle.value];
 });
 
 // Helper for Preview Rendering
