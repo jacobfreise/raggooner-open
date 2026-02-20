@@ -42,8 +42,6 @@ const getDominance = (playerId: string): number | null => {
 
 const sortedPlayers = computed(() => {
   return [...props.tournament.players].sort((a, b) => {
-    // Captains first
-    if (a.isCaptain !== b.isCaptain) return a.isCaptain ? -1 : 1;
     // Then by dominance descending
     const domA = getDominance(a.id) ?? -1;
     const domB = getDominance(b.id) ?? -1;

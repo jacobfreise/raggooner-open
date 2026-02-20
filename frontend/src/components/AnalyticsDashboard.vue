@@ -41,7 +41,7 @@ const races = ref<DerivedRace[]>([]);
 const tournaments = ref<Tournament[]>([]);
 
 // Filters
-const searchQuery = ref('');
+const playerSearchQuery = ref('');
 const umaSearchQuery = ref('');
 const minTournaments = ref(1);
 
@@ -1468,7 +1468,7 @@ const getRankIcon = (index: number) => {
       <div v-if="activeTab === 'players'" class="space-y-4">
 
         <input
-            v-model="searchQuery"
+            v-model="playerSearchQuery"
             type="text"
             placeholder="Search players..."
             class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
@@ -1514,7 +1514,7 @@ const getRankIcon = (index: number) => {
               <tbody class="divide-y divide-slate-700 border-t border-slate-700">
               <template
                   v-for="(player, idx) in playerRankings.filter(p =>
-                        !searchQuery || p.player.name.toLowerCase().includes(searchQuery.toLowerCase())
+                        !playerSearchQuery || p.player.name.toLowerCase().includes(playerSearchQuery.toLowerCase())
                       )"
                   :key="player.player.id"
               >
