@@ -52,7 +52,7 @@ const expandedPlayerId = ref<string | null>(null);
 const expandedDetailTab = ref<'umas' | 'tournaments'>('tournaments');
 const playerUmaSortKey = ref('racesPlayed');
 const playerUmaSortDesc = ref(true);
-const playerTournamentSortKey = ref('totalPoints');
+const playerTournamentSortKey = ref('dominance');
 const playerTournamentSortDesc = ref(true);
 
 const expandedUmaName = ref<string | null>(null);
