@@ -3,7 +3,7 @@ import {computed, onMounted, ref} from 'vue';
 import {signInAnonymously, signInWithCustomToken} from 'firebase/auth';
 import {collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc, writeBatch, setDoc} from 'firebase/firestore';
 import {auth, db} from './firebase';
-import type {FirestoreUpdate, Tournament, Season} from './types';
+import type {FirestoreUpdate, Tournament, Season, GlobalPlayer} from './types';
 import {
   getStatusColor, recalculateTournamentScores,
 } from "./utils/utils.ts";
@@ -49,6 +49,10 @@ const isCreating = ref(false);
 // Season state
 const availableSeasons = ref<Season[]>([]);
 const selectedSeasonId = ref('');
+
+// Global players (for child components)
+const globalPlayers = ref<GlobalPlayer[]>([]);
+const addGlobalPlayer = (player: GlobalPlayer) => { globalPlayers.value.push(player); };
 
 // --- NEW STATE FOR HOME PAGE ---
 const homeListLoading = ref(false);
@@ -609,6 +613,8 @@ const handleSeed = async () => {
             :is-admin="isAdmin"
             :app-id="appId"
             :secure-update="secureUpdate"
+            :global-players="globalPlayers"
+            :add-global-player="addGlobalPlayer"
         />
 
         <DraftPhase
@@ -616,6 +622,8 @@ const handleSeed = async () => {
             :tournament="tournament"
             :is-admin="isAdmin"
             :secure-update="secureUpdate"
+            :global-players="globalPlayers"
+            :seasons="availableSeasons"
         />
 
         <BanPhase
@@ -630,6 +638,8 @@ const handleSeed = async () => {
             :tournament-prop="tournament"
             :is-admin="isAdmin"
             :secure-update="secureUpdate"
+            :global-players="globalPlayers"
+            :add-global-player="addGlobalPlayer"
         />
 
       </div>

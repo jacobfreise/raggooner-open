@@ -1,15 +1,41 @@
 <script setup lang="ts">
-import { toRef } from 'vue';
-import type { Tournament, FirestoreUpdate } from '../types';
+import { ref, toRef } from 'vue';
+import type { Tournament, FirestoreUpdate, GlobalPlayer, Season } from '../types';
 import { useDraft } from '../composables/useDraft';
 import {getPlayerName} from "../utils/utils";
 
 // 1. Define Props
 const props = defineProps<{
-  tournament: Tournament; // We pass the raw object, not the ref
+  tournament: Tournament;
   isAdmin: boolean;
   secureUpdate: (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
+  globalPlayers: GlobalPlayer[];
+  seasons: Season[];
 }>();
+
+// Season filter for dominance stat
+const selectedSeasonId = ref<string>('all');
+
+const getDominance = (playerId: string): number | null => {
+  const gp = props.globalPlayers.find(p => p.id === playerId);
+  if (!gp) return null;
+
+  let faced: number | undefined;
+  let beaten: number | undefined;
+
+  if (selectedSeasonId.value === 'all') {
+    faced = gp.metadata.opponentsFaced;
+    beaten = gp.metadata.opponentsBeaten;
+  } else {
+    const seasonData = gp.metadata.seasons?.[selectedSeasonId.value];
+    if (!seasonData) return null;
+    faced = seasonData.opponentsFaced;
+    beaten = seasonData.opponentsBeaten;
+  }
+
+  if (!faced || faced === 0) return null;
+  return ((beaten || 0) / faced) * 100;
+};
 
 // 2. Convert Prop to Ref for the Composable
 // The composable expects a Ref<Tournament>, but props.tournament is a reactive object.
@@ -71,7 +97,14 @@ const {
     </div>
     <div class="grid md:grid-cols-12 gap-6">
       <div class="md:col-span-8">
-        <h3 class="text-lg font-bold mb-3 text-slate-300">Available Players</h3>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-bold text-slate-300">Available Players</h3>
+          <select v-model="selectedSeasonId"
+                  class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-indigo-500">
+            <option value="all">All Time</option>
+            <option v-for="season in seasons" :key="season.id" :value="season.id">{{ season.name }}</option>
+          </select>
+        </div>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 auto-rows-fr">
           <button @click="startRandomDraft"
                   :disabled="!isAdmin"
@@ -93,6 +126,9 @@ const {
                   :disabled="!isAdmin"
                   class="h-full w-full bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 p-4 rounded-lg transition-all text-left group relative overflow-hidden flex flex-col justify-center">
             <span class="relative z-10 font-medium group-hover:text-white">{{ player.name }}</span>
+            <span v-if="getDominance(player.id) !== null" class="relative z-10 text-xs text-slate-500 group-hover:text-slate-300">
+              {{ getDominance(player.id)!.toFixed(1) }}% dom
+            </span>
             <div class="absolute bottom-0 right-0 p-2 text-slate-700 group-hover:text-indigo-400 opacity-20">
               <i class="ph-fill ph-steering-wheel text-4xl"></i>
             </div>

@@ -617,17 +617,42 @@ export function useGameLogic(
             batch.set(raceRef, raceDoc);
         });
 
-        // 3. Update GlobalPlayer metadata
+        // 3. Update GlobalPlayer metadata (including dominance counters)
+        // Deduplicate: wildcards can appear twice in t.players with the same id
+        const seenPlayerIds = new Set<string>();
         t.players.forEach(player => {
+            if (seenPlayerIds.has(player.id)) return;
+            seenPlayerIds.add(player.id);
             const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', player.id);
             const playerRaceCount = t.races.filter(r =>
                 Object.keys(r.placements).includes(player.id)
             ).length;
-            batch.update(playerRef, {
+
+            // Compute dominance: for each race, opponentsBeaten = playersInRace - position, opponentsFaced = playersInRace - 1
+            let totalBeaten = 0;
+            let totalFaced = 0;
+            t.races.forEach(race => {
+                const position = race.placements[player.id];
+                if (position == null) return;
+                const playersInRace = Object.keys(race.placements).length;
+                totalBeaten += playersInRace - position;
+                totalFaced += playersInRace - 1;
+            });
+
+            const updateData: Record<string, any> = {
                 'metadata.totalTournaments': increment(1),
                 'metadata.totalRaces': increment(playerRaceCount),
-                'metadata.lastPlayed': new Date().toISOString()
-            });
+                'metadata.lastPlayed': new Date().toISOString(),
+                'metadata.opponentsFaced': increment(totalFaced),
+                'metadata.opponentsBeaten': increment(totalBeaten),
+            };
+
+            if (t.seasonId) {
+                updateData[`metadata.seasons.${t.seasonId}.opponentsFaced`] = increment(totalFaced);
+                updateData[`metadata.seasons.${t.seasonId}.opponentsBeaten`] = increment(totalBeaten);
+            }
+
+            batch.update(playerRef, updateData);
         });
 
         await batch.commit();
