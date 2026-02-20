@@ -1938,7 +1938,7 @@ const getRankIcon = (index: number) => {
                   <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.picks }}/{{uma.totalPicks}}</td>
                   <td class="px-4 py-3 text-sm text-right text-blue-400">{{ uma.pickRate }}%</td>
 
-                  <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.bans }}/{{ filteredTournaments.length}} </td>
+                  <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.bans }}/{{ uma.availableTournaments }} </td>
                   <td class="px-4 py-3 text-sm text-right text-rose-400">{{ uma.banRate }}%</td>
 
                   <td class="px-4 py-3 text-sm text-right font-bold text-amber-400">{{ uma.presence }}%</td>
