@@ -70,7 +70,7 @@ const togglePlayerExpand = (playerId: string) => {
     expandedDetailTab.value = 'tournaments';
     playerUmaSortKey.value = 'racesPlayed';
     playerUmaSortDesc.value = true;
-    playerTournamentSortKey.value = 'totalPoints';
+    playerTournamentSortKey.value = 'dominance';
     playerTournamentSortDesc.value = true;
   }
 };
