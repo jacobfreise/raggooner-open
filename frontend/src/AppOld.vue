@@ -615,6 +615,7 @@ const handleSeed = async () => {
             :secure-update="secureUpdate"
             :global-players="globalPlayers"
             :add-global-player="addGlobalPlayer"
+            :seasons="availableSeasons"
         />
 
         <DraftPhase

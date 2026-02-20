@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { toRef } from 'vue';
-import type { Tournament, FirestoreUpdate, GlobalPlayer } from '../types';
+import { ref, toRef, computed } from 'vue';
+import type { Tournament, FirestoreUpdate, GlobalPlayer, Season } from '../types';
 import { useRoster } from '../composables/useRoster';
 import { useDraft } from '../composables/useDraft';
 import PlayerSelector from './PlayerSelector.vue';
@@ -13,7 +13,43 @@ const props = defineProps<{
   secureUpdate: (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
   globalPlayers: GlobalPlayer[];
   addGlobalPlayer: (player: GlobalPlayer) => void;
+  seasons: Season[];
 }>();
+
+// Season filter for dominance stat
+const selectedSeasonId = ref<string>(props.tournament.seasonId || 'all');
+
+const getDominance = (playerId: string): number | null => {
+  const gp = props.globalPlayers.find(p => p.id === playerId);
+  if (!gp) return null;
+
+  let faced: number | undefined;
+  let beaten: number | undefined;
+
+  if (selectedSeasonId.value === 'all') {
+    faced = gp.metadata.opponentsFaced;
+    beaten = gp.metadata.opponentsBeaten;
+  } else {
+    const seasonData = gp.metadata.seasons?.[selectedSeasonId.value];
+    if (!seasonData) return null;
+    faced = seasonData.opponentsFaced;
+    beaten = seasonData.opponentsBeaten;
+  }
+
+  if (!faced || faced === 0) return null;
+  return ((beaten || 0) / faced) * 100;
+};
+
+const sortedPlayers = computed(() => {
+  return [...props.tournament.players].sort((a, b) => {
+    // Captains first
+    if (a.isCaptain !== b.isCaptain) return a.isCaptain ? -1 : 1;
+    // Then by dominance descending
+    const domA = getDominance(a.id) ?? -1;
+    const domB = getDominance(b.id) ?? -1;
+    return domB - domA;
+  });
+});
 
 const tournamentRef = toRef(props, 'tournament');
 const isAdminRef = toRef(props, 'isAdmin');
@@ -138,6 +174,14 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
 
       <!-- Right Panel: Player List -->
       <div class="md:col-span-2 space-y-4">
+        <div v-if="tournament.players.length > 0" class="flex items-center justify-end">
+          <select v-model="selectedSeasonId"
+                  class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-indigo-500">
+            <option value="all">All Time</option>
+            <option v-for="season in seasons" :key="season.id" :value="season.id">{{ season.name }}</option>
+          </select>
+        </div>
+
         <div
             v-if="tournament.players.length === 0"
             class="text-center py-20 text-slate-600 border-2 border-dashed border-slate-800 rounded-xl"
@@ -149,7 +193,7 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
 
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div
-              v-for="player in tournament.players"
+              v-for="player in sortedPlayers"
               :key="player.id"
               @click="isAdmin && toggleCaptain(player.id)"
               class="relative p-3 rounded-lg flex items-center justify-between group border transition-all select-none"
@@ -178,12 +222,17 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
                 >
                   {{ player.name }}
                 </span>
-                <span
-                    class="text-[10px] uppercase font-bold tracking-wider"
-                    :class="player.isCaptain ? 'text-amber-500' : 'text-slate-600'"
-                >
-                  {{ player.isCaptain ? 'Captain' : 'Player' }}
-                </span>
+                <div class="flex items-center gap-2">
+                  <span
+                      class="text-[10px] uppercase font-bold tracking-wider"
+                      :class="player.isCaptain ? 'text-amber-500' : 'text-slate-600'"
+                  >
+                    {{ player.isCaptain ? 'Captain' : 'Player' }}
+                  </span>
+                  <span v-if="getDominance(player.id) !== null" class="text-[10px] text-slate-500">
+                    {{ getDominance(player.id)!.toFixed(1) }}% dom
+                  </span>
+                </div>
               </div>
             </div>
 

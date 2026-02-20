@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, toRef } from 'vue';
+import { ref, toRef, computed } from 'vue';
 import type { Tournament, FirestoreUpdate, GlobalPlayer, Season } from '../types';
 import { useDraft } from '../composables/useDraft';
 import {getPlayerName} from "../utils/utils";
@@ -14,7 +14,7 @@ const props = defineProps<{
 }>();
 
 // Season filter for dominance stat
-const selectedSeasonId = ref<string>('all');
+const selectedSeasonId = ref<string>(props.tournament.seasonId || 'all');
 
 const getDominance = (playerId: string): number | null => {
   const gp = props.globalPlayers.find(p => p.id === playerId);
@@ -56,6 +56,14 @@ const {
   randomCandidates,
   getRandomWheelGradient
 } = useDraft(tournamentRef, props.secureUpdate, isAdminRef);
+
+const sortedAvailablePlayers = computed(() => {
+  return [...availablePlayers.value].sort((a, b) => {
+    const domA = getDominance(a.id) ?? -1;
+    const domB = getDominance(b.id) ?? -1;
+    return domB - domA;
+  });
+});
 
 </script>
 
@@ -121,7 +129,7 @@ const {
 
             <div class="absolute inset-0 bg-white/20 -skew-x-12 -translate-x-full shine-effect"></div>
           </button>
-          <button v-for="player in availablePlayers" :key="player.id"
+          <button v-for="player in sortedAvailablePlayers" :key="player.id"
                   @click="draftPlayer(player)"
                   :disabled="!isAdmin"
                   class="h-full w-full bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 p-4 rounded-lg transition-all text-left group relative overflow-hidden flex flex-col justify-center">

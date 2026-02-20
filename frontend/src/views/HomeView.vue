@@ -152,6 +152,21 @@ const selectTournamentFromHome = (id: string) => {
   router.push(`/t/${id}`);
 };
 
+const formatTournamentStatus = (t: Tournament): string => {
+  if (t.status === 'active') {
+    return t.stage === 'groups' ? 'Group Stage' : 'Finals';
+  }
+
+  const statusMap: Record<Tournament['status'], string> = {
+    registration: 'Registration',
+    draft: 'Draft Phase',
+    ban: 'Ban Phase',
+    completed: 'Tournament Finished',
+    active: '' // Handled above
+  };
+
+  return statusMap[t.status] || t.status;
+};
 
 onMounted(() => {
   fetchSeasons();
@@ -316,7 +331,7 @@ onMounted(() => {
                     <i class="ph-fill ph-users"></i> {{ t.players?.length || 0 }} Players
                   </div>
                   <div class="flex items-center gap-2">
-                    <i class="ph-fill ph-trophy"></i> {{ t.stage === 'groups' ? 'Group Stage' : 'Finals' }}
+                    <i class="ph-fill ph-trophy"></i> {{ formatTournamentStatus(t) }}
                   </div>
                   <div class="flex items-center gap-2 mt-1 text-xs text-slate-600">
                     ID: <span class="font-mono text-slate-500">{{ t.id }}</span>
