@@ -26,12 +26,7 @@ const allTournaments = ref<Tournament[]>([]);
 const loading = ref(false);
 
 const activeTournamentsList = computed(() => allTournaments.value.filter(t => t.status !== 'completed'));
-// const pastTournamentsList = computed(() => allTournaments.value.filter(t => t.status === 'completed'));
 
-// Replace this:
-// const pastTournamentsList = computed(() => allTournaments.value.filter(t => t.status === 'completed'));
-
-// With this:
 const groupedPastTournaments = computed(() => {
   const completed = allTournaments.value.filter(t => t.status === 'completed');
 
@@ -228,7 +223,7 @@ onMounted(() => {
 
         </div>
 
-        <div v-if="!loading" class="max-w-lg mx-auto mt-8 space-y-12">
+        <div v-if="!loading" class="max-w-3xl mx-auto mt-8 space-y-12">
 
           <div class="text-center space-y-4">
             <h1 class="text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Racc Open</h1>
@@ -249,7 +244,7 @@ onMounted(() => {
                 <select v-model="selectedSeasonId"
                         :disabled="isCreating || availableSeasons.length === 0"
                         class="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all disabled:opacity-50 appearance-none cursor-pointer">
-                  <option value="" class="text-slate-500">No Season</option>
+                  <option v-if="availableSeasons.length === 0" value="" class="text-slate-500">No Season</option>
                   <option v-for="season in availableSeasons" :key="season.id" :value="season.id">
                     {{ season.name }}
                   </option>
@@ -370,8 +365,10 @@ onMounted(() => {
                        class="flex items-center justify-between bg-slate-900/50 hover:bg-slate-800 border border-slate-800 hover:border-slate-600 rounded-lg p-4 cursor-pointer transition-colors">
                     <div>
                       <h4 class="font-bold text-slate-300">{{ t.name }}</h4>
-                      <p class="text-xs text-slate-500 mt-1">
-                        {{ new Date(t.createdAt).toLocaleDateString() }}
+                      <p class="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                        <span>{{ new Date(t.createdAt).toLocaleDateString() }}</span>
+                        <span class="text-slate-600">•</span>
+                        <span class="font-mono text-[10px] text-slate-600 tracking-wider">ID: {{ t.id }}</span>
                       </p>
                     </div>
                     <span class="text-[10px] uppercase font-bold bg-slate-800 text-slate-500 px-2 py-1 rounded border border-slate-700">
