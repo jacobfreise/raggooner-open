@@ -132,13 +132,22 @@ const sortedAvailablePlayers = computed(() => {
           <button v-for="player in sortedAvailablePlayers" :key="player.id"
                   @click="draftPlayer(player)"
                   :disabled="!isAdmin"
-                  class="h-full w-full bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 p-4 rounded-lg transition-all text-left group relative overflow-hidden flex flex-col justify-center">
-            <span class="relative z-10 font-medium group-hover:text-white">{{ player.name }}</span>
-            <span v-if="getDominance(player.id) !== null" class="relative z-10 text-xs text-slate-500 group-hover:text-slate-300">
-              {{ getDominance(player.id)!.toFixed(1) }}% dom
+                  class="h-full w-full bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 p-3 rounded-xl transition-all text-left group relative overflow-hidden flex flex-col justify-between min-h-[80px] shadow-sm hover:shadow-indigo-500/20">
+
+            <span class="relative z-10 font-bold text-slate-200 group-hover:text-white truncate w-full pr-4">
+              {{ player.name }}
             </span>
-            <div class="absolute bottom-0 right-0 p-2 text-slate-700 group-hover:text-indigo-400 opacity-20">
-              <i class="ph-fill ph-steering-wheel text-4xl"></i>
+
+            <div v-if="getDominance(player.id) !== null"
+                 class="relative z-10 mt-3 flex items-center gap-1.5 w-fit px-2 py-1 rounded-md bg-slate-900/60 group-hover:bg-indigo-900/40 border border-slate-700/50 group-hover:border-indigo-400/30 transition-colors">
+              <i class="ph-fill ph-sword text-indigo-400 group-hover:text-indigo-300 text-xs"></i>
+              <span class="text-xs font-bold text-slate-300 group-hover:text-white tracking-wide">
+                {{ getDominance(player.id)!.toFixed(1) }}%
+              </span>
+            </div>
+
+            <div class="absolute -bottom-2 -right-2 p-2 text-slate-700 group-hover:text-indigo-400 opacity-20 transition-colors">
+              <i class="ph-fill ph-steering-wheel text-5xl"></i>
             </div>
           </button>
         </div>

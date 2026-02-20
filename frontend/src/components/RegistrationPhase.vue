@@ -215,21 +215,24 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
 
               <div class="flex flex-col min-w-0 flex-1">
                 <span
-                    class="font-medium truncate"
+                    class="font-bold truncate"
                     :class="player.isCaptain ? 'text-amber-100' : 'text-slate-200'"
                 >
                   {{ player.name }}
                 </span>
-                <div class="flex items-center gap-2">
+                              <div class="flex items-center gap-2 mt-0.5">
                   <span
                       class="text-[10px] uppercase font-bold tracking-wider"
-                      :class="player.isCaptain ? 'text-amber-500' : 'text-slate-600'"
+                      :class="player.isCaptain ? 'text-amber-500' : 'text-slate-500'"
                   >
                     {{ player.isCaptain ? 'Captain' : 'Player' }}
                   </span>
-                  <span v-if="getDominance(player.id) !== null" class="text-[10px] text-slate-500">
-                    {{ getDominance(player.id)!.toFixed(1) }}% dom
-                  </span>
+
+                  <div v-if="getDominance(player.id) !== null"
+                       class="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900/80 border border-slate-700/50 text-slate-300">
+                    <i class="ph-fill ph-sword text-indigo-400"></i>
+                    {{ getDominance(player.id)!.toFixed(1) }}%
+                  </div>
                 </div>
               </div>
             </div>
