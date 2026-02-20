@@ -523,6 +523,8 @@ const playerRankings = computed(() => {
     races: number;
     totalPoints: number;
     avgPoints: number;
+    totalPosition: number;
+    avgPosition: number;
     wins: number;
     opponentsFaced: number;
     opponentsBeaten: number;
@@ -557,6 +559,8 @@ const playerRankings = computed(() => {
         races: 0,
         totalPoints: 0,
         avgPoints: 0,
+        totalPosition: 0,
+        avgPosition: 0,
         wins: 0,
         opponentsFaced: 0,
         opponentsBeaten: 0,
@@ -604,7 +608,7 @@ const playerRankings = computed(() => {
         });
   });
 
-  // 3. Count races, wins, dominance, and specific Uma usage
+  // 3. Count races, wins, dominance, position and specific Uma usage
   filteredRaces.value.forEach(race => {
     const playersInRace = Object.keys(race.placements).length;
     if (playersInRace <= 1) return;
@@ -616,6 +620,7 @@ const playerRankings = computed(() => {
         if (position === 1) stats.wins++;
         stats.opponentsFaced += (playersInRace - 1);
         stats.opponentsBeaten += (playersInRace - position);
+        stats.totalPosition += position;
 
         // Track Uma specific to this player
         const umaName = race.umaMapping?.[playerId];
@@ -655,6 +660,9 @@ const playerRankings = computed(() => {
     stats.dominance = stats.opponentsFaced > 0 ? Math.round((stats.opponentsBeaten / stats.opponentsFaced) * 100 * 10) / 10 : 0;
     stats.winRate = stats.races > 0 ? Math.round((stats.wins / stats.races) * 100 * 10) / 10 : 0;
     stats.tournamentWinRate = stats.completedTournaments > 0 ? Math.round((stats.tournamentWins / stats.completedTournaments) * 100 * 10) / 10 : 0;
+    stats.avgPosition = stats.races > 0
+        ? Math.round((stats.totalPosition / stats.races) * 10) / 10
+        : 0;
 
     // Calculate Best Tournament
     if (stats.tournamentsRecord.length > 0) {
@@ -1492,13 +1500,14 @@ const getRankIcon = (index: number) => {
                 <th v-for="col in [
                   { key: 'tournaments', label: 'Tourneys' },
                   { key: 'tournamentWins', label: 'T. Wins' },
-                  { key: 'tournamentWinRate', label: 'T. Win %' },
+                  { key: 'tournamentWinRate', label: 'T. Win Rate' },
                   { key: 'races', label: 'Races' },
+                  { key: 'wins', label: 'Race Wins' },
+                  { key: 'winRate', label: 'Win Rate' },
                   { key: 'totalPoints', label: 'Total Pts' },
                   { key: 'avgPoints', label: 'Avg Pts' },
                   { key: 'dominance', label: 'Dominance' },
-                  { key: 'wins', label: 'Race Wins' },
-                  { key: 'winRate', label: 'Race Win %' },
+                  { key: 'avgPosition', label: 'Avg Pos.' },
                 ]"
                     :key="col.key"
                     @click="togglePlayerSort(col.key)"
@@ -1538,11 +1547,12 @@ const getRankIcon = (index: number) => {
                   <td class="px-4 py-3 text-sm text-right font-bold text-amber-400">{{ player.tournamentWinRate }}%</td>
 
                   <td class="px-4 py-3 text-sm text-right text-slate-300">{{ player.races }}</td>
+                  <td class="px-4 py-3 text-sm text-right text-emerald-400">{{ player.wins }}</td>
+                  <td class="px-4 py-3 text-sm text-right font-bold text-emerald-400">{{ player.winRate }}%</td>
                   <td class="px-4 py-3 text-sm text-right font-bold text-white">{{ player.totalPoints }}</td>
                   <td class="px-4 py-3 text-sm text-right text-indigo-400">{{ player.avgPoints }}</td>
                   <td class="px-4 py-3 text-sm text-right font-bold text-rose-400">{{ player.dominance }}%</td>
-                  <td class="px-4 py-3 text-sm text-right text-emerald-400">{{ player.wins }}</td>
-                  <td class="px-4 py-3 text-sm text-right font-bold text-emerald-400">{{ player.winRate }}%</td>
+                  <td class="px-4 py-3 text-sm text-right font-bold text-slate-400">{{ player.avgPosition }}</td>
                 </tr>
 
                 <tr v-if="expandedPlayerId === player.player.id" class="bg-slate-900/50">
