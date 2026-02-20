@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import {ref, computed, watch, onUnmounted, inject, type Ref} from 'vue';
+import {ref, computed, watch, onUnmounted, onMounted, inject, type Ref} from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { FirestoreUpdate, Tournament } from '../types';
+import type { FirestoreUpdate, Tournament, GlobalPlayer, Season } from '../types';
 import { recalculateTournamentScores } from "../utils/utils.ts";
 import { POINTS_SYSTEM } from "../utils/constants.ts";
 import { useAdmin } from '../composables/useAdmin';
@@ -50,6 +50,27 @@ const {
 
 const { currentView } = useGameLogic(tournament, secureUpdate, appId);
 const { activeVisualEgg } = useEasterEgg(tournament);
+
+// Global players & seasons (shared across phases)
+const globalPlayers = ref<GlobalPlayer[]>([]);
+const seasons = ref<Season[]>([]);
+
+const addGlobalPlayer = (player: GlobalPlayer) => {
+  globalPlayers.value.push(player);
+};
+
+onMounted(async () => {
+  try {
+    const [playersSnap, seasonsSnap] = await Promise.all([
+      getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'players')),
+      getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'seasons')),
+    ]);
+    globalPlayers.value = playersSnap.docs.map(d => ({ id: d.id, ...d.data() } as GlobalPlayer));
+    seasons.value = seasonsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Season));
+  } catch (e) {
+    console.error('Failed to fetch global players/seasons:', e);
+  }
+});
 
 const subscribeToTournament = (id: string) => {
   if (currentUnsubscribe) currentUnsubscribe();
@@ -164,14 +185,16 @@ const savePointsSystem = async () => {
       <div v-else-if="tournament" class="space-y-6 animate-fade-in">
         <h1 class="text-3xl font-black text-white text-center md:hidden mb-4">{{ tData.name }}</h1>
 
-        <RegistrationPhase v-if="tournament.status === 'registration'" :tournament="tournament" :is-admin="isAdmin" :app-id="appId" :secure-update="secureUpdate" />
-        <DraftPhase v-else-if="tournament.status === 'draft'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" />
+        <RegistrationPhase v-if="tournament.status === 'registration'" :tournament="tournament" :is-admin="isAdmin" :app-id="appId" :secure-update="secureUpdate" :global-players="globalPlayers" :add-global-player="addGlobalPlayer" />
+        <DraftPhase v-else-if="tournament.status === 'draft'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" :global-players="globalPlayers" :seasons="seasons" />
         <BanPhase v-else-if="tournament.status === 'ban'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" />
         <ActivePhase v-else-if="tournament.status === 'active' || tournament.status === 'completed'"
                      :tournament-prop="tournament"
                      :is-admin="isAdmin"
                      :app-id="appId"
-                     :secure-update="secureUpdate" />
+                     :secure-update="secureUpdate"
+                     :global-players="globalPlayers"
+                     :add-global-player="addGlobalPlayer" />
       </div>
     </main>
 

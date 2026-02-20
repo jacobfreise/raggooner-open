@@ -20,6 +20,8 @@ const props = withDefaults(defineProps<{
   isAdmin: boolean;
   appId?: string;
   secureUpdate: (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
+  globalPlayers: GlobalPlayer[];
+  addGlobalPlayer: (player: GlobalPlayer) => void;
 }>(), {
   appId: 'default-app'
 });
@@ -639,7 +641,7 @@ const structuredPlayerStats = computed(() => {
                           <span class="text-slate-400 truncate mr-1" :title="adj.reason">{{ adj.reason }}:</span>
                           <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold whitespace-nowrap shrink-0">
                            {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                        </span>
+                          </span>
                         </div>
 
                         <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="shrink-0 text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors" title="Delete"><i class="ph-bold ph-trash"></i></button>
@@ -1331,9 +1333,11 @@ const structuredPlayerStats = computed(() => {
 
         <PlayerSelector
             :app-id="props.appId"
+            :players="globalPlayers"
             :exclude-ids="tournamentPlayerIds"
             placeholder="Search or add wildcard player..."
             @select="handleWildcardSelect"
+            @create="addGlobalPlayer"
         />
       </div>
     </div>

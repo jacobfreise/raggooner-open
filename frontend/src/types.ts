@@ -149,6 +149,14 @@ export interface GlobalPlayer {
         totalTournaments: number;
         totalRaces: number;
         lastPlayed?: string;
+        opponentsFaced?: number;
+        opponentsBeaten?: number;
+        seasons?: {
+            [seasonId: string]: {
+                opponentsFaced: number;
+                opponentsBeaten: number;
+            }
+        }
     }
 }
 

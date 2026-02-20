@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
-import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import { ref, computed } from 'vue';
+import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { GlobalPlayer } from '../types';
 
 const props = defineProps<{
   appId: string;
+  players: GlobalPlayer[];
   excludeIds?: string[];
   placeholder?: string;
   showStats?: boolean;
@@ -13,10 +14,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   select: [player: GlobalPlayer];
+  create: [player: GlobalPlayer];
 }>();
 
-const players = ref<GlobalPlayer[]>([]);
-const loading = ref(true);
 const searchQuery = ref('');
 const showAddNew = ref(false);
 const newPlayerName = ref('');
@@ -27,7 +27,7 @@ const filteredPlayers = computed(() => {
 
   if (!query) return [];
 
-  return players.value
+  return props.players
       .filter(p => !props.excludeIds?.includes(p.id))
       .filter(p => p.name.toLowerCase().includes(query))
       .sort((a, b) => {
@@ -50,26 +50,6 @@ const filteredPlayers = computed(() => {
 const shouldShowDropdown = computed(() => {
   return isDropdownOpen.value && searchQuery.value.trim().length > 0;
 });
-
-onMounted(async () => {
-  await fetchPlayers();
-});
-
-const fetchPlayers = async () => {
-  loading.value = true;
-  try {
-    const playersRef = collection(db, 'artifacts', props.appId, 'public', 'data', 'players');
-    const snap = await getDocs(playersRef);
-    players.value = snap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as GlobalPlayer));
-  } catch (e) {
-    console.error('Failed to fetch players:', e);
-  } finally {
-    loading.value = false;
-  }
-};
 
 const selectPlayer = (player: GlobalPlayer) => {
   emit('select', player);
@@ -102,7 +82,7 @@ const createNewPlayer = async () => {
     const playerRef = doc(db, 'artifacts', props.appId, 'public', 'data', 'players', playerId);
     await setDoc(playerRef, newPlayer);
 
-    players.value.push(newPlayer);
+    emit('create', newPlayer);
     emit('select', newPlayer);
 
     newPlayerName.value = '';
@@ -160,9 +140,6 @@ const handleKeydown = (e: KeyboardEvent) => {
           class="w-full bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
       />
 
-      <div v-if="loading" class="absolute right-3 top-1/2 -translate-y-1/2">
-        <i class="ph ph-circle-notch animate-spin text-slate-400"></i>
-      </div>
     </div>
 
     <!-- Dropdown -->

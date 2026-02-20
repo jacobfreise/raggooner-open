@@ -186,32 +186,27 @@ const expandedPlayerTournaments = computed(() => {
   if (!expandedPlayerId.value) return [];
   const playerId = expandedPlayerId.value;
 
-  // Get this player's participations
+  // Get this player's participations — deduplicate by tournamentId (wildcards cause duplicates)
   const playerParts = filteredParticipations.value.filter(p => p.playerId === playerId);
   if (playerParts.length === 0) return [];
+  const seenTournamentIds = new Set<string>();
+  const uniqueParts = playerParts.filter(p => {
+    if (seenTournamentIds.has(p.tournamentId)) return false;
+    seenTournamentIds.add(p.tournamentId);
+    return true;
+  });
 
-  const rows = playerParts.map(part => {
-    const t = tournaments.value.find(tourney => tourney.id === part.tournamentId);
-    const tName = t?.name || part.tournamentId;
-    const tStatus = t?.status || 'unknown';
+  // Helper: compute race stats for a player, optionally restricted to specific groups
+  const computeRaceStats = (tournamentId: string, pointSystem: Record<number, number>, groupFilter?: Set<string>) => {
+    let tournamentRaces = filteredRaces.value.filter(r => r.tournamentId === tournamentId);
+    if (groupFilter) tournamentRaces = tournamentRaces.filter(r => groupFilter.has(r.group));
 
-    // Count races, wins, dominance for this player in this tournament
-    const tournamentRaces = filteredRaces.value.filter(r => r.tournamentId === part.tournamentId);
-    let races = 0;
-    let wins = 0;
-    let opponentsFaced = 0;
-    let opponentsBeaten = 0;
-    let totalPosition = 0;
-    let totalPoints = 0;
-
-    const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
-
+    let races = 0, wins = 0, opponentsFaced = 0, opponentsBeaten = 0, totalPosition = 0, totalPoints = 0;
     tournamentRaces.forEach(race => {
       const position = race.placements[playerId];
       if (position === undefined) return;
       const playersInRace = Object.keys(race.placements).length;
       if (playersInRace <= 1) return;
-
       races++;
       totalPosition += position;
       totalPoints += pointSystem[position] || 0;
@@ -219,55 +214,94 @@ const expandedPlayerTournaments = computed(() => {
       opponentsFaced += (playersInRace - 1);
       opponentsBeaten += (playersInRace - position);
     });
+    return { races, wins, opponentsFaced, opponentsBeaten, totalPosition, totalPoints };
+  };
 
-    // Determine finals status using tournament teams data
+  const buildRow = (part: typeof uniqueParts[0], rowKey: string, stats: ReturnType<typeof computeRaceStats>, overrides: {
+    isWildcard: boolean; wildcardGroup?: string;
+    finalsStatus: 'winner' | 'no-groups' | 'finals' | 'eliminated' | '-';
+  }) => {
+    const t = tournaments.value.find(tourney => tourney.id === part.tournamentId);
+    return {
+      rowKey,
+      tournamentId: part.tournamentId,
+      tournamentName: t?.name || part.tournamentId,
+      status: t?.status || 'unknown',
+      uma: part.uma || '-',
+      isWildcard: overrides.isWildcard,
+      wildcardGroup: overrides.wildcardGroup || null,
+      finalsStatus: overrides.finalsStatus,
+      races: stats.races,
+      wins: stats.wins,
+      winRate: stats.races > 0 ? Math.round((stats.wins / stats.races) * 100 * 10) / 10 : 0,
+      totalPoints: stats.totalPoints,
+      avgPoints: stats.races > 0 ? Math.round((stats.totalPoints / stats.races) * 10) / 10 : 0,
+      dominance: stats.opponentsFaced > 0 ? Math.round((stats.opponentsBeaten / stats.opponentsFaced) * 100 * 10) / 10 : 0,
+      avgPosition: stats.races > 0 ? Math.round((stats.totalPosition / stats.races) * 10) / 10 : 0,
+    };
+  };
+
+  const rows: ReturnType<typeof buildRow>[] = [];
+
+  for (const part of uniqueParts) {
+    const t = tournaments.value.find(tourney => tourney.id === part.tournamentId);
+    const tStatus = t?.status || 'unknown';
+    const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
     const teams = t?.teams || [];
     const playerTeam = teams.find(tm =>
       (part.teamId && tm.id === part.teamId) ||
       tm.captainId === playerId ||
       tm.memberIds.includes(playerId)
     );
-    const uniqueGroups = new Set(teams.map(tm => tm.group));
-    const hasGroups = uniqueGroups.size > 1;
-    // Determine the winning team (best finalsPoints among inFinals teams)
+    const uniqueGroupSet = new Set(teams.map(tm => tm.group));
+    const hasGroups = uniqueGroupSet.size > 1;
     const finalistTeams = teams.filter(tm => tm.inFinals);
     const winningTeam = finalistTeams.length > 0 && t
       ? [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true))[0]
       : null;
 
-    // Check if player was a wildcard
     const wildcards = t?.wildcards || [];
     const playerWildcards = wildcards.filter(wc => wc.playerId === playerId);
-    const isWildcard = playerWildcards.length > 0;
-    const wildcardGroups = playerWildcards.map(wc => wc.group);
 
-    let finalsStatus: 'winner' | 'no-groups' | 'finals' | 'eliminated' | '-' = '-';
-    if (teams.length === 0 && tStatus === 'active') {
-      finalsStatus = '-';
-    } else if (playerTeam) {
-      if (winningTeam && playerTeam.id === winningTeam.id && tStatus === 'completed') finalsStatus = 'winner';
-      else if (!hasGroups) finalsStatus = 'no-groups';
-      else if (playerTeam.inFinals) finalsStatus = 'finals';
-      else if (hasGroups) finalsStatus = 'eliminated';
+    // Team-based row (non-wildcard participation)
+    if (playerTeam) {
+      let finalsStatus: 'winner' | 'no-groups' | 'finals' | 'eliminated' | '-' = '-';
+      if (teams.length === 0 && tStatus === 'active') {
+        finalsStatus = '-';
+      } else if (winningTeam && playerTeam.id === winningTeam.id && tStatus === 'completed') {
+        finalsStatus = 'winner';
+      } else if (!hasGroups) {
+        finalsStatus = 'no-groups';
+      } else if (playerTeam.inFinals) {
+        finalsStatus = 'finals';
+      } else if (hasGroups) {
+        finalsStatus = 'eliminated';
+      }
+
+      // Team member races: their team's group + finals (if applicable)
+      const teamGroups = new Set<string>([playerTeam.group]);
+      if (playerTeam.inFinals) teamGroups.add('Finals');
+      const stats = computeRaceStats(part.tournamentId, pointSystem, hasGroups ? teamGroups : undefined);
+      rows.push(buildRow(part, part.tournamentId, stats, { isWildcard: false, finalsStatus }));
     }
 
-    return {
-      tournamentId: part.tournamentId,
-      tournamentName: tName,
-      status: tStatus,
-      uma: part.uma || '-',
-      isWildcard,
-      wildcardGroups,
-      finalsStatus,
-      races,
-      wins,
-      winRate: races > 0 ? Math.round((wins / races) * 100 * 10) / 10 : 0,
-      totalPoints,
-      avgPoints: races > 0 ? Math.round((totalPoints / races) * 10) / 10 : 0,
-      dominance: opponentsFaced > 0 ? Math.round((opponentsBeaten / opponentsFaced) * 100 * 10) / 10 : 0,
-      avgPosition: races > 0 ? Math.round((totalPosition / races) * 10) / 10 : 0,
-    };
-  });
+    // Wildcard rows — one per group appearance
+    for (const wc of playerWildcards) {
+      const groupFilter = new Set<string>([wc.group]);
+      const stats = computeRaceStats(part.tournamentId, pointSystem, groupFilter);
+      rows.push(buildRow(part, `${part.tournamentId}_wc_${wc.group}`, stats, {
+        isWildcard: true,
+        wildcardGroup: wc.group,
+        finalsStatus: '-',
+      }));
+    }
+
+    // Fallback: player has no team and no wildcard entries (shouldn't normally happen)
+    if (!playerTeam && playerWildcards.length === 0) {
+      const stats = computeRaceStats(part.tournamentId, pointSystem);
+      rows.push(buildRow(part, part.tournamentId, stats, { isWildcard: false, finalsStatus: '-' }));
+    }
+  }
 
   // Sort
   rows.sort((a, b) => {
@@ -1671,7 +1705,7 @@ const getRankIcon = (index: number) => {
                                 </tr>
                               </thead>
                               <tbody class="divide-y divide-slate-700">
-                                <tr v-for="(t, tIdx) in expandedPlayerTournaments" :key="t.tournamentId" class="hover:bg-slate-700/50 transition-colors">
+                                <tr v-for="(t, tIdx) in expandedPlayerTournaments" :key="t.rowKey" class="hover:bg-slate-700/50 transition-colors">
                                   <td class="px-3 py-2 text-xs text-slate-500">{{ tIdx + 1 }}</td>
                                   <td class="px-3 py-2 text-sm font-bold text-white">
                                     {{ t.tournamentName }}
@@ -1680,7 +1714,7 @@ const getRankIcon = (index: number) => {
                                   <td class="px-3 py-2 text-sm text-right text-slate-300">{{ t.uma }}</td>
                                   <td class="px-3 py-2 text-sm text-right">
                                     <div class="flex items-center justify-end gap-1 flex-wrap">
-                                      <span v-if="t.isWildcard" class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-bold uppercase">WC {{ t.wildcardGroups.join('+') }}</span>
+                                      <span v-if="t.isWildcard" class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-bold uppercase">WC {{ t.wildcardGroup }}</span>
                                       <span v-if="t.finalsStatus === 'winner'" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-bold uppercase">Winner</span>
                                       <span v-else-if="t.finalsStatus === 'finals'" class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-bold uppercase">Finals</span>
                                       <span v-else-if="t.finalsStatus === 'eliminated'" class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 font-bold uppercase">Out</span>

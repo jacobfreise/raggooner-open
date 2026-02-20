@@ -11,6 +11,8 @@ const props = defineProps<{
   isAdmin: boolean;
   appId: string;
   secureUpdate: (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
+  globalPlayers: GlobalPlayer[];
+  addGlobalPlayer: (player: GlobalPlayer) => void;
 }>();
 
 const tournamentRef = toRef(props, 'tournament');
@@ -80,10 +82,12 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
           <!-- PlayerSelector Component -->
           <PlayerSelector
               :app-id="appId"
+              :players="globalPlayers"
               :exclude-ids="addedPlayerIds()"
               :show-stats="true"
               placeholder="Search or add player..."
               @select="handlePlayerSelect"
+              @create="addGlobalPlayer"
               :disabled="!isAdmin"
           />
 
