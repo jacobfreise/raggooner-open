@@ -251,5 +251,6 @@ export interface UmaData {
         distance: DistanceAptitude;
         style: StyleAptitude;
     };
+    stars: number;
     // Future fields can go here (e.g., rarity, iconUrl, growthRates)
 }
