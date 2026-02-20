@@ -462,16 +462,8 @@ export const UMAS: UmaData[] = [
         id: 'rice-shower', name: 'Rice Shower', releaseDate: '2025-06-26',
         aptitudes: {
             surface: {turf: 'A', dirt: 'G'},
-            distance: {sprint: 'G', mile: 'E', medium: 'A', long: 'A'},
-            style: {frontRunner: 'F', paceChaser: 'A', lateSurger: 'A', endCloser: 'C'}
-        }
-    },
-    {
-        id: 'super-creek', name: 'Super Creek', releaseDate: '2025-06-26',
-        aptitudes: {
-            surface: {turf: 'A', dirt: 'G'},
-            distance: {sprint: 'G', mile: 'F', medium: 'A', long: 'A'},
-            style: {frontRunner: 'F', paceChaser: 'A', lateSurger: 'C', endCloser: 'G'}
+            distance: {sprint: 'E', mile: 'C', medium: 'A', long: 'A'},
+            style: {frontRunner: 'B', paceChaser: 'A', lateSurger: 'C', endCloser: 'G'}
         }
     },
     {
@@ -479,15 +471,15 @@ export const UMAS: UmaData[] = [
         aptitudes: {
             surface: {turf: 'A', dirt: 'G'},
             distance: {sprint: 'G', mile: 'D', medium: 'A', long: 'B'},
-            style: {frontRunner: 'E', paceChaser: 'A', lateSurger: 'B', endCloser: 'G'}
+            style: {frontRunner: 'E', paceChaser: 'A', lateSurger: 'B', endCloser: 'F'}
         }
     },
     {
         id: 'winning-ticket', name: 'Winning Ticket', releaseDate: '2025-06-26',
         aptitudes: {
             surface: {turf: 'A', dirt: 'G'},
-            distance: {sprint: 'G', mile: 'D', medium: 'A', long: 'A'},
-            style: {frontRunner: 'F', paceChaser: 'B', lateSurger: 'A', endCloser: 'C'}
+            distance: {sprint: 'G', mile: 'F', medium: 'A', long: 'B'},
+            style: {frontRunner: 'G', paceChaser: 'B', lateSurger: 'A', endCloser: 'G'}
         }
     },
     {
@@ -499,19 +491,27 @@ export const UMAS: UmaData[] = [
         }
     },
     {
+        id: 'super-creek', name: 'Super Creek', releaseDate: '2025-06-26',
+        aptitudes: {
+            surface: {turf: 'A', dirt: 'G'},
+            distance: {sprint: 'G', mile: 'G', medium: 'A', long: 'A'},
+            style: {frontRunner: 'D', paceChaser: 'A', lateSurger: 'B', endCloser: 'G'}
+        }
+    },
+    {
         id: 'haru-urara', name: 'Haru Urara', releaseDate: '2025-06-26',
         aptitudes: {
             surface: {turf: 'G', dirt: 'A'},
             distance: {sprint: 'A', mile: 'B', medium: 'G', long: 'G'},
-            style: {frontRunner: 'G', paceChaser: 'G', lateSurger: 'A', endCloser: 'A'}
+            style: {frontRunner: 'G', paceChaser: 'G', lateSurger: 'A', endCloser: 'B'}
         }
     },
     {
         id: 'matikanefukukitaru', name: 'Matikanefukukitaru', releaseDate: '2025-06-26',
         aptitudes: {
-            surface: {turf: 'A', dirt: 'G'},
-            distance: {sprint: 'G', mile: 'E', medium: 'A', long: 'A'},
-            style: {frontRunner: 'F', paceChaser: 'B', lateSurger: 'A', endCloser: 'C'}
+            surface: {turf: 'A', dirt: 'F'},
+            distance: {sprint: 'F', mile: 'C', medium: 'A', long: 'A'},
+            style: {frontRunner: 'G', paceChaser: 'B', lateSurger: 'A', endCloser: 'F'}
         }
     },
     {
@@ -519,7 +519,7 @@ export const UMAS: UmaData[] = [
         aptitudes: {
             surface: {turf: 'A', dirt: 'G'},
             distance: {sprint: 'G', mile: 'C', medium: 'A', long: 'B'},
-            style: {frontRunner: 'G', paceChaser: 'B', lateSurger: 'A', endCloser: 'D'}
+            style: {frontRunner: 'F', paceChaser: 'B', lateSurger: 'A', endCloser: 'D'}
         }
     },
     {
@@ -527,7 +527,7 @@ export const UMAS: UmaData[] = [
         aptitudes: {
             surface: {turf: 'A', dirt: 'G'},
             distance: {sprint: 'A', mile: 'B', medium: 'B', long: 'C'},
-            style: {frontRunner: 'G', paceChaser: 'C', lateSurger: 'A', endCloser: 'B'}
+            style: {frontRunner: 'G', paceChaser: 'B', lateSurger: 'A', endCloser: 'D'}
         }
     }
 ];
