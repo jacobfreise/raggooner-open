@@ -43,7 +43,7 @@ const tournaments = ref<Tournament[]>([]);
 // Filters
 const playerSearchQuery = ref('');
 const umaSearchQuery = ref('');
-const minTournaments = ref(1);
+const minTournaments = ref(3);
 
 const seasons = ref<Season[]>([]);
 const selectedSeasons = ref<string[]>(['season-2']);
@@ -61,6 +61,13 @@ const umaPlayerSortKey = ref('racesPlayed');
 const umaPlayerSortDesc = ref(true);
 const umaTournamentSortKey = ref('tournamentName');
 const umaTournamentSortDesc = ref(false);
+
+// --- SORTING STATE ---
+const playerSortKey = ref('dominance');
+const playerSortDesc = ref(true);
+
+const umaSortKey = ref('dominance');
+const umaSortDesc = ref(true);
 
 const togglePlayerExpand = (playerId: string) => {
   if (expandedPlayerId.value === playerId) {
@@ -450,13 +457,6 @@ const toggleSeason = (seasonId: string) => {
     selectedSeasons.value.splice(index, 1); // Remove
   }
 };
-
-// --- SORTING STATE ---
-const playerSortKey = ref('dominance');
-const playerSortDesc = ref(true);
-
-const umaSortKey = ref('dominance');
-const umaSortDesc = ref(true);
 
 // --- FILTERED DATA PIPELINES ---
 // These ensure all downstream stats only look at the selected seasons!
