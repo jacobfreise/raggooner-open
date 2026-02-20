@@ -6,6 +6,7 @@ import type {GlobalPlayer, Tournament, Season} from '../types';
 import {compareTeams, recalculateTournamentScores} from "../utils/utils.ts";
 import {POINTS_SYSTEM} from "../utils/constants.ts";
 import {getCached, setCache} from "../utils/cache.ts";
+import { getUmaData } from "../utils/umaData.ts";
 
 // Derived types reconstructed from tournaments (no separate Firestore collections)
 interface DerivedParticipation {
@@ -733,7 +734,6 @@ const playerRankings = computed(() => {
 });
 
 // Uma Stats
-// Uma Stats
 const umaStats = computed(() => {
   const umaData = new Map<string, {
     name: string;
@@ -761,6 +761,7 @@ const umaStats = computed(() => {
     tournamentCount: number;
     tournamentsPicked: number;
     totalPicks: number;
+    availableTournaments: number;
   }>();
 
   // Helper to initialize a clean Uma object
@@ -789,7 +790,8 @@ const umaStats = computed(() => {
     teamWins: 0,
     tournamentCount: 0,
     tournamentsPicked: 0,
-    totalPicks: 0
+    totalPicks: 0,
+    availableTournaments: 0
   });
 
   // 1. Process Bans
@@ -889,18 +891,87 @@ const umaStats = computed(() => {
   });
 
   // 3. Calculate final percentages and averages
-  const totalTournaments = filteredTournaments.value.length;
+  // const totalTournaments = filteredTournaments.value.length;
+  //
+  // let totalOverallPicks = 0;
+  // umaData.forEach(stats => {
+  //   stats.tournamentCount = stats.presenceTournaments.size;
+  //   stats.picks = stats.pickInstances.size;
+  //   totalOverallPicks += stats.picks;
+  // });
+  //
+  // umaData.forEach(stats => {
+  //   stats.totalPicks = totalOverallPicks
+  //   stats.tournamentCount = stats.presenceTournaments.size; // Slider now filters by Presence!
+  //   stats.picks = stats.pickInstances.size;
+  //   stats.tournamentsPicked = stats.tournamentIds.size;
+  //
+  //   stats.winRate = stats.timesPlayed > 0
+  //       ? Math.round((stats.wins / stats.timesPlayed) * 100 * 10) / 10
+  //       : 0;
+  //   stats.tournamentWinRate = stats.teamInstances.size > 0
+  //       ? Math.round((stats.teamWins / stats.teamInstances.size) * 100 * 10) / 10
+  //       : 0;
+  //   stats.avgPoints = stats.timesPlayed > 0
+  //       ? Math.round((stats.totalPoints / stats.timesPlayed) * 10) / 10
+  //       : 0;
+  //   stats.avgPosition = stats.timesPlayed > 0
+  //       ? Math.round((stats.totalPosition / stats.timesPlayed) * 10) / 10
+  //       : 0;
+  //   stats.dominance = stats.opponentsFaced > 0
+  //       ? Math.round((stats.opponentsBeaten / stats.opponentsFaced) * 100 * 10) / 10
+  //       : 0;
+  //
+  //   stats.banRate = totalTournaments > 0
+  //       ? Math.round((stats.bans / totalTournaments) * 100 * 10) / 10
+  //       : 0;
+  //   stats.pickRate = totalOverallPicks > 0
+  //       ? Math.round((stats.picks / totalOverallPicks) * 100 * 10) / 10
+  //       : 0;
+  //
+  //   // Presence = (Picks + Bans) / Total Tournaments
+  //   stats.presence = totalTournaments > 0
+  //       ? Math.round((stats.presenceTournaments.size / totalTournaments) * 100 * 10) / 10
+  //       : 0;
+  // });
+  // REPLACE STEP 3 ENTIRELY WITH THIS:
+  // 3. Calculate final percentages and averages dynamically based on release dates
 
-  let totalOverallPicks = 0;
-  umaData.forEach(stats => {
-    stats.tournamentCount = stats.presenceTournaments.size;
-    stats.picks = stats.pickInstances.size;
-    totalOverallPicks += stats.picks;
+  // First, map out how many total picks happened in EACH tournament
+  const picksByTournament = new Map<string, Set<string>>();
+  filteredRaces.value.forEach(race => {
+    if (!race.tournamentId) return;
+    if (!picksByTournament.has(race.tournamentId)) {
+      picksByTournament.set(race.tournamentId, new Set());
+    }
+    Object.entries(race.umaMapping || {}).forEach(([playerId, uma]) => {
+      if (uma) {
+        picksByTournament.get(race.tournamentId)!.add(`${race.tournamentId}_${playerId}`);
+      }
+    });
   });
 
   umaData.forEach(stats => {
-    stats.totalPicks = totalOverallPicks
-    stats.tournamentCount = stats.presenceTournaments.size; // Slider now filters by Presence!
+    // Fetch the release date from our new dictionary
+    const umaDetails = getUmaData(stats.name);
+    // Default to 0 (always available) if it's somehow missing from dictionary
+    const releaseTime = umaDetails ? new Date(umaDetails.releaseDate).getTime() : 0;
+
+    let availableTournamentsCount = 0;
+    let availablePicksCount = 0;
+
+    // Tally only the tournaments that happened AFTER this Uma was released
+    filteredTournaments.value.forEach(t => {
+      const tTime = new Date(t.createdAt).getTime();
+      if (tTime >= releaseTime) {
+        availableTournamentsCount++;
+        availablePicksCount += (picksByTournament.get(t.id)?.size || 0);
+      }
+    });
+
+    stats.availableTournaments = availableTournamentsCount;
+    stats.totalPicks = availablePicksCount;
+    stats.tournamentCount = stats.presenceTournaments.size;
     stats.picks = stats.pickInstances.size;
     stats.tournamentsPicked = stats.tournamentIds.size;
 
@@ -920,16 +991,17 @@ const umaStats = computed(() => {
         ? Math.round((stats.opponentsBeaten / stats.opponentsFaced) * 100 * 10) / 10
         : 0;
 
-    stats.banRate = totalTournaments > 0
-        ? Math.round((stats.bans / totalTournaments) * 100 * 10) / 10
-        : 0;
-    stats.pickRate = totalOverallPicks > 0
-        ? Math.round((stats.picks / totalOverallPicks) * 100 * 10) / 10
+    // --- The Updated Formulas ---
+    stats.banRate = availableTournamentsCount > 0
+        ? Math.round((stats.bans / availableTournamentsCount) * 100 * 10) / 10
         : 0;
 
-    // Presence = (Picks + Bans) / Total Tournaments
-    stats.presence = totalTournaments > 0
-        ? Math.round((stats.presenceTournaments.size / totalTournaments) * 100 * 10) / 10
+    stats.pickRate = availablePicksCount > 0
+        ? Math.round((stats.picks / availablePicksCount) * 100 * 10) / 10
+        : 0;
+
+    stats.presence = availableTournamentsCount > 0
+        ? Math.round((stats.presenceTournaments.size / availableTournamentsCount) * 100 * 10) / 10
         : 0;
   });
 
@@ -1821,6 +1893,7 @@ const getRankIcon = (index: number) => {
                 </th>
 
                 <th v-for="col in [
+                      { key: 'tournamentCount', label: 'Tourneys' },
                       { key: 'picks', label: 'Picks' },
                       { key: 'pickRate', label: 'Pick %' },
                       { key: 'bans', label: 'Bans' },
@@ -1861,6 +1934,7 @@ const getRankIcon = (index: number) => {
                     {{ uma.name }}
                   </td>
 
+                  <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.tournamentCount }}</td>
                   <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.picks }}/{{uma.totalPicks}}</td>
                   <td class="px-4 py-3 text-sm text-right text-blue-400">{{ uma.pickRate }}%</td>
 
