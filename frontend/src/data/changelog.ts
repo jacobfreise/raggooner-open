@@ -9,9 +9,18 @@ export interface ChangeLogEntry {
     }[];
 }
 
-export const APP_VERSION = '2.0.0'; // Update this manually when you deploy
+export const APP_VERSION = '2.0.1'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '2.0.1',
+        date: '2026-02-20',
+        title: 'Dominance in Registration and Draft',
+        changes: [
+            { type: 'improvement', text: 'Show Dominance on Player Cards during Registration Phase and Draft Phase' },
+            { type: 'improvement', text: 'Many Minor Fixes and Improvements to Analytics' },
+        ]
+    },
     {
         version: '2.0.0',
         date: '2026-02-18',
