@@ -33,7 +33,7 @@ const getBadgeColor = (type: string) => {
 
 <template>
   <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" @click="$emit('close')">
-    <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full max-h-[80vh] flex flex-col shadow-2xl" @click.stop>
+    <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-2xl w-full max-h-[80vh] flex flex-col shadow-2xl" @click.stop>
 
       <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
         <div>
