@@ -60,6 +60,7 @@ const {
   updateRacePlacement,
   advanceToFinals,
   endTournament,
+  reopenTournament,
   getRoundPoints,
   getRaceCount,
   showTieBreakerModal,
@@ -787,6 +788,14 @@ const structuredPlayerStats = computed(() => {
               :disabled="!isAdminRef"
               class="bg-slate-700 hover:bg-green-600 text-white text-lg font-bold py-3 px-8 rounded-lg transition-colors">
         Complete Tournament
+      </button>
+    </div>
+
+    <div v-if="tournament.status === 'completed' && isAdminRef" class="flex justify-center mt-8">
+      <button @click="reopenTournament"
+              class="bg-rose-900/40 hover:bg-rose-600 border border-rose-500/50 hover:border-rose-500 text-rose-300 hover:text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-all flex items-center gap-2 shadow-lg hover:shadow-rose-900/50">
+        <i class="ph-bold ph-arrow-u-up-left text-lg"></i>
+        Reopen for Corrections
       </button>
     </div>
 

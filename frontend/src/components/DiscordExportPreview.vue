@@ -18,30 +18,32 @@
 
     <div class="flex flex-col gap-3">
 
-      <div v-if="singleMessageLength <= 2000">
+      <!-- Tier: single — one full-length button, no splitting needed -->
+      <div v-if="tier === 'single'">
         <button
-            @click="copyToClipboard('single')"
+            @click="copyMessage(fullSingle)"
             class="w-full bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-900/20">
           <i class="ph-bold ph-copy"></i>
           Copy Report
-          <span class="text-xs opacity-75 font-mono">({{ singleMessageLength }} chars)</span>
+          <span class="text-xs opacity-75 font-mono">({{ fullSingle.length }} chars)</span>
         </button>
       </div>
 
+      <!-- All other tiers: warning + split part buttons + Nitro button -->
       <div v-else class="space-y-3">
         <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 flex items-start gap-3">
           <i class="ph-bold ph-warning text-amber-500 text-xl shrink-0"></i>
           <div class="text-sm text-amber-200">
             <strong>Limit Exceeded!</strong> The report is too long for one Discord message.
-            It has been split into {{ splitMessages.length }} parts.
+            It has been split into {{ displayMessages.length }} parts.
           </div>
         </div>
 
         <div class="flex gap-2">
           <button
-              v-for="(msg, idx) in splitMessages"
+              v-for="(msg, idx) in displayMessages"
               :key="idx"
-              @click="copyToClipboard('split', idx)"
+              @click="copyMessage(msg, idx)"
               class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-indigo-400 text-white px-3 py-3 rounded-lg font-bold flex flex-col items-center justify-center gap-1 transition-all active:scale-95">
             <div class="flex items-center gap-2 text-sm">
               <i class="ph-bold ph-copy"></i>
@@ -52,11 +54,11 @@
         </div>
 
         <button
-            @click="copyToClipboard('single')"
+            @click="copyMessage(fullSingle)"
             class="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all active:scale-95">
           <i class="ph-bold ph-crown"></i>
           I have Nitro
-          <span class="text-xs opacity-75 font-mono">({{ singleMessageLength }} chars)</span>
+          <span class="text-xs opacity-75 font-mono">({{ fullSingle.length }} chars)</span>
         </button>
       </div>
     </div>
@@ -77,7 +79,7 @@
 
           <div class="p-4 max-h-[500px] overflow-y-auto space-y-6 custom-scrollbar">
 
-            <div v-for="(msg, idx) in (singleMessageLength <= 2000 ? [singleMessage] : splitMessages)" :key="idx" class="flex gap-4 group">
+            <div v-for="(msg, idx) in previewMessages" :key="idx" class="flex gap-4 group">
 
               <div class="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xl shadow-sm shrink-0 mt-0.5">
                 🤖
@@ -86,8 +88,8 @@
               <div class="flex-1 min-w-0">
                 <div class="flex items-baseline gap-2 mb-1">
                   <span class="text-white font-medium hover:underline cursor-pointer">Tournament Bot</span>
-                  <span v-if="singleMessageLength > 2000" class="px-1.5 rounded-[3px] bg-[#5865F2] text-white text-[10px] font-bold h-4 flex items-center leading-none">
-                    PART {{ idx + 1 }}/{{ splitMessages.length }}
+                  <span v-if="previewMessages.length > 1" class="px-1.5 rounded-[3px] bg-[#5865F2] text-white text-[10px] font-bold h-4 flex items-center leading-none">
+                    PART {{ idx + 1 }}/{{ previewMessages.length }}
                   </span>
                   <span class="text-xs text-[#72767d]">Today at {{ getCurrentTime() }}</span>
                 </div>
@@ -122,7 +124,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import type { Tournament } from '../types';
-import { generateDiscordReport, generateDiscordReportSplit } from '../utils/exportUtils';
+import { generateDiscordReport, generateDiscordReportSplit, generateDiscordReportSplit3 } from '../utils/exportUtils';
 
 const props = defineProps<{
   tournament: Tournament;
@@ -133,10 +135,46 @@ const showPreview = ref(false);
 const showCopySuccess = ref(false);
 const copySuccessMessage = ref('');
 
-// Generate reports
-const singleMessage = computed(() => generateDiscordReport(props.tournament));
-const splitMessages = computed(() => generateDiscordReportSplit(props.tournament));
-const singleMessageLength = computed(() => singleMessage.value.length);
+const DISCORD_LIMIT = 2000;
+
+const allFit = (msgs: string[]) => msgs.every(m => m.length <= DISCORD_LIMIT);
+
+// Generate all variants
+const fullSingle = computed(() => generateDiscordReport(props.tournament, false));
+const shortSingle = computed(() => generateDiscordReport(props.tournament, true));
+const split2Full = computed(() => generateDiscordReportSplit(props.tournament, false));
+const split2Short = computed(() => generateDiscordReportSplit(props.tournament, true));
+const split3Full = computed(() => generateDiscordReportSplit3(props.tournament, false));
+const split3Short = computed(() => generateDiscordReportSplit3(props.tournament, true));
+
+type Tier = 'single' | 'single-short' | 'split2-full' | 'split2-short' | 'split3-full' | 'split3-short';
+
+const tier = computed<Tier>(() => {
+  if (fullSingle.value.length <= DISCORD_LIMIT) return 'single';
+  if (shortSingle.value.length <= DISCORD_LIMIT) return 'single-short';
+  if (allFit(split2Full.value)) return 'split2-full';
+  if (allFit(split2Short.value)) return 'split2-short';
+  if (allFit(split3Full.value)) return 'split3-full';
+  return 'split3-short';
+});
+
+// The messages shown in split part buttons (non-nitro)
+const displayMessages = computed<string[]>(() => {
+  switch (tier.value) {
+    case 'single-short': return [shortSingle.value];
+    case 'split2-full': return split2Full.value;
+    case 'split2-short': return split2Short.value;
+    case 'split3-full': return split3Full.value;
+    case 'split3-short': return split3Short.value;
+    default: return [];
+  }
+});
+
+// Messages shown in the preview
+const previewMessages = computed<string[]>(() => {
+  if (tier.value === 'single') return [fullSingle.value];
+  return displayMessages.value;
+});
 
 // Helper for Preview Rendering
 const renderDiscordMarkdown = (text: string) => {
@@ -157,17 +195,8 @@ const renderDiscordMarkdown = (text: string) => {
   return html;
 };
 
-const copyToClipboard = async (mode: 'single' | 'split', messageIndex?: number) => {
-  let text = '';
-  let label = '';
-
-  if (mode === 'single') {
-    text = singleMessage.value;
-    label = 'Copied full report!';
-  } else if (mode === 'split' && messageIndex !== undefined) {
-    text = splitMessages.value[messageIndex]!;
-    label = `Part ${messageIndex + 1} copied!`;
-  }
+const copyMessage = async (text: string, partIndex?: number) => {
+  const label = partIndex !== undefined ? `Part ${partIndex + 1} copied!` : 'Copied full report!';
 
   try {
     await navigator.clipboard.writeText(text);

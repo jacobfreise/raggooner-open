@@ -671,6 +671,76 @@ export function useGameLogic(
         }
     };
 
+    const unsyncTournamentData = async () => {
+        const t = tournament.value!;
+        const batch = writeBatch(db);
+
+        // 1. Delete TournamentParticipations
+        t.players.forEach(player => {
+            const partId = `${t.id}_${player.id}`;
+            const partRef = doc(db, 'artifacts', appId, 'public', 'data', 'participations', partId);
+            batch.delete(partRef);
+        });
+
+        // (We leave Race documents intact because they are dual-written live during the active phase anyway,
+        // and any subsequent edits will just overwrite them normally).
+
+        // 2. Reverse GlobalPlayer metadata increments
+        const seenPlayerIds = new Set<string>();
+        t.players.forEach(player => {
+            if (seenPlayerIds.has(player.id)) return;
+            seenPlayerIds.add(player.id);
+            const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', player.id);
+            const playerRaceCount = t.races.filter(r =>
+                Object.keys(r.placements).includes(player.id)
+            ).length;
+
+            let totalBeaten = 0;
+            let totalFaced = 0;
+            t.races.forEach(race => {
+                const position = race.placements[player.id];
+                if (position == null) return;
+                const playersInRace = Object.keys(race.placements).length;
+                totalBeaten += playersInRace - position;
+                totalFaced += playersInRace - 1;
+            });
+
+            // Use negative increments to subtract the exact amounts we previously added
+            const updateData: Record<string, any> = {
+                'metadata.totalTournaments': increment(-1),
+                'metadata.totalRaces': increment(-playerRaceCount),
+                'metadata.opponentsFaced': increment(-totalFaced),
+                'metadata.opponentsBeaten': increment(-totalBeaten),
+            };
+
+            if (t.seasonId) {
+                updateData[`metadata.seasons.${t.seasonId}.opponentsFaced`] = increment(-totalFaced);
+                updateData[`metadata.seasons.${t.seasonId}.opponentsBeaten`] = increment(-totalBeaten);
+            }
+
+            batch.update(playerRef, updateData);
+        });
+
+        await batch.commit();
+    };
+
+    const reopenTournament = async () => {
+        if (!tournament.value) return;
+        saving.value = true;
+        try {
+            await unsyncTournamentData();
+            await secureUpdate({
+                status: 'active',
+                completedAt: null
+            });
+        } catch (e) {
+            console.error('Failed to reopen tournament:', e);
+            alert("Failed to reverse tournament completion. Check console.");
+        } finally {
+            saving.value = false;
+        }
+    };
+
     //RACE VIEW LOGIC
     const getRaceResults = (race: Race) => {
         if (!race.placements) return [];
@@ -899,6 +969,7 @@ export function useGameLogic(
         advanceToFinals,
         resolveManually,
         endTournament,
+        reopenTournament,
         getRoundPoints,
         getRaceCount,
         activeStagePlayers,
