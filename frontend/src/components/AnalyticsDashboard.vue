@@ -2189,6 +2189,43 @@ const getRankIcon = (index: number) => {
           <i class="ph ph-construction text-6xl mb-4"></i>
           <p>Tournament comparison view coming soon...</p>
         </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="px-4 py-3 border-b border-slate-700 bg-slate-900 flex justify-between items-center">
+            <h3 class="font-bold text-white uppercase tracking-wider text-sm">Tournament Archive</h3>
+            <span class="text-xs text-slate-500 font-mono">{{ filteredTournaments.length }} Events</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-slate-900 border-b border-slate-700">
+              <tr>
+                <th class="px-4 py-2 text-left text-xs font-bold text-slate-400 uppercase">Date</th>
+                <th class="px-4 py-2 text-left text-xs font-bold text-slate-400 uppercase">Name</th>
+                <th class="px-4 py-2 text-left text-xs font-bold text-slate-400 uppercase">Winner(s)</th>
+                <th class="px-4 py-2 text-right text-xs font-bold text-slate-400 uppercase">Players</th>
+              </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-700">
+              <tr v-for="t in filteredTournaments" :key="t.id" class="hover:bg-slate-750 transition-colors">
+                <td class="px-4 py-3 text-sm text-slate-400 font-mono">
+                  {{ new Date(t.createdAt).toLocaleDateString() }}
+                </td>
+                <td class="px-4 py-3 text-sm font-bold text-white">
+                  <router-link :to="'/t/' + t.id" class="hover:text-indigo-400 transition-colors">
+                    {{ t.name }}
+                  </router-link>
+                </td>
+                <td class="px-4 py-3 text-sm text-amber-400 font-medium">
+                  tbd
+                </td>
+                <td class="px-4 py-3 text-sm text-right text-slate-300">
+                  {{ t.players?.length || 0 }}
+                </td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </main>
 

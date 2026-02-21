@@ -197,7 +197,7 @@ export interface RaceDocument {
 export interface Tournament {
     id: string;
     name: string;
-    seasonId?: string;          // NEU
+    seasonId?: string;
     password?: string;
     status: 'registration' | 'draft' | 'active' | 'ban' | 'completed';
     stage: 'groups' | 'finals';
