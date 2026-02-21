@@ -1893,11 +1893,12 @@ const getRankIcon = (index: number) => {
                 </th>
 
                 <th v-for="col in [
-                      { key: 'tournamentCount', label: 'Tourneys' },
+                      { key: 'tournamentCount', label: 'T. Picks' },
                       { key: 'picks', label: 'Picks' },
                       { key: 'pickRate', label: 'Pick %' },
                       { key: 'bans', label: 'Bans' },
                       { key: 'banRate', label: 'Ban %' },
+                      { key: 'tournamentCount', label: 'Presence' },
                       { key: 'presence', label: 'Presence %' },
                       { key: 'timesPlayed', label: 'Races' },
                       { key: 'wins', label: 'Race Wins' },
@@ -1934,13 +1935,14 @@ const getRankIcon = (index: number) => {
                     {{ uma.name }}
                   </td>
 
-                  <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.tournamentCount }}</td>
+                  <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.tournamentsPicked }}/{{ uma.availableTournaments }}</td>
                   <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.picks }}/{{uma.totalPicks}}</td>
                   <td class="px-4 py-3 text-sm text-right text-blue-400">{{ uma.pickRate }}%</td>
 
                   <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.bans }}/{{ uma.availableTournaments }} </td>
                   <td class="px-4 py-3 text-sm text-right text-rose-400">{{ uma.banRate }}%</td>
 
+                  <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.tournamentCount }}/{{ uma.availableTournaments }}</td>
                   <td class="px-4 py-3 text-sm text-right font-bold text-amber-400">{{ uma.presence }}%</td>
 
                   <td class="px-4 py-3 text-sm text-right text-slate-400">{{ uma.timesPlayed }}</td>
