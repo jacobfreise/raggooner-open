@@ -135,7 +135,7 @@ const savePointsSystem = async () => {
   <div :class="activeVisualEgg?.visual?.rootClass" class="w-full relative flex flex-col min-h-full">
 
     <header class="border-b border-slate-700 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
-      <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between relative">
+      <div class="max-w-[1800px] mx-auto px-4 h-16 md:px-8 flex items-center justify-between relative">
         <div class="flex items-center gap-2 text-indigo-500 cursor-pointer z-10" @click="exitTournament">
           <i class="ph-fill ph-flag-checkered text-3xl"></i>
           <span class="text-2xl font-bold text-white heading tracking-widest hidden sm:block">Raccoon Open</span>
@@ -177,7 +177,7 @@ const savePointsSystem = async () => {
       </div>
     </header>
 
-    <main class="flex-grow p-4 md:p-6 max-w-7xl mx-auto w-full">
+    <main class="flex-grow p-4 md:p-6 max-w-[1800px] mx-auto w-full">
       <div v-if="loading" class="flex justify-center items-center h-96">
         <i class="ph ph-spinner animate-spin text-5xl text-indigo-500"></i>
       </div>
