@@ -176,7 +176,7 @@ onMounted(() => {
   <div class="w-full flex flex-col min-h-full">
 
     <header class="border-b border-slate-700 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
-      <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="max-w-[1800px] mx-auto px-4 h-16 md:px-8 flex items-center justify-between">
         <div class="flex items-center gap-2 text-indigo-500 z-10">
           <i class="ph-fill ph-flag-checkered text-3xl"></i>
           <span class="text-2xl font-bold text-white heading tracking-widest hidden sm:block">Raccoon Open</span>
