@@ -1893,7 +1893,7 @@ const getRankIcon = (index: number) => {
                 </th>
 
                 <th v-for="col in [
-                      { key: 'tournamentCount', label: 'T. Picks' },
+                      { key: 'tournamentsPicked', label: 'T. Picks' },
                       { key: 'picks', label: 'Picks' },
                       { key: 'pickRate', label: 'Pick %' },
                       { key: 'bans', label: 'Bans' },
