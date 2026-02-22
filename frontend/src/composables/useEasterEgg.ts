@@ -13,7 +13,7 @@ const EGG_LIST: EggConfig[] = [
             const winner = players.find(p => p.id === winnerId);
             return winner?.uma === 'Hishi Akebono';
         },
-        audio: 'Bono.mp3',
+        audio: '/Bono.mp3',
         volume: 0.8,
         duration: 8000,
         visual: {
@@ -32,7 +32,7 @@ const EGG_LIST: EggConfig[] = [
             if (!winner) return false;
             return winner.uma.toLowerCase().includes('special week') && winner.name.toLowerCase().includes('dedratermi');
         },
-        audio: 'special-week-agemasen.mp3',
+        audio: '/special-week-agemasen.mp3',
         volume: 0.7,
         duration: 1000,
         visual: {
