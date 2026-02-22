@@ -15,77 +15,6 @@ import DiscordExportPreview from "./DiscordExportPreview.vue";
 import PlayerSelector from "./PlayerSelector.vue";
 import type {GlobalPlayer} from "../types";
 
-// State for which race is currently being edited (flipped)
-const editingRaceKey = ref<string | null>(null);
-
-// Local state for the back-face entry
-const entryMap = ref<Record<number, string>>({}); // { 1: 'pid1', 2: 'pid2' }
-
-const toggleEditRace = (stage: 'groups' | 'finals', group: string, raceNum: number) => {
-  const key = raceKey(stage, group, raceNum);
-  if (editingRaceKey.value === key) {
-    editingRaceKey.value = null;
-    entryMap.value = {};
-  } else {
-    editingRaceKey.value = key;
-    const existingRace = props.tournamentProp.races[key];
-
-    // Map current results { playerId: pos } to our working map { pos: playerId }
-    const initialMap: Record<number, string> = {};
-    if (existingRace?.placements) {
-      Object.entries(existingRace.placements).forEach(([pid, pos]) => {
-        initialMap[pos] = pid;
-      });
-    }
-    entryMap.value = initialMap;
-  }
-};
-
-const handleTapToRank = (playerId: string) => {
-  // Find if the player is already assigned to a rank
-  const existingRank = Object.keys(entryMap.value).find(
-      (key) => entryMap.value[parseInt(key)] === playerId
-  );
-
-  if (existingRank) {
-    // DESELECT: Just remove this player. Others stay where they are.
-    delete entryMap.value[parseInt(existingRank)];
-  } else {
-    // SELECT: Find the first available number starting from 1
-    let nextRank = 1;
-    while (entryMap.value[nextRank]) {
-      nextRank++;
-    }
-    entryMap.value[nextRank] = playerId;
-  }
-};
-
-const saveTapResults = async (group: string, raceNumber: number) => {
-  const stage = currentView.value;
-  const key = raceKey(stage, group, raceNumber);
-
-  // Convert { rank: playerId } back to { playerId: rank } for Firestore
-  const placements: Record<string, number> = {};
-  Object.entries(entryMap.value).forEach(([rank, pid]) => {
-    placements[pid] = parseInt(rank);
-  });
-
-  await props.secureUpdate({
-    [`races.${key}`]: {
-      id: props.tournamentProp.races[key]?.id || crypto.randomUUID(),
-      stage,
-      group: group as any,
-      raceNumber,
-      timestamp: new Date().toISOString(),
-      placements
-    }
-  });
-
-  editingRaceKey.value = null;
-  entryMap.value = {};
-};
-
-
 const props = withDefaults(defineProps<{
   tournamentProp: Tournament;
   isAdmin: boolean;
@@ -144,7 +73,12 @@ const {
   addTeamAdjustment,
   removeTeamAdjustment,
   confirmTiebreakerSelection,
-  cancelTieBreaker
+  cancelTieBreaker,
+  editingRaceKey,
+  entryMap,
+  toggleEditRace,
+  handleTapToRank,
+  saveTapResults
 } = useGameLogic(tournament, props.secureUpdate);
 
 // Initialize Roster (for visual helpers like colors/names)
