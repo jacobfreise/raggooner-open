@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * Imports my-database-backup.json into Firestore.
+ * Imports a database backup JSON file into Firestore.
  * Works against both the emulator (default) and live database (--live flag).
  *
  * Usage:
  *   node scripts/restoreBackup.mjs                        # emulator (default)
  *   node scripts/restoreBackup.mjs --dry-run               # preview without writing
- *   node scripts/restoreBackup.mjs --live --token <TOKEN>  # live database
+ *   node scripts/restoreBackup.mjs --live --dry-run         # preview against production
+ *   node scripts/restoreBackup.mjs --live                   # live database
  */
 
 import { readFileSync } from 'fs';
-import { confirmLiveMode, IS_LIVE, HEADERS, toFirestoreFields, rawDocUrl } from './config.mjs';
+import { confirmLiveMode, IS_LIVE, DRY_RUN, getDb, BASE_PATH } from './config.mjs';
 
-const DRY_RUN = process.argv.includes('--dry-run');
 const BACKUP_FILE = './live4-database-backup.json';
 
 async function main() {
@@ -26,6 +26,7 @@ async function main() {
   const entries = Object.entries(rawData);
   console.log(`Found ${entries.length} documents to import.`);
 
+  const db = getDb();
   let success = 0;
   let errors = 0;
 
@@ -39,23 +40,10 @@ async function main() {
       continue;
     }
 
-    const url = rawDocUrl(fullPath);
-
     try {
-      const resp = await fetch(url, {
-        method: 'PATCH',
-        headers: HEADERS,
-        body: JSON.stringify({ fields: toFirestoreFields(data) }),
-      });
-
-      if (!resp.ok) {
-        const errText = await resp.text();
-        console.error(`FAILED [${fullPath}]: ${resp.status} ${errText.slice(0, 200)}`);
-        errors++;
-      } else {
-        success++;
-        if (success % 50 === 0) console.log(`  ...imported ${success} documents`);
-      }
+      await db.doc(fullPath).set(data);
+      success++;
+      if (success % 50 === 0) console.log(`  ...imported ${success} documents`);
     } catch (err) {
       console.error(`FAILED [${fullPath}]: ${err.message}`);
       errors++;

@@ -9,12 +9,11 @@
  * Usage:
  *   node scripts/migrate.mjs                        # emulator (default)
  *   node scripts/migrate.mjs --dry-run               # preview without writing
- *   node scripts/migrate.mjs --live --token <TOKEN>   # live database
+ *   node scripts/migrate.mjs --live --dry-run         # preview against production
+ *   node scripts/migrate.mjs --live                   # live database
  */
 
-import { confirmLiveMode, IS_LIVE, setDoc, listAll } from './config.mjs';
-
-const DRY_RUN = process.argv.includes('--dry-run');
+import { confirmLiveMode, IS_LIVE, DRY_RUN, setDoc, listAll } from './config.mjs';
 
 // --- Name normalization ---
 

@@ -8,18 +8,16 @@
  * Usage:
  *   node scripts/generateAnalytics.mjs                        # emulator
  *   node scripts/generateAnalytics.mjs --dry-run              # preview only
- *   node scripts/generateAnalytics.mjs --live --token <TOKEN> # production
+ *   node scripts/generateAnalytics.mjs --live --dry-run       # preview against production
+ *   node scripts/generateAnalytics.mjs --live                 # production
  */
 
-import {readFileSync, writeFileSync} from 'fs';
-import {
-  confirmLiveMode, IS_LIVE, PROJECT_ID, HEADERS,
-  listAll, setDoc
-} from './config.mjs';
-import { initializeApp, cert } from 'firebase-admin/app';
+import { writeFileSync } from 'fs';
 import { getStorage } from 'firebase-admin/storage';
-
-const DRY_RUN = process.argv.includes('--dry-run');
+import {
+  confirmLiveMode, IS_LIVE, DRY_RUN, PROJECT_ID,
+  listAll, setDoc, initDb
+} from './config.mjs';
 
 // --- Inline constants ---
 
@@ -34,7 +32,9 @@ function getTeamPlacements(team, tournament) {
   const counts = {};
   if (!tournament) return counts;
   const roster = [team.captainId, ...team.memberIds];
-  const relevantRaces = (tournament.races || []).filter(r =>
+  const races = tournament.races || [];
+  const raceList = Array.isArray(races) ? races : Object.values(races);
+  const relevantRaces = raceList.filter(r =>
     r.stage === 'groups' && r.group === team.group
   );
   relevantRaces.forEach(race => {
@@ -75,6 +75,15 @@ function pct1(num, den) { return den > 0 ? round1((num / den) * 100) : 0; }
 
 async function main() {
   await confirmLiveMode();
+
+  // Initialize the Admin SDK (also needed for Cloud Storage)
+  initDb();
+
+  // Set storage emulator host if not live
+  if (!IS_LIVE) {
+    process.env.FIREBASE_STORAGE_EMULATOR_HOST = '127.0.0.1:9199';
+  }
+
   console.log(`=== Generate Analytics${IS_LIVE ? ' (LIVE)' : ''}${DRY_RUN ? ' [DRY RUN]' : ''} ===\n`);
 
   // 1. Fetch all collections
@@ -188,42 +197,9 @@ async function main() {
   const storageBucketName = `${PROJECT_ID}.firebasestorage.app`;
   const objectName = 'analytics.json';
 
-  // Tell the Admin SDK to use the emulator if we aren't live
-  if (!IS_LIVE) {
-    process.env.FIREBASE_STORAGE_EMULATOR_HOST = '127.0.0.1:9199';
-  }
-
-  // ---> UPDATED INITIALIZATION BLOCK <---
-  try {
-    if (IS_LIVE) {
-      console.log('Loading service account key...');
-      // Ensure this path perfectly matches where your JSON file is located relative to this script!
-      const serviceAccount = JSON.parse(readFileSync(new URL('./serviceAccountKey.json', import.meta.url)));
-
-      initializeApp({
-        credential: cert(serviceAccount),
-        projectId: PROJECT_ID
-      });
-    } else {
-      initializeApp({ projectId: PROJECT_ID });
-    }
-  } catch (error) {
-    if (error.code === 'app/duplicate-app') {
-      // It's perfectly fine if the app is already initialized
-    } else {
-      // If it's any OTHER error, we need to see it!
-      console.error("\n🔥 FATAL ERROR during Firebase Initialization:");
-      console.error(error);
-      process.exit(1);
-    }
-  }
-  // ---------------------------------------
-
   const bucket = getStorage().bucket(storageBucketName);
   const file = bucket.file(objectName);
 
-  // Use the Admin SDK's native save method.
-  // 'resumable: false' forces a standard stream upload which the emulator handles flawlessly.
   await file.save(jsonStr, {
     metadata: {
       contentType: 'application/json',
@@ -640,7 +616,6 @@ function computeUmaStats(fParticipations, fRaces, fTournaments, playerMap, tourn
   }
 
   // 3. Build tournament appearances and player aggregates
-  // Tournament appearances: for each uma, each participation where this uma was picked
   const umaTournamentAppearances = new Map(); // umaName -> row[]
   const umaPlayerAggregates = new Map(); // umaName -> Map<playerId, aggregate>
 

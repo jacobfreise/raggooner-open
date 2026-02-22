@@ -10,13 +10,12 @@
  *
  * Usage:
  *   node scripts/fixTournamentPlayerIds.mjs                        # emulator (default)
- *   node scripts/fixTournamentPlayerIds.mjs --dry-run              # preview changes
- *   node scripts/fixTournamentPlayerIds.mjs --live --token <TOKEN>  # live database
+ *   node scripts/fixTournamentPlayerIds.mjs --dry-run               # preview changes
+ *   node scripts/fixTournamentPlayerIds.mjs --live --dry-run         # preview against production
+ *   node scripts/fixTournamentPlayerIds.mjs --live                   # live database
  */
 
-import { confirmLiveMode, IS_LIVE, setDoc, listAll } from './config.mjs';
-
-const DRY_RUN = process.argv.includes('--dry-run');
+import { confirmLiveMode, IS_LIVE, DRY_RUN, setDoc, listAll } from './config.mjs';
 
 async function main() {
   await confirmLiveMode();
@@ -132,9 +131,9 @@ async function main() {
       }
     }
 
-    // Update races[] — placements keys
+    // Update races — placements keys
     const races = tournament.races || [];
-    for (const race of races) {
+    for (const race of (Array.isArray(races) ? races : Object.values(races))) {
       const placements = race.placements || {};
       for (const [oldId, newId] of idReplacements) {
         if (oldId in placements) {
@@ -149,12 +148,10 @@ async function main() {
       tournamentsUpdated++;
       if (!DRY_RUN) {
         const updated = { ...tournament };
-        delete updated._docId;
         updated.players = players;
         updated.teams = teams;
         updated.wildcards = wildcards;
-        updated.races = races;
-        await setDoc('tournaments', tournament._docId || tournament.id, updated);
+        await setDoc('tournaments', tournament.id, updated);
       }
     }
   }

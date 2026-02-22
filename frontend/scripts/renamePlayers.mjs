@@ -10,12 +10,11 @@
  * Usage:
  *   node scripts/renamePlayers.mjs                        # emulator (default)
  *   node scripts/renamePlayers.mjs --dry-run               # preview without writing
- *   node scripts/renamePlayers.mjs --live --token <TOKEN>  # live database
+ *   node scripts/renamePlayers.mjs --live --dry-run         # preview against production
+ *   node scripts/renamePlayers.mjs --live                   # live database
  */
 
-import { confirmLiveMode, IS_LIVE, setDoc, listAll } from './config.mjs';
-
-const DRY_RUN = process.argv.includes('--dry-run');
+import { confirmLiveMode, IS_LIVE, DRY_RUN, setDoc, listAll } from './config.mjs';
 
 // ============================================================
 // CONFIGURE RENAMES HERE: [currentName, newName]
@@ -72,13 +71,6 @@ async function main() {
     console.log(`  Will rename: "${currentName}" (${player.id}) → "${newName}"`);
   }
 
-  // Build a lookup: globalPlayerId -> { oldName, newName }
-  const renameByGlobalId = new Map();
-  for (const [currentName, newName] of RENAME_PAIRS) {
-    const player = playerByName.get(currentName);
-    renameByGlobalId.set(player.id, { oldName: currentName, newName });
-  }
-
   // Process renames
   for (const [currentName, newName] of RENAME_PAIRS) {
     const player = playerByName.get(currentName);
@@ -92,7 +84,6 @@ async function main() {
     }
 
     const updated = { ...player };
-    delete updated._docId;
     updated.name = newName;
     updated.aliases = aliases;
 
@@ -109,7 +100,7 @@ async function main() {
     let changed = false;
 
     // Check each player in the tournament
-    for (const p of players) {
+    for (const p of (Array.isArray(players) ? players : Object.values(players))) {
       for (const [currentName, newName] of RENAME_PAIRS) {
         if (p.name === currentName) {
           p.name = newName;
@@ -133,11 +124,11 @@ async function main() {
 
     // Check wildcards — they reference players by ID, but verify and log
     const wildcards = tournament.wildcards || [];
+    const playerList = Array.isArray(players) ? players : Object.values(players);
     for (const wc of wildcards) {
-      const wcPlayer = players.find(p => p.id === wc.playerId);
+      const wcPlayer = playerList.find(p => p.id === wc.playerId);
       if (wcPlayer) {
         for (const [currentName, newName] of RENAME_PAIRS) {
-          // The player entry was already renamed above, just log it
           if (wcPlayer.name === newName) {
             console.log(`    Wildcard in group ${wc.group}: player "${newName}" (was "${currentName}")`);
           }
@@ -149,12 +140,11 @@ async function main() {
       tournamentsUpdated++;
       if (!DRY_RUN) {
         const updatedTournament = { ...tournament };
-        delete updatedTournament._docId;
         updatedTournament.players = players;
         updatedTournament.teams = teams;
-        await setDoc('tournaments', tournament._docId || tournament.id, updatedTournament);
+        await setDoc('tournaments', tournament.id, updatedTournament);
       }
-      console.log(`  ${DRY_RUN ? '[preview] ' : ''}Updated tournament: "${tournament.name}" (${tournament._docId || tournament.id})`);
+      console.log(`  ${DRY_RUN ? '[preview] ' : ''}Updated tournament: "${tournament.name}" (${tournament.id})`);
     }
   }
 

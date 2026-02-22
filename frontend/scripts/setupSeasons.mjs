@@ -6,12 +6,11 @@
  * Usage:
  *   node scripts/setupSeasons.mjs                        # emulator (default)
  *   node scripts/setupSeasons.mjs --dry-run               # preview without writing
- *   node scripts/setupSeasons.mjs --live --token <TOKEN>  # live database
+ *   node scripts/setupSeasons.mjs --live --dry-run         # preview against production
+ *   node scripts/setupSeasons.mjs --live                   # live database
  */
 
-import { confirmLiveMode, IS_LIVE, setDoc, updateDoc, listAll } from './config.mjs';
-
-const DRY_RUN = process.argv.includes('--dry-run');
+import { confirmLiveMode, IS_LIVE, DRY_RUN, setDoc, updateDoc, listAll } from './config.mjs';
 
 async function main() {
   await confirmLiveMode();

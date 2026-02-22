@@ -4,8 +4,6 @@
  * Backfills dominance counters (opponentsFaced, opponentsBeaten, seasons.*)
  * on GlobalPlayer documents from completed tournament race data.
  *
- * Uses Firebase Admin SDK — no auth token needed, just the service account key.
- *
  * Usage:
  *   node scripts/backfillDominance.mjs --dry-run          # preview (emulator)
  *   node scripts/backfillDominance.mjs                    # write to emulator
@@ -13,64 +11,14 @@
  *   node scripts/backfillDominance.mjs --live              # write to production
  */
 
-import { readFileSync } from 'fs';
-import { createInterface } from 'readline';
-import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-
-// --- CLI flags ---
-const args = process.argv.slice(2);
-const IS_LIVE = args.includes('--live');
-const DRY_RUN = args.includes('--dry-run');
-
-const PROJECT_ID = 'raggooneropen';
-const BASE_PATH = 'artifacts/default-app/public/data';
-
-// --- Live-mode confirmation ---
-async function confirmLiveMode() {
-  if (!IS_LIVE) return;
-  console.log('\n\u26a0\ufe0f  WARNING: Running against LIVE database!');
-  console.log(`   Project: ${PROJECT_ID}`);
-  if (!DRY_RUN) console.log('   This will modify production data.\n');
-  else console.log('   (dry-run: no writes will be made)\n');
-
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await new Promise(resolve => {
-    rl.question('Type "yes" to continue: ', resolve);
-  });
-  rl.close();
-  if (answer.trim().toLowerCase() !== 'yes') {
-    console.log('Aborted.');
-    process.exit(0);
-  }
-  console.log('');
-}
-
-// --- Initialize Admin SDK ---
-function initFirebase() {
-  if (!IS_LIVE) {
-    process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-    initializeApp({ projectId: PROJECT_ID });
-  } else {
-    const serviceAccount = JSON.parse(
-      readFileSync(new URL('./serviceAccountKey.json', import.meta.url))
-    );
-    initializeApp({
-      credential: cert(serviceAccount),
-      projectId: PROJECT_ID,
-    });
-  }
-  return getFirestore();
-}
+import { confirmLiveMode, IS_LIVE, DRY_RUN, col, getDb } from './config.mjs';
 
 // --- Main ---
 async function main() {
   await confirmLiveMode();
-  const db = initFirebase();
+  const db = getDb();
 
   console.log(`=== Backfill Dominance${IS_LIVE ? ' (LIVE)' : ''}${DRY_RUN ? ' [DRY RUN]' : ''} ===\n`);
-
-  const col = (name) => db.collection(`${BASE_PATH}/${name}`);
 
   // 1. Fetch completed tournaments and all players
   console.log('Fetching data...');
@@ -91,12 +39,13 @@ async function main() {
   }
 
   // 2. Compute dominance per player
-  // Structure: playerId -> { faced, beaten, totalTournaments, totalRaces, lastPlayed, seasons: { seasonId -> { faced, beaten } } }
   const stats = new Map();
 
   for (const t of tournaments) {
     const races = t.races || [];
-    const playerIds = [...new Set((t.players || []).map(p => p.id))];
+    const raceList = Array.isArray(races) ? races : Object.values(races);
+    const playerList = Array.isArray(t.players) ? t.players : Object.values(t.players || {});
+    const playerIds = [...new Set(playerList.map(p => p.id))];
 
     for (const playerId of playerIds) {
       if (!stats.has(playerId)) {
@@ -120,7 +69,7 @@ async function main() {
 
       let playerRaceCount = 0;
 
-      for (const race of races) {
+      for (const race of raceList) {
         const position = race.placements?.[playerId];
         if (position == null) continue;
 

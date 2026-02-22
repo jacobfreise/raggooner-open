@@ -11,12 +11,11 @@
  * Usage:
  *   node scripts/mergePlayers.mjs                        # emulator (default)
  *   node scripts/mergePlayers.mjs --dry-run               # preview without writing
- *   node scripts/mergePlayers.mjs --live --token <TOKEN>  # live database
+ *   node scripts/mergePlayers.mjs --live --dry-run         # preview against production
+ *   node scripts/mergePlayers.mjs --live                   # live database
  */
 
-import { confirmLiveMode, IS_LIVE, setDoc, deleteDoc, listAll } from './config.mjs';
-
-const DRY_RUN = process.argv.includes('--dry-run');
+import { confirmLiveMode, IS_LIVE, DRY_RUN, setDoc, deleteDoc, listAll } from './config.mjs';
 
 // ============================================================
 // CONFIGURE MERGES HERE: [keepName, duplicateName]
@@ -95,19 +94,18 @@ async function main() {
 
       if (existing) {
         // Both participated in the same tournament — just delete the duplicate's participation
-        console.log(`    Skipping ${part._docId} (keeper already in tournament ${part.tournamentId})`);
-        if (!DRY_RUN) await deleteDoc('participations', part._docId);
+        console.log(`    Skipping ${part.id} (keeper already in tournament ${part.tournamentId})`);
+        if (!DRY_RUN) await deleteDoc('participations', part.id);
       } else {
         // Write new participation with keeper's ID, delete old one
         const updated = { ...part };
-        delete updated._docId;
         updated.id = newDocId;
         updated.playerId = keeperId;
         if (!DRY_RUN) {
           await setDoc('participations', newDocId, updated);
-          await deleteDoc('participations', part._docId);
+          await deleteDoc('participations', part.id);
         }
-        console.log(`    ${part._docId} → ${newDocId}`);
+        console.log(`    ${part.id} → ${newDocId}`);
       }
     }
 
@@ -133,10 +131,9 @@ async function main() {
       if (changed) {
         if (!DRY_RUN) {
           const updated = { ...race };
-          delete updated._docId;
           updated.placements = placements;
           updated.umaMapping = umaMapping;
-          await setDoc('races', race._docId, updated);
+          await setDoc('races', race.id, updated);
         }
         racesUpdated++;
       }
@@ -152,7 +149,7 @@ async function main() {
       let changed = false;
 
       // Update players[] array — replace dupId with keeperId
-      for (const p of players) {
+      for (const p of (Array.isArray(players) ? players : Object.values(players))) {
         if (p.id === dupId) {
           p.id = keeperId;
           p.name = keepName;
@@ -186,14 +183,13 @@ async function main() {
       if (changed) {
         if (!DRY_RUN) {
           const updated = { ...tournament };
-          delete updated._docId;
           updated.players = players;
           updated.teams = teams;
           updated.wildcards = wildcards;
-          await setDoc('tournaments', tournament._docId || tournament.id, updated);
+          await setDoc('tournaments', tournament.id, updated);
         }
         tournamentsUpdated++;
-        console.log(`    Updated tournament: "${tournament.name}" (${tournament._docId || tournament.id})`);
+        console.log(`    Updated tournament: "${tournament.name}" (${tournament.id})`);
       }
     }
     console.log(`  Tournaments updated: ${tournamentsUpdated}`);
@@ -213,7 +209,6 @@ async function main() {
     };
 
     const updatedKeeper = { ...keeper };
-    delete updatedKeeper._docId;
     updatedKeeper.aliases = aliases;
     updatedKeeper.metadata = mergedMeta;
     if (!DRY_RUN) await setDoc('players', keeperId, updatedKeeper);
