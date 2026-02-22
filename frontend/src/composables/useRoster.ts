@@ -1,5 +1,5 @@
 import { ref, computed, type Ref } from 'vue';
-import {arrayUnion} from 'firebase/firestore';
+import {arrayUnion, deleteField} from 'firebase/firestore';
 import type { Tournament, Player, Wildcard, FirestoreUpdate } from '../types';
 import { UMAS } from '../utils/constants';
 import {getPlayerName, getPlayerUma} from "../utils/utils.ts";
@@ -17,7 +17,6 @@ export function useRoster(
 ) {
     // --- STATE ---
     const newPlayerName = ref('');
-    const appId = 'default-app';
 
     // Wildcard State
     const showWildcardModal = ref(false);
@@ -26,14 +25,16 @@ export function useRoster(
     // --- COMPUTED: VALIDATION ---
     const validTeamCount = computed(() => {
         if (!tournament.value) return false;
-        const caps = tournament.value.players.filter(p => p.isCaptain).length;
+        const playerValues = Object.values(tournament.value.players);
+        const caps = playerValues.filter(p => p.isCaptain).length;
         return caps >= 3 && caps <= 9 && caps !== 7;
     });
 
     const validTotalPlayers = computed(() => {
         if (!tournament.value) return false;
-        const caps = tournament.value.players.filter(p => p.isCaptain).length;
-        return tournament.value.players.length === (caps * 3);
+        const playerValues = Object.values(tournament.value.players);
+        const caps = playerValues.filter(p => p.isCaptain).length;
+        return playerValues.length === (caps * 3);
     });
 
     const canStartDraft = computed(() => validTeamCount.value && validTotalPlayers.value);
@@ -59,7 +60,7 @@ export function useRoster(
         }
 
         await secureUpdate({
-            players: arrayUnion(player),
+            [`players.${player.id}`]: player,
             playerIds: arrayUnion(player.id)
         });
 
@@ -68,25 +69,21 @@ export function useRoster(
     const removePlayer = async (pid: string) => {
         if (!tournament.value || !isAdmin.value) return;
 
-        const newPlayers = tournament.value.players.filter(p => p.id !== pid);
+        const remainingIds = Object.keys(tournament.value.players).filter(id => id !== pid);
         await secureUpdate({
-            players: newPlayers,
-            playerIds: newPlayers.map(p => p.id)
+            [`players.${pid}`]: deleteField(),
+            playerIds: remainingIds
         });
     };
 
     const toggleCaptain = async (playerId: string) => {
         if (!tournament.value || !isAdmin.value) return;
 
-        const newPlayers = tournament.value.players.map(p => {
-            if (p.id === playerId) {
-                return { ...p, isCaptain: !p.isCaptain };
-            }
-            return p;
-        });
+        const current = tournament.value.players[playerId];
+        if (!current) return;
 
         await secureUpdate({
-            players: newPlayers
+            [`players.${playerId}.isCaptain`]: !current.isCaptain
         });
     };
 
@@ -116,7 +113,7 @@ export function useRoster(
 
         // 3. Update Firestore
         await secureUpdate({
-            players: arrayUnion(newPlayer),
+            [`players.${newPlayer.id}`]: newPlayer,
             playerIds: arrayUnion(newPlayer.id),
             wildcards: arrayUnion(newWildcard)
         });
@@ -126,21 +123,16 @@ export function useRoster(
     };
 
     // --- UMA EDITING ---
-    const submitUmas = async () => {
+    const submitUmaForPlayer = async (playerId: string, uma: string) => {
         if (!tournament.value) return;
 
         try {
-            // 1. Clone the players array for the tournament doc update
-            const newPlayers = tournament.value.players.map(p => ({...p}));
-
-            // 2. Update the main tournament document using your existing helper
             await secureUpdate({
-                players: newPlayers
+                [`players.${playerId}.uma`]: uma
             });
-
         } catch (error) {
-            console.error("Failed to update Umas:", error);
-            alert("Failed to sync character selections. Please try again.");
+            console.error("Failed to update Uma:", error);
+            alert("Failed to sync character selection. Please try again.");
         }
     };
 
@@ -184,7 +176,7 @@ export function useRoster(
         toggleCaptain,
         openWildcardModal,
         addWildcard,
-        submitUmas,
+        submitUmaForPlayer,
         closeUmaModal,
         getPlayerColor,
         getPlayerNameOrUma,

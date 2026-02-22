@@ -177,7 +177,7 @@ export interface Tournament {
     status: 'registration' | 'draft' | 'active' | 'ban' | 'completed';
     stage: 'groups' | 'finals';
     playerIds: string[];
-    players: Player[];
+    players: Record<string, Player>;
     wildcards?: Wildcard[];
     teams: Team[];
     races: Record<string, Race>;

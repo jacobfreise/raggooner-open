@@ -3,7 +3,7 @@ import {ref, computed, onMounted, inject, type Ref} from 'vue';
 import { collection, query, getDocs, orderBy, where, doc, setDoc, increment } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import type {GlobalPlayer, Tournament, Season} from '../types';
-import {compareTeams, recalculateTournamentScores, migrateRaces} from "../utils/utils.ts";
+import {compareTeams, recalculateTournamentScores, migrateRaces, migratePlayers} from "../utils/utils.ts";
 import {POINTS_SYSTEM} from "../utils/constants.ts";
 import {getCached, setCache} from "../utils/cache.ts";
 import { getUmaData } from "../utils/umaData.ts";
@@ -1167,7 +1167,7 @@ function deriveFromTournaments(allTournaments: Tournament[]) {
 
     // Build player→uma lookup from tournament.players
     const playerUmaMap: Record<string, string> = {};
-    for (const p of t.players) {
+    for (const p of Object.values(t.players)) {
       if (p.uma) playerUmaMap[p.id] = p.uma;
     }
 
@@ -1179,7 +1179,7 @@ function deriveFromTournaments(allTournaments: Tournament[]) {
     }
 
     // Derive participations from tournament players
-    for (const p of scoredPlayers) {
+    for (const p of Object.values(scoredPlayers)) {
       derivedParticipations.push({
         playerId: p.id,
         tournamentId: t.id,
@@ -1234,6 +1234,7 @@ async function loadData() {
         return snap.docs.map(doc => {
           const data = { id: doc.id, ...doc.data() } as Tournament;
           data.races = migrateRaces(data.races);
+          data.players = migratePlayers(data.players);
           return data;
         });
       }),
@@ -2225,7 +2226,7 @@ const getRankIcon = (index: number) => {
                   tbd
                 </td>
                 <td class="px-4 py-3 text-sm text-right text-slate-300">
-                  {{ t.players?.length || 0 }}
+                  {{ Object.keys(t.players).length }}
                 </td>
               </tr>
               </tbody>

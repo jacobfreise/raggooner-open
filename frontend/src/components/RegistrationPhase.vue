@@ -41,7 +41,7 @@ const getDominance = (playerId: string): number | null => {
 };
 
 const sortedPlayers = computed(() => {
-  return [...props.tournament.players].sort((a, b) => {
+  return Object.values(props.tournament.players).sort((a, b) => {
     // Then by dominance descending
     const domA = getDominance(a.id) ?? -1;
     const domB = getDominance(b.id) ?? -1;
@@ -66,7 +66,7 @@ const { startDraft } = useDraft(tournamentRef, props.secureUpdate, isAdminRef);
 
 // Get list of already added player IDs
 const addedPlayerIds = () => {
-  return props.tournament.players.map(p => p.id);
+  return Object.keys(props.tournament.players);
 };
 
 // Handle player selection from PlayerSelector
@@ -82,7 +82,7 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
   };
 
   await props.secureUpdate({
-    players: arrayUnion(player),
+    [`players.${player.id}`]: player,
     playerIds: arrayUnion(globalPlayer.id)
   });
 };
@@ -98,7 +98,7 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
       <div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700">
         <div class="text-sm text-slate-400">Total Players</div>
         <div class="text-2xl font-bold text-white font-mono">
-          {{ tournament.players.length }}
+          {{ Object.keys(tournament.players).length }}
           <span class="text-sm font-normal text-slate-500">/ 27 max</span>
         </div>
       </div>
@@ -172,7 +172,7 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
 
       <!-- Right Panel: Player List -->
       <div class="md:col-span-2 space-y-4">
-        <div v-if="tournament.players.length > 0" class="flex items-center justify-end">
+        <div v-if="Object.keys(tournament.players).length > 0" class="flex items-center justify-end">
           <select v-model="selectedSeasonId"
                   class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-indigo-500">
             <option value="all">All Time</option>
@@ -181,7 +181,7 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
         </div>
 
         <div
-            v-if="tournament.players.length === 0"
+            v-if="Object.keys(tournament.players).length === 0"
             class="text-center py-20 text-slate-600 border-2 border-dashed border-slate-800 rounded-xl"
         >
           <i class="ph ph-users text-6xl mb-4 opacity-30"></i>

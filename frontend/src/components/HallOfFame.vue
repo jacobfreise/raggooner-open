@@ -83,7 +83,7 @@ const categories: FameCategory[] = [
 
       if (!winner) return [];
 
-      const captain = t.players.find(p => p.id === winner!.captainId);
+      const captain = t.players[winner!.captainId];
       if (!captain) return [];
 
       return [{
@@ -102,11 +102,12 @@ const categories: FameCategory[] = [
     gradient: 'from-yellow-500/20',
     tieHandling: { type: 'allow-ties' },
     calculate: (t: Tournament) => {
-      const maxPts = Math.max(...t.players.map(p => p.totalPoints || 0));
+      const playerValues = Object.values(t.players);
+      const maxPts = Math.max(...playerValues.map(p => p.totalPoints || 0));
 
       if (maxPts < 25 || Object.keys(t.races).length < 3) return [];
 
-      return t.players
+      return playerValues
           .filter(p => (p.totalPoints || 0) === maxPts)
           .map(p => ({
             player: p,
@@ -127,7 +128,7 @@ const categories: FameCategory[] = [
       const candidates: Array<{ player: Player; stats: { count: number; g: number; s: number; b: number } }> = [];
 
       // 1. Collect all valid candidates
-      t.players.forEach(p => {
+      Object.values(t.players).forEach(p => {
         let g = 0, s = 0, b = 0, count = 0, valid = true;
 
         for (const r of Object.values(t.races)) {
@@ -185,7 +186,7 @@ const categories: FameCategory[] = [
       let maxImprovement = -999;
       let winners: Player[] = [];
 
-      t.players.forEach(p => {
+      Object.values(t.players).forEach(p => {
         // 1. Get Placements for each stage
         const groupPlaces = Object.values(t.races)
             .filter(r => r.stage === 'groups' && r.placements[p.id] !== undefined)
@@ -241,7 +242,7 @@ const categories: FameCategory[] = [
     tieHandling: { type: "allow-ties" },
     calculate: (t: Tournament) => {
 
-      const performances = t.players.map(p => {
+      const performances = Object.values(t.players).map(p => {
         const groupPlaces = Object.values(t.races)
             .filter(r => r.stage === 'groups' && r.placements[p.id] !== undefined)
             .map(r => r.placements[p.id]!);
@@ -287,7 +288,7 @@ const categories: FameCategory[] = [
     calculate: (t: Tournament) => {
       let maxDev = 0;
 
-      const variances = t.players.map(p => {
+      const variances = Object.values(t.players).map(p => {
         // 1. Get all placements for this player
         const places: number[] = [];
         Object.values(t.races).forEach(r => {
@@ -331,7 +332,7 @@ const categories: FameCategory[] = [
     calculate: (t: Tournament) => {
       let minStdDev = 999;
 
-      const variances = t.players.map(p => {
+      const variances = Object.values(t.players).map(p => {
         // 1. Get all placements for this player
         const places: number[] = [];
         Object.values(t.races).forEach(r => {
@@ -375,7 +376,7 @@ const categories: FameCategory[] = [
     calculate: (t: Tournament) => {
       let maxYoyos = 0;
 
-      const yoyos = t.players.map(p => {
+      const yoyos = Object.values(t.players).map(p => {
         // 1. Get ONLY the races this player actually raced in
         const myRaces = Object.values(t.races).filter(r => r.placements[p.id] !== undefined);
 
@@ -490,7 +491,7 @@ const categories: FameCategory[] = [
             return count === maxLasts
           })
           .map(([playerId, count]): FameResult | null => {
-            const player = t.players.find(p => p.id === playerId);
+            const player = t.players[playerId];
             if (!player) return null;
 
             return {
@@ -536,7 +537,7 @@ const categories: FameCategory[] = [
             return count === maxSeconds
           })
           .map(([playerId, count]): FameResult | null => {
-            const player = t.players.find(p => p.id === playerId);
+            const player = t.players[playerId];
             if (!player) return null;
 
             return {
@@ -562,7 +563,7 @@ const categories: FameCategory[] = [
       let winner: Player | null = null;
       let winnerAvgMiddle = 0;
 
-      t.players.forEach(p => {
+      Object.values(t.players).forEach(p => {
         let totalDev = 0;
         let totalMiddle = 0;
         let raceCount = 0;
@@ -627,7 +628,7 @@ const categories: FameCategory[] = [
       // Helper for stage order
       const stageOrder: Record<string, number> = { 'groups': 1, 'finals': 2 };
 
-      t.players.forEach(p => {
+      Object.values(t.players).forEach(p => {
         // 1. Get Chronological Races
         const myRaces = Object.values(t.races)
             .filter(r => r.placements[p.id] !== undefined)
@@ -699,9 +700,9 @@ const categories: FameCategory[] = [
         if (teamTotalPoints === 0) return; // Avoid division by zero
 
         // Find all members of this specific team
-        const members = t.players.filter(p =>
-            p.id === team.captainId || team.memberIds.includes(p.id)
-        );
+        const members = [team.captainId, ...team.memberIds]
+            .map(id => t.players[id])
+            .filter((p): p is Player => !!p);
 
         members.forEach(p => {
           // 1. Safeguard: Must have participated in at least 3 races
@@ -764,7 +765,7 @@ const categories: FameCategory[] = [
 
       if (maxWins < MIN_WINS_THRESHOLD) return [];
 
-      return t.players
+      return Object.values(t.players)
           .filter(p => wins[p.id] === maxWins)
           .map(p => {
             return {
@@ -787,7 +788,7 @@ const categories: FameCategory[] = [
       let bestAvg = 3.5; // cutoff for showing the category
       let candidates: Player[] = [];
 
-      t.players.forEach(p => {
+      Object.values(t.players).forEach(p => {
         const places = Object.values(t.races)
             .map(r => r.placements[p.id])
             .filter(pos => pos !== undefined);
@@ -841,7 +842,7 @@ const categories: FameCategory[] = [
       Object.entries(stats).forEach(([pid, stat]) => {
         if (stat.wins === 0 && stat.count >= 3) { // Min 3 races to qualify
           const avg = stat.sum / stat.count;
-          const p = t.players.find(player => player.id === pid);
+          const p = t.players[pid];
           if (!p) return;
 
           if (Math.abs(avg - bestAvg) < 0.0001) {
@@ -880,9 +881,9 @@ const categories: FameCategory[] = [
         if (teamTotal === 0) return; // Skip teams with 0 points
 
         // Identify team members
-        const members = t.players.filter(p =>
-            p.id === team.captainId || team.memberIds.includes(p.id)
-        );
+        const members = [team.captainId, ...team.memberIds]
+            .map(id => t.players[id])
+            .filter((p): p is Player => !!p);
 
         members.forEach(p => {
           // 1. Check Race Count (Don't shame people who haven't played yet)
@@ -982,7 +983,7 @@ const categories: FameCategory[] = [
 
       if (!bestTeam) return [];
 
-      const captain = t.players.find(p => p.id === bestTeam!.captainId);
+      const captain = t.players[bestTeam!.captainId];
       if (!captain) return [];
 
       return [{
@@ -1121,7 +1122,7 @@ const categories: FameCategory[] = [
 
         // 2. Get total points for each member
         const memberPoints = roster.map(pid => {
-          const p = t.players.find(pl => pl.id === pid);
+          const p = t.players[pid];
           return p?.totalPoints || 0;
         });
 
@@ -1160,7 +1161,7 @@ const categories: FameCategory[] = [
       if (winners.length === 0) return [];
 
       return winners.map(winner => {
-        const captain = t.players.find(p => p.id === winner.captainId);
+        const captain = t.players[winner.captainId];
         const displayPlayer = captain ? { ...captain, name: winner.name } : winner;
 
         return {
@@ -1286,7 +1287,7 @@ const categories: FameCategory[] = [
       const winnerTeam = t.teams.find(tm => tm.id === winnerId);
       if (!winnerTeam) return [];
 
-      const captain = t.players.find(p => p.id === winnerTeam.captainId);
+      const captain = t.players[winnerTeam.captainId];
       if (!captain) return [];
 
       return [{
@@ -1361,7 +1362,7 @@ const categories: FameCategory[] = [
       const bottlerTeam = t.teams.find(tm => tm.id === leaderId);
       if (!bottlerTeam) return [];
 
-      const captain = t.players.find(p => p.id === bottlerTeam.captainId);
+      const captain = t.players[bottlerTeam.captainId];
       if (!captain) return [];
 
       return [{

@@ -83,7 +83,7 @@ const {
   showUmaModal,
   getPlayerColor,
   getPlayerNameOrUma,
-  submitUmas,
+  submitUmaForPlayer,
   closeUmaModal,
   getUmaList,
   showWildcardModal,
@@ -99,7 +99,7 @@ const handleWildcardSelect = (globalPlayer: GlobalPlayer) => {
 
 // IDs to exclude from wildcard selector (already in this tournament)
 const tournamentPlayerIds = computed(() => {
-  return props.tournamentProp.players?.map(p => p.id) || [];
+  return Object.keys(props.tournamentProp.players || {});
 });
 
 const showBans = ref(false);
@@ -186,7 +186,7 @@ const getGifForRace = (group: string, raceNum: number) => {
   if (!race) return undefined;
 
   // Get the GIF using the util function
-  return getRaceWinnerGif(race, tournament.value.players);
+  return getRaceWinnerGif(race, Object.values(tournament.value.players));
 };
 
 // Helper to sum points from a list of race results
@@ -235,7 +235,7 @@ const sortFunction = (a: any, b: any) => {
 
 const structuredPlayerStats = computed(() => {
   if (!tournament.value) return [];
-  const players = [...tournament.value.players];
+  const players = Object.values(tournament.value.players);
 
   // 1. If Group By Team is ACTIVE
   if (groupByTeam.value) {
@@ -419,7 +419,7 @@ const structuredPlayerStats = computed(() => {
             <div class="relative z-10">
               <div>
                 <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>
+                <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players[member]?.name).join(' ') }}</span>
               </div>
               <div class="text-xs text-slate-400 flex gap-2 mt-1">
             <span :style="{ color: team.color }"
@@ -516,7 +516,7 @@ const structuredPlayerStats = computed(() => {
             <div class="relative z-10">
               <div>
                 <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>
+                <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players[member]?.name).join(' ') }}</span>
               </div>
               <div class="text-xs text-slate-400 flex gap-2 mt-1">
              <span :style="{ color: team.color }"
@@ -611,7 +611,7 @@ const structuredPlayerStats = computed(() => {
             <div class="relative z-10">
               <div>
                 <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}</span>
+                <span class="font-light text-sm">{{ team.memberIds.map((member) => tData.players[member]?.name).join(' ') }}</span>
               </div>
               <div class="text-xs text-slate-400 flex gap-2 mt-1">
              <span :style="{ color: team.color }"
@@ -699,7 +699,7 @@ const structuredPlayerStats = computed(() => {
               <div>
                 <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
                 <span class="font-light text-sm">
-                  {{ team.memberIds.map((member) => tData.players.find((el) => el.id === member)?.name).join(' ') }}
+                  {{ team.memberIds.map((member) => tData.players[member]?.name).join(' ') }}
                 </span>
               </div>
               <div class="text-sm text-slate-400 flex gap-2 mt-1">
@@ -1290,7 +1290,7 @@ const structuredPlayerStats = computed(() => {
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div
-                v-for="player in tournament!.players"
+                v-for="player in Object.values(tournament!.players).sort((a, b) => a.name.localeCompare(b.name))"
                 :key="player.id"
                 class="flex items-center justify-between bg-slate-800 p-3 rounded border border-slate-700"
             >
@@ -1300,7 +1300,7 @@ const structuredPlayerStats = computed(() => {
 
               <select
                   v-model="player.uma"
-                  @change="submitUmas"
+                  @change="submitUmaForPlayer(player.id, player.uma)"
                   class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all cursor-pointer"
               >
                 <option value="">- Select -</option>
@@ -1430,7 +1430,7 @@ const structuredPlayerStats = computed(() => {
                 <div v-for="pid in [team.captainId, ...team.memberIds]" :key="pid" class="flex items-center gap-1.5">
                   <div class="w-1 h-1 rounded-full bg-slate-600 shrink-0"></div>
                   <span class="text-[10px] text-slate-400 leading-tight truncate">
-              {{ tData.players.find(p => p.id === pid)?.name || 'Unknown' }}
+              {{ tData.players[pid]?.name || 'Unknown' }}
             </span>
                 </div>
               </div>

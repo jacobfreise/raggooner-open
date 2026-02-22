@@ -2,7 +2,7 @@ import type {Team, Tournament} from "../types.ts";
 import {TEAM_COLORS} from "./constants.ts";
 
 export function generateDraftStructure(tournament: Tournament) {
-    const captains = tournament.players.filter(p => p.isCaptain);
+    const captains = Object.values(tournament.players).filter(p => p.isCaptain);
     const draftOrderCaptains = [...captains].sort(() => Math.random() - 0.5);
 
     let groupDeck: string[] = [];

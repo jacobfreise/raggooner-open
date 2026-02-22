@@ -86,7 +86,7 @@ export function useGameLogic(
     // --- COMPUTED: LISTS & SORTING ---
     const sortedPlayers = computed(() => {
         if (!tournament.value?.players) return [];
-        return [...tournament.value.players].sort((a, b) =>
+        return Object.values(tournament.value.players).sort((a, b) =>
             getTotalPoints(b.id) - getTotalPoints(a.id)
         );
     });
@@ -546,11 +546,7 @@ export function useGameLogic(
         const batch = writeBatch(db);
 
         // 1. Update GlobalPlayer metadata (including dominance counters)
-        // Deduplicate: wildcards can appear twice in t.players with the same id
-        const seenPlayerIds = new Set<string>();
-        t.players.forEach(player => {
-            if (seenPlayerIds.has(player.id)) return;
-            seenPlayerIds.add(player.id);
+        Object.values(t.players).forEach(player => {
             const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', player.id);
             const allRaces = Object.values(t.races);
             const playerRaceCount = allRaces.filter(r =>
@@ -605,10 +601,7 @@ export function useGameLogic(
         const batch = writeBatch(db);
 
         // 1. Reverse GlobalPlayer metadata increments
-        const seenPlayerIds = new Set<string>();
-        t.players.forEach(player => {
-            if (seenPlayerIds.has(player.id)) return;
-            seenPlayerIds.add(player.id);
+        Object.values(t.players).forEach(player => {
             const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', player.id);
             const allRaces = Object.values(t.races);
             const playerRaceCount = allRaces.filter(r =>
@@ -720,7 +713,7 @@ export function useGameLogic(
         // B. NEW: Get Wildcards for this Group
         const groupWildcards = (tournament.value.wildcards || [])
             .filter(w => w.group === targetGroup)
-            .map(w => tournament.value!.players.find(p => p.id === w.playerId))
+            .map(w => tournament.value!.players[w.playerId])
             .filter((p): p is Player => !!p); // Type guard to remove undefined
 
         // Add wildcards to the list

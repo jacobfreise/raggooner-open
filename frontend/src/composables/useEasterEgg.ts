@@ -215,7 +215,7 @@ export function useEasterEgg(tournament: Ref<Tournament | null>) {
                 if (playedHistory.value.has(historyKey)) return;
 
                 // Check condition
-                if (egg.check(race, tournament.value!.players, tournament.value!)) {
+                if (egg.check(race, Object.values(tournament.value!.players), tournament.value!)) {
                     // Mark as played
                     playedHistory.value.add(historyKey);
 

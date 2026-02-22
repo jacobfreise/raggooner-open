@@ -20,7 +20,7 @@ export function useDraft(
         if (!tournament.value) return [];
         const assignedIds = new Set<string>();
         tournament.value.teams.forEach(t => t.memberIds.forEach(m => assignedIds.add(m)));
-        return tournament.value.players.filter(p => !p.isCaptain && !assignedIds.has(p.id));
+        return Object.values(tournament.value.players).filter(p => !p.isCaptain && !assignedIds.has(p.id));
     });
 
     const currentDrafter = computed(() => {
@@ -28,7 +28,7 @@ export function useDraft(
         const teamId = tournament.value.draft.order[tournament.value.draft.currentIdx];
         const team = tournament.value.teams.find(t => t.id === teamId);
 
-        const capName = tournament.value.players.find(p => p.id === team?.captainId)?.name || 'Unknown';
+        const capName = tournament.value.players[team?.captainId || '']?.name || 'Unknown';
         return team ? { ...team, name: capName, teamName: team.name } : null;
     });
 

@@ -4,6 +4,18 @@ import {POINTS_SYSTEM as DEFAULT_POINTS} from "./constants.ts";
 export const raceKey = (stage: string, group: string, raceNumber: number) =>
     `${stage}-${group}-${raceNumber}`;
 
+export const migratePlayers = (players: any): Record<string, Player> => {
+    if (!players) return {};
+    if (Array.isArray(players)) {
+        const map: Record<string, Player> = {};
+        for (const player of players) {
+            map[player.id] = player;
+        }
+        return map;
+    }
+    return players as Record<string, Player>;
+};
+
 export const migrateRaces = (races: any): Record<string, Race> => {
     if (!races) return {};
     if (Array.isArray(races)) {
@@ -76,10 +88,10 @@ const getTeamPlacements = (team: Team, tournament: Tournament) => {
     return counts;
 };
 
-export const recalculateTournamentScores = (t: Tournament): { teams: Team[], players: Player[], wildcards: Wildcard[] } => {
+export const recalculateTournamentScores = (t: Tournament): { teams: Team[], players: Record<string, Player>, wildcards: Wildcard[] } => {
     const activePointsSystem = t.pointsSystem || DEFAULT_POINTS;
 
-    // 1. Clone arrays to avoid mutation issues
+    // 1. Clone to avoid mutation issues
     const teams = t.teams.map(team => ({
         ...team,
         points: 0,
@@ -87,12 +99,14 @@ export const recalculateTournamentScores = (t: Tournament): { teams: Team[], pla
         adjustments: team.adjustments || []
     }));
 
-    const players = t.players.map(player => ({
-        ...player,
-        totalPoints: 0,
-        groupPoints: 0,
-        finalsPoints: 0
-    }));
+    const players: Record<string, Player> = Object.fromEntries(
+        Object.entries(t.players).map(([k, p]) => [k, {
+            ...p,
+            totalPoints: 0,
+            groupPoints: 0,
+            finalsPoints: 0
+        }])
+    );
 
     const wildcards = t.wildcards ? t.wildcards.map(wildcard => ({
         ...wildcard,
@@ -101,7 +115,6 @@ export const recalculateTournamentScores = (t: Tournament): { teams: Team[], pla
 
     // Helper to find indices
     const findTeamIdx = (pid: string) => teams.findIndex(team => team.captainId === pid || team.memberIds.includes(pid));
-    const findPlayerIdx = (pid: string) => players.findIndex(p => p.id === pid);
     const findWildcardIdx = (wid: string) => wildcards.findIndex(wc => wc.playerId === wid);
 
     // 2. Process ALL Races
@@ -121,15 +134,14 @@ export const recalculateTournamentScores = (t: Tournament): { teams: Team[], pla
             }
 
             // Update Player
-            const pIdx = findPlayerIdx(pid);
-            if (pIdx !== -1) {
-                // Added '!' after players[pIdx] in every location
-                players[pIdx]!.totalPoints = (players[pIdx]!.totalPoints || 0) + points;
+            const player = players[pid];
+            if (player) {
+                player.totalPoints = (player.totalPoints || 0) + points;
 
                 if (isFinals) {
-                    players[pIdx]!.finalsPoints = (players[pIdx]!.finalsPoints || 0) + points;
+                    player.finalsPoints = (player.finalsPoints || 0) + points;
                 } else {
-                    players[pIdx]!.groupPoints = (players[pIdx]!.groupPoints || 0) + points;
+                    player.groupPoints = (player.groupPoints || 0) + points;
                 }
             }
 
@@ -216,9 +228,9 @@ export const getRaceTimestamp = (group: any,
 }
 
 export const getPlayerName = (tournament: Tournament | null, id: string) => {
-    return tournament?.players.find(p => p.id === id)?.name || 'Unknown';
+    return tournament?.players[id]?.name || 'Unknown';
 };
 
 export const getPlayerUma = (tournament: Tournament | null, id: string) => {
-    return tournament?.players.find(p => p.id === id)?.uma || '';
+    return tournament?.players[id]?.uma || '';
 };

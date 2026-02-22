@@ -2,7 +2,7 @@ import type {Tournament, Team, Player, Race, Wildcard} from '../types';
 
 export const generateDiscordReport = (t: Tournament, shortened = false): string => {
     const lines: string[] = [];
-    const playerMap = new Map(t.players.map(p => [p.id, p]));
+    const playerMap = new Map(Object.values(t.players).map(p => [p.id, p]));
 
     // ==========================================
     // HEADER - Ultra compact
@@ -197,7 +197,7 @@ const buildCompactStageSection = (
 // ==========================================
 export const generateDiscordReportSplit = (t: Tournament, shortened = false): string[] => {
     const messages: string[] = [];
-    const playerMap = new Map(t.players.map(p => [p.id, p]));
+    const playerMap = new Map(Object.values(t.players).map(p => [p.id, p]));
 
     // Message 1: Header + Groups
     const msg1: string[] = [];
@@ -263,7 +263,7 @@ export const generateDiscordReportSplit = (t: Tournament, shortened = false): st
 // ==========================================
 export const generateDiscordReportSplit3 = (t: Tournament, shortened = false): string[] => {
     const messages: string[] = [];
-    const playerMap = new Map(t.players.map(p => [p.id, p]));
+    const playerMap = new Map(Object.values(t.players).map(p => [p.id, p]));
 
     const groupEmojis = { A: '🔵', B: '🔴', C: '🟢' };
 

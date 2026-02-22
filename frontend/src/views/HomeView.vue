@@ -109,7 +109,7 @@ const createTournament = async () => {
       seasonId: selectedSeasonId.value || undefined,
       status: 'registration',
       stage: 'groups',
-      players: [],
+      players: {},
       teams: [],
       races: {},
       playerIds: [],
@@ -323,7 +323,7 @@ onMounted(() => {
 
                 <div class="flex flex-col gap-1 text-sm text-slate-400 mt-6 pt-4 border-t border-slate-700/50">
                   <div class="flex items-center gap-2">
-                    <i class="ph-fill ph-users"></i> {{ t.players?.length || 0 }} Players
+                    <i class="ph-fill ph-users"></i> {{ Object.keys(t.players || {}).length }} Players
                   </div>
                   <div class="flex items-center gap-2">
                     <i class="ph-fill ph-trophy"></i> {{ formatTournamentStatus(t) }}

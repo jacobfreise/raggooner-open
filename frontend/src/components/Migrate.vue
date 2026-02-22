@@ -104,7 +104,7 @@ const migrateToNewStructure = async (dryRun: boolean) => {
     const nameOccurrences = new Map<string, Set<string>>(); // Track variations
 
     tournaments.forEach(tournament => {
-      tournament.players?.forEach(player => {
+      Object.values(tournament.players || {}).forEach(player => {
         const normalizedName = normalizeName(player.name);
 
         // Track name variations
@@ -201,7 +201,7 @@ const migrateToNewStructure = async (dryRun: boolean) => {
       let changed = false;
 
       // Update players[] array
-      for (const player of (tournament.players || [])) {
+      for (const player of Object.values(tournament.players || {})) {
         const globalId = playerIdMapping.get(player.id);
         if (globalId && globalId !== player.id) {
           player.id = globalId;
