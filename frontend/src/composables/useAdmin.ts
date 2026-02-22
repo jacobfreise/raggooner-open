@@ -1,6 +1,6 @@
 // src/composables/useAdmin.ts
 import { ref, computed, watch, type Ref } from 'vue';
-import { doc, setDoc, deleteDoc, collection } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, collection, writeBatch, increment } from 'firebase/firestore';
 import { auth, db } from '../firebase'; // Adjust path if needed
 import type { Tournament, FirestoreUpdate } from '../types';
 
@@ -149,31 +149,71 @@ export function useAdmin(
         try {
             const col = (name: string) => collection(db, 'artifacts', appId, 'public', 'data', name);
 
-            // 1. Delete secret and tournament docs (while admin doc still exists for rule checks)
+            // 1. If tournament was completed, reverse player metadata before deleting
+            if (tournament.value.status === 'completed') {
+                const t = tournament.value;
+                const batch = writeBatch(db);
+
+                Object.values(t.players).forEach(player => {
+                    const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', player.id);
+                    const allRaces = Object.values(t.races);
+                    const playerRaceCount = allRaces.filter(r =>
+                        Object.keys(r.placements).includes(player.id)
+                    ).length;
+
+                    let totalBeaten = 0;
+                    let totalFaced = 0;
+                    allRaces.forEach(race => {
+                        const position = race.placements[player.id];
+                        if (position == null) return;
+                        const playersInRace = Object.keys(race.placements).length;
+                        totalBeaten += playersInRace - position;
+                        totalFaced += playersInRace - 1;
+                    });
+
+                    const updateData: Record<string, any> = {
+                        'metadata.totalTournaments': increment(-1),
+                        'metadata.totalRaces': increment(-playerRaceCount),
+                        'metadata.opponentsFaced': increment(-totalFaced),
+                        'metadata.opponentsBeaten': increment(-totalBeaten),
+                    };
+
+                    if (t.seasonId) {
+                        updateData[`metadata.seasons.${t.seasonId}.opponentsFaced`] = increment(-totalFaced);
+                        updateData[`metadata.seasons.${t.seasonId}.opponentsBeaten`] = increment(-totalBeaten);
+                    }
+
+                    batch.update(playerRef, updateData);
+                });
+
+                await batch.commit();
+            }
+
+            // 2. Delete secret and tournament docs (while admin doc still exists for rule checks)
             await deleteDoc(doc(col('secrets'), tid)).catch(() => {});
             await deleteDoc(getTournamentRef(tid));
 
-            // 2. Delete current user's admin doc LAST (other steps need it for auth)
+            // 3. Delete current user's admin doc LAST (other steps need it for auth)
             const userId = auth.currentUser?.uid;
             if (userId) {
                 await deleteDoc(doc(col('admins'), `${tid}_${userId}`)).catch(() => {});
             }
 
-            // 3. Cleanup Local Storage / Session
+            // 4. Cleanup Local Storage / Session
             sessionStorage.removeItem('active_tid');
             localStorage.removeItem(`admin_pwd_${tid}`);
             localAdminPassword.value = '';
 
-            // 4. Reset State
+            // 5. Reset State
             tournament.value = null;
             showAdminModal.value = false;
 
-            // 5. Clean URL
+            // 6. Clean URL
             const url = new URL(window.location.href);
             url.searchParams.delete('tid');
             window.history.pushState({}, '', url);
 
-            // 6. Refresh Home List
+            // 7. Refresh Home List
             await fetchPublicTournaments();
 
             alert("Tournament deleted successfully.");
