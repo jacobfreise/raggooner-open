@@ -354,13 +354,17 @@ const savePointsSystem = async () => {
       </div>
     </div>
 
+  </div>
+
+  <!-- Easter egg overlay: rendered OUTSIDE the root div so CSS transforms (shake) don't break fixed positioning -->
+  <Teleport to="body">
     <div v-if="activeVisualEgg" :class="activeVisualEgg.visual?.overlayClass" class="flex items-center justify-center fixed inset-0 pointer-events-none z-[9999]">
       <h1 v-if="activeVisualEgg.visual?.text" class="text-9xl font-black text-red-500/50 uppercase tracking-widest animate-pulse rotate-12 select-none drop-shadow-2xl">
         {{ activeVisualEgg.visual.text }}
       </h1>
       <img v-if="activeVisualEgg.visual?.image" :src="activeVisualEgg.visual.image" :class="activeVisualEgg.visual.imageClass" alt="Easter Egg Visual" class="max-w-full max-h-screen object-contain" />
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>
