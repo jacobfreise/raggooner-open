@@ -66,6 +66,42 @@ function compareTeams(a, b, useIdFallback, tournament, isFinals) {
   return 0;
 }
 
+// --- Recalculate team scores from race data (ported from src/utils/utils.ts) ---
+
+function recalculateTournamentScores(t) {
+  const activePointsSystem = t.pointsSystem || POINTS_SYSTEM;
+  const teams = (t.teams || []).map(team => ({
+    ...team,
+    points: 0,
+    finalsPoints: 0,
+    adjustments: team.adjustments || []
+  }));
+
+  const raceList = Array.isArray(t.races) ? t.races : Object.values(t.races || {});
+  const findTeamIdx = (pid) => teams.findIndex(team => team.captainId === pid || (team.memberIds || []).includes(pid));
+
+  raceList.forEach(race => {
+    const isFinals = race.stage === 'finals';
+    for (const [pid, pos] of Object.entries(race.placements || {})) {
+      const points = activePointsSystem[Number(pos)] || 0;
+      const tIdx = findTeamIdx(pid);
+      if (tIdx !== -1) {
+        if (isFinals) teams[tIdx].finalsPoints += points;
+        else teams[tIdx].points += points;
+      }
+    }
+  });
+
+  teams.forEach(team => {
+    (team.adjustments || []).forEach(adj => {
+      if (adj.stage === 'finals') team.finalsPoints += adj.amount;
+      else team.points += adj.amount;
+    });
+  });
+
+  return { teams };
+}
+
 // --- Helper math ---
 
 function round1(v) { return Math.round(v * 10) / 10; }
@@ -101,6 +137,14 @@ async function main() {
   console.log(`  participations: ${participations.length}`);
   console.log(`  races: ${racesDocs.length}`);
   console.log(`  tournaments: ${tournaments.length}`);
+
+  // Recalculate team scores from race data so compareTeams works correctly
+  for (const t of tournaments) {
+    if (t.teams && t.teams.length > 0) {
+      const recalced = recalculateTournamentScores(t);
+      t.teams = recalced.teams;
+    }
+  }
 
   // Build lookups
   const playerMap = new Map(players.map(p => [p.id, p]));

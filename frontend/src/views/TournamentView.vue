@@ -82,6 +82,10 @@ const subscribeToTournament = (id: string) => {
       if (data.password) delete data.password;
       data.races = migrateRaces(data.races);
       data.players = migratePlayers(data.players);
+      const { teams, players, wildcards } = recalculateTournamentScores(data);
+      data.teams = teams;
+      data.players = players;
+      data.wildcards = wildcards;
       tournament.value = data;
       if (!localAdminPassword.value) autoLoginIfSuperAdmin();
       if (!hasInitialViewLoaded.value && tournament.value.stage === 'finals') {
@@ -126,9 +130,7 @@ const startEditingPoints = () => {
 };
 const savePointsSystem = async () => {
   if (!tournament.value) return;
-  const tempTournament = { ...tournament.value, pointsSystem: localPointsSystem.value };
-  const { teams, players } = recalculateTournamentScores(tempTournament);
-  await secureUpdate({ pointsSystem: localPointsSystem.value, teams, players });
+  await secureUpdate({ pointsSystem: localPointsSystem.value });
   isEditingPoints.value = false;
 };
 </script>

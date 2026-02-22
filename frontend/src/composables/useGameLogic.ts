@@ -1,7 +1,7 @@
 import {ref, computed, type Ref, watch} from 'vue';
 import type {Tournament, Team, Race, FirestoreUpdate, Player, PointAdjustment} from '../types';
 import { POINTS_SYSTEM as DEFAULT_POINTS } from '../utils/constants';
-import {compareTeams, getPlayerUma, getPlayerName, recalculateTournamentScores, raceKey} from '../utils/utils';
+import {compareTeams, getPlayerUma, getPlayerName, raceKey} from '../utils/utils';
 import {
     arrayRemove,
     arrayUnion,
@@ -713,12 +713,8 @@ export function useGameLogic(
             return t;
         });
 
-        // 2. Recalculate scores based on this new adjustment
-        const tempTournament = { ...tournament.value, teams: tempTeams };
-        const { teams: updatedTeams, players: updatedPlayers } = recalculateTournamentScores(tempTournament);
-
         try {
-            await secureUpdate({ teams: updatedTeams, players: updatedPlayers });
+            await secureUpdate({ teams: tempTeams });
         } catch(e) {
             console.error(e);
         } finally {
@@ -742,12 +738,8 @@ export function useGameLogic(
             return t;
         });
 
-        // 2. Recalculate scores based on the new adjustment list
-        const tempTournament = { ...tournament.value, teams: tempTeams };
-        const { teams: updatedTeams, players: updatedPlayers } = recalculateTournamentScores(tempTournament);
-
         try {
-            await secureUpdate({ teams: updatedTeams, players: updatedPlayers });
+            await secureUpdate({ teams: tempTeams });
         } catch(e) {
             console.error("Error removing adjustment:", e);
         } finally {
@@ -851,17 +843,9 @@ export function useGameLogic(
             placements
         };
 
-        // Recalculate scores before saving
-        const updatedRaces = { ...tournament.value.races, [key]: raceData };
-        const tempTournament = { ...tournament.value, races: updatedRaces };
-        const { teams: updatedTeams, players: updatedPlayers, wildcards: updatedWildcards } = recalculateTournamentScores(tempTournament);
-
         try {
             await secureUpdate({
                 [`races.${key}`]: raceData,
-                teams: updatedTeams,
-                players: updatedPlayers,
-                wildcards: updatedWildcards
             });
         } catch (e) {
             console.error(e);
