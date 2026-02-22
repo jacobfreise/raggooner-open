@@ -6,7 +6,6 @@ import { useRoster } from '../composables/useRoster';
 import {
   getPlayerAtPosition,
   getPositionStyle,
-  getRaceTimestamp,
   getRankColor,
   raceKey,
 } from '../utils/utils';
@@ -19,7 +18,6 @@ import type {GlobalPlayer} from "../types";
 // State for which race is currently being edited (flipped)
 const editingRaceKey = ref<string | null>(null);
 
-const entryStack = ref<string[]>([]);
 // Local state for the back-face entry
 const entryMap = ref<Record<number, string>>({}); // { 1: 'pid1', 2: 'pid2' }
 
@@ -130,7 +128,6 @@ const {
   getRaceResultsForPlayer,
   getTotalPoints,
   getGroupWildcards,
-  updateRacePlacement,
   advanceToFinals,
   endTournament,
   reopenTournament,
@@ -1226,11 +1223,11 @@ const structuredPlayerStats = computed(() => {
 <!--          </div>-->
 <!--        </div>-->
 <!--      </div>-->
-      <div v-for="group in [
+      <div v-for="group in ([
           { id: 'A', color: 'text-indigo-400' },
           { id: 'B', color: 'text-rose-400' },
           { id: 'C', color: 'text-emerald-400' }
-        ]" :key="group.id">
+        ] as const)" :key="group.id">
 
         <div v-if="shouldShowGroup(group.id)">
           <div class="flex items-center gap-4 mb-4" :class="{ 'border-t border-slate-700 pt-8': group.id !== 'A' }">
