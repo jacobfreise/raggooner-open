@@ -1,22 +1,25 @@
+// @ts-nocheck
+// Claude Info: This is a one-time use component for migrating data. Do not adjust it, unless explicitly stated.
+// If this component causes npm run build errors, exclude it in the appropriate config
+
+
 <script setup lang="ts">
 import { ref } from 'vue';
 import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { Tournament, GlobalPlayer, TournamentParticipation, RaceDocument } from '../types';
+import type { Tournament, GlobalPlayer } from '../types';
 
 const APP_ID = 'default-app'; // TODO: Adjust to your app ID
 
 const processing = ref(false);
 const logs = ref<string[]>([]);
-const currentStep = ref<'idle' | 'players' | 'participations' | 'races' | 'complete'>('idle');
+const currentStep = ref<'idle' | 'players' | 'complete'>('idle');
 
 // Statistics
 const stats = ref({
   tournaments: 0,
   players: 0,
-  duplicatesFound: 0,
-  participations: 0,
-  races: 0
+  duplicatesFound: 0
 });
 
 // Duplicate detection
@@ -71,11 +74,11 @@ const nameSimilarity = (a: string, b: string): number => {
 const migrateToNewStructure = async (dryRun: boolean) => {
   processing.value = true;
   logs.value = [];
-  stats.value = { tournaments: 0, players: 0, duplicatesFound: 0, participations: 0, races: 0 };
+  stats.value = { tournaments: 0, players: 0, duplicatesFound: 0 };
   duplicatePlayers.value = [];
 
   addLog(dryRun ? 'Starting DRY RUN...' : 'Starting LIVE MIGRATION...', 'info');
-  addLog('This will create players/, participations/, and races/ collections', 'info');
+  addLog('This will create players/ collection', 'info');
 
   try {
     // === STEP 1: FETCH ALL TOURNAMENTS ===
@@ -190,101 +193,7 @@ const migrateToNewStructure = async (dryRun: boolean) => {
       addLog(`Found ${duplicatePlayers.value.length} players with name variations`, 'warning');
     }
 
-    // === STEP 3: CREATE PARTICIPATIONS ===
-    currentStep.value = 'participations';
-    addLog('Step 3/4: Creating tournament participations...', 'info');
-
-    const participations: TournamentParticipation[] = [];
-
-    tournaments.forEach(tournament => {
-      tournament.players?.forEach(player => {
-        const globalId = playerIdMapping.get(player.id);
-        if (!globalId) {
-          addLog(`  ⚠️  No global ID found for player ${player.name} in ${tournament.name}`, 'warning');
-          return;
-        }
-
-        const team = tournament.teams?.find(t =>
-            t.captainId === player.id || t.memberIds?.includes(player.id)
-        );
-
-        const participation: Record<string, any> = {
-          id: `${tournament.id}_${globalId}`,
-          tournamentId: tournament.id,
-          playerId: globalId,
-          uma: player.uma || '',
-          isCaptain: player.isCaptain || false,
-          totalPoints: player.totalPoints || 0,
-          groupPoints: player.groupPoints || 0,
-          finalsPoints: player.finalsPoints || 0,
-          createdAt: tournament.createdAt
-        };
-        if (tournament.seasonId) participation.seasonId = tournament.seasonId;
-        if (team?.id) participation.teamId = team.id;
-
-        participations.push(participation as TournamentParticipation);
-      });
-    });
-
-    stats.value.participations = participations.length;
-    addLog(`Created ${participations.length} participation records`, 'success');
-
-    // === STEP 4: MIGRATE RACES ===
-    currentStep.value = 'races';
-    addLog('Step 4/4: Migrating races to top-level collection...', 'info');
-
-    const races: RaceDocument[] = [];
-
-    tournaments.forEach(tournament => {
-      tournament.races?.forEach(race => {
-        // Build umaMapping and convert old IDs to global IDs
-        const umaMapping: Record<string, string> = {};
-        const newPlacements: Record<string, number> = {};
-
-        Object.entries(race.placements || {}).forEach(([oldPlayerId, position]) => {
-          const globalId = playerIdMapping.get(oldPlayerId);
-          if (!globalId) {
-            addLog(`  ⚠️  No global ID for player in race ${race.id}`, 'warning');
-            return;
-          }
-
-          // Convert to global ID
-          newPlacements[globalId] = position;
-
-          // Get Uma
-          const player = tournament.players?.find(p => p.id === oldPlayerId);
-          if (player) {
-            umaMapping[globalId] = player.uma || '';
-
-            // Update race count
-            const normalizedName = normalizeName(player.name);
-            const globalPlayer = playersMap.get(normalizedName);
-            if (globalPlayer) {
-              globalPlayer.metadata.totalRaces++;
-            }
-          }
-        });
-
-        const raceDoc: Record<string, any> = {
-          id: race.id,
-          tournamentId: tournament.id,
-          stage: race.stage,
-          group: race.group,
-          raceNumber: race.raceNumber,
-          timestamp: race.timestamp,
-          placements: newPlacements,
-          umaMapping
-        };
-        if (tournament.seasonId) raceDoc.seasonId = tournament.seasonId;
-
-        races.push(raceDoc as RaceDocument);
-      });
-    });
-
-    stats.value.races = races.length;
-    addLog(`Prepared ${races.length} race documents`, 'success');
-
-    // === UPDATE TOURNAMENT DOCS: replace old player IDs with global IDs ===
+    // === STEP 3: UPDATE TOURNAMENT DOCS — replace old player IDs with global IDs ===
     addLog('Updating tournament docs with global player IDs...', 'info');
     let tournamentsUpdated = 0;
 
@@ -389,54 +298,6 @@ const migrateToNewStructure = async (dryRun: boolean) => {
       }
       addLog(`✓ Players written (${totalBatches} batches)`, 'success');
 
-      // Write Participations (batched)
-      batch = writeBatch(db);
-      batchCount = 0;
-      totalBatches = 0;
-
-      for (const participation of participations) {
-        const participationRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'participations', participation.id);
-        batch.set(participationRef, participation);
-        batchCount++;
-
-        if (batchCount >= 500) {
-          await batch.commit();
-          totalBatches++;
-          addLog(`  Committed batch ${totalBatches} (Participations)`, 'info');
-          batch = writeBatch(db);
-          batchCount = 0;
-        }
-      }
-      if (batchCount > 0) {
-        await batch.commit();
-        totalBatches++;
-      }
-      addLog(`✓ Participations written (${totalBatches} batches)`, 'success');
-
-      // Write Races (batched)
-      batch = writeBatch(db);
-      batchCount = 0;
-      totalBatches = 0;
-
-      for (const race of races) {
-        const raceRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'races', race.id);
-        batch.set(raceRef, race);
-        batchCount++;
-
-        if (batchCount >= 500) {
-          await batch.commit();
-          totalBatches++;
-          addLog(`  Committed batch ${totalBatches} (Races)`, 'info');
-          batch = writeBatch(db);
-          batchCount = 0;
-        }
-      }
-      if (batchCount > 0) {
-        await batch.commit();
-        totalBatches++;
-      }
-      addLog(`✓ Races written (${totalBatches} batches)`, 'success');
-
       addLog('🎉 MIGRATION COMPLETE!', 'success');
     } else {
       addLog('DRY RUN COMPLETE - No data was written', 'warning');
@@ -496,21 +357,13 @@ const exportData = () => {
         </li>
         <li class="flex items-start gap-2">
           <i class="ph-fill ph-check-circle text-green-400 mt-0.5"></i>
-          <span>Creates <code class="text-indigo-400">participations/</code> collection linking players to tournaments</span>
-        </li>
-        <li class="flex items-start gap-2">
-          <i class="ph-fill ph-check-circle text-green-400 mt-0.5"></i>
-          <span>Moves races to top-level <code class="text-indigo-400">races/</code> collection with global player IDs</span>
-        </li>
-        <li class="flex items-start gap-2">
-          <i class="ph-fill ph-check-circle text-green-400 mt-0.5"></i>
           <span>Detects potential duplicate names with fuzzy matching</span>
         </li>
       </ul>
     </div>
 
     <!-- Statistics -->
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
       <div class="bg-slate-900/50 border border-slate-700 rounded-lg p-3 text-center">
         <div class="text-2xl font-bold text-white">{{ stats.tournaments }}</div>
         <div class="text-xs text-slate-400 uppercase tracking-wider">Tournaments</div>
@@ -522,14 +375,6 @@ const exportData = () => {
       <div class="bg-slate-900/50 border border-slate-700 rounded-lg p-3 text-center">
         <div class="text-2xl font-bold text-amber-400">{{ stats.duplicatesFound }}</div>
         <div class="text-xs text-slate-400 uppercase tracking-wider">Merged</div>
-      </div>
-      <div class="bg-slate-900/50 border border-slate-700 rounded-lg p-3 text-center">
-        <div class="text-2xl font-bold text-emerald-400">{{ stats.participations }}</div>
-        <div class="text-xs text-slate-400 uppercase tracking-wider">Participations</div>
-      </div>
-      <div class="bg-slate-900/50 border border-slate-700 rounded-lg p-3 text-center">
-        <div class="text-2xl font-bold text-cyan-400">{{ stats.races }}</div>
-        <div class="text-xs text-slate-400 uppercase tracking-wider">Races</div>
       </div>
     </div>
 
@@ -565,9 +410,7 @@ const exportData = () => {
         <div
             class="h-full bg-indigo-500 transition-all duration-500"
             :style="{
-            width: currentStep === 'players' ? '25%' :
-                   currentStep === 'participations' ? '50%' :
-                   currentStep === 'races' ? '75%' :
+            width: currentStep === 'players' ? '50%' :
                    currentStep === 'complete' ? '100%' : '0%'
           }"
         ></div>

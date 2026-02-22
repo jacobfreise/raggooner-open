@@ -8,6 +8,7 @@ import {
   getPositionStyle,
   getRaceTimestamp,
   getRankColor,
+  raceKey,
 } from '../utils/utils';
 import {getRaceWinnerGif} from "../utils/umaGifs.ts";
 import HallOfFame from "./HallOfFame.vue";
@@ -179,11 +180,8 @@ const getGifForRace = (group: string, raceNum: number) => {
   const targetGroup = isFinals ? 'Finals' : group;
 
   // Find the specific race object
-  const race = tournament.value.races.find(r =>
-      r.stage === stage &&
-      r.raceNumber === raceNum &&
-      r.group === targetGroup
-  );
+  const key = raceKey(stage, targetGroup, raceNum);
+  const race = tournament.value.races[key];
 
   if (!race) return undefined;
 

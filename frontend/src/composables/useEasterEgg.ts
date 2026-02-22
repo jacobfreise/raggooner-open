@@ -52,7 +52,7 @@ const EGG_LIST: EggConfig[] = [
             // Helper to sort races: Groups (1) < Finals (2), then by Race Number
             const stageOrder: Record<string, number> = { 'groups': 1, 'finals': 2 };
 
-            const sortedRaces = [...tournament.races]
+            const sortedRaces = Object.values(tournament.races)
                 .sort((a, b) => {
                 const sA = stageOrder[a.stage?.toLowerCase()] || 99;
                 const sB = stageOrder[b.stage?.toLowerCase()] || 99;
@@ -100,7 +100,7 @@ const EGG_LIST: EggConfig[] = [
             // --- 3. HISTORY CHECK: Did they sweep EVERY previous race? ---
 
             // Filter for only races this team played in
-            const teamRaces = tournament.races.filter(r =>
+            const teamRaces = Object.values(tournament.races).filter(r =>
                 r.placements[winningTeam.captainId] !== undefined
                 || winningTeam.memberIds.some(member => r.placements[member] !== undefined)
             );
@@ -206,7 +206,7 @@ export function useEasterEgg(tournament: Ref<Tournament | null>) {
     const processRaces = (forceSilent: boolean) => {
         if (!tournament.value) return;
 
-        tournament.value.races.forEach(race => {
+        Object.values(tournament.value.races).forEach(race => {
             EGG_LIST.forEach(egg => {
                 // Create unique key: This specific race + this specific egg
                 const historyKey = `${race.id}_${egg.id}`;

@@ -1,9 +1,9 @@
 import { ref, computed, type Ref } from 'vue';
-import {arrayUnion, collection, getDocs, query, where, writeBatch} from 'firebase/firestore';
+import {arrayUnion} from 'firebase/firestore';
 import type { Tournament, Player, Wildcard, FirestoreUpdate } from '../types';
 import { UMAS } from '../utils/constants';
 import {getPlayerName, getPlayerUma} from "../utils/utils.ts";
-import {db} from "../firebase.ts";
+
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
 
@@ -137,47 +137,6 @@ export function useRoster(
             await secureUpdate({
                 players: newPlayers
             });
-
-            // 3. Fetch all races belonging to this tournament
-            const racesRef = collection(db, 'artifacts', appId, 'public', 'data', 'races');
-            const q = query(racesRef, where('tournamentId', '==', tournament.value.id));
-            const racesSnap = await getDocs(q);
-
-            // 4. If there are races, batch update their umaMappings
-            if (!racesSnap.empty) {
-                const batch = writeBatch(db);
-                let hasChanges = false;
-
-                racesSnap.forEach((raceDoc) => {
-                    const raceData = raceDoc.data();
-                    const currentMapping = raceData.umaMapping || {};
-                    let raceNeedsUpdate = false;
-
-                    // Create a new mapping object based on the existing one
-                    const updatedMapping = { ...currentMapping };
-
-                    // Loop through our new player data and sync the Umas
-                    newPlayers.forEach(player => {
-                        // Only update if the uma has actually changed for this player
-                        if (updatedMapping[player.id] !== player.uma) {
-                            updatedMapping[player.id] = player.uma || '';
-                            raceNeedsUpdate = true;
-                        }
-                    });
-
-                    // If this specific race document needs an update, add it to the batch
-                    if (raceNeedsUpdate) {
-                        batch.update(raceDoc.ref, { umaMapping: updatedMapping });
-                        hasChanges = true;
-                    }
-                });
-
-                // Commit the batch if any races were modified
-                if (hasChanges) {
-                    await batch.commit();
-                    console.log("Synced Uma mappings across all races.");
-                }
-            }
 
         } catch (error) {
             console.error("Failed to update Umas:", error);

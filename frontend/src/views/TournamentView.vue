@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { doc, onSnapshot, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { FirestoreUpdate, Tournament, GlobalPlayer, Season } from '../types';
-import { recalculateTournamentScores } from "../utils/utils.ts";
+import { recalculateTournamentScores, migrateRaces } from "../utils/utils.ts";
 import { POINTS_SYSTEM } from "../utils/constants.ts";
 import { useAdmin } from '../composables/useAdmin';
 import { useGameLogic } from "../composables/useGameLogic";
@@ -80,6 +80,7 @@ const subscribeToTournament = (id: string) => {
     if (docSnap.exists()) {
       const data = docSnap.data() as Tournament;
       if (data.password) delete data.password;
+      data.races = migrateRaces(data.races);
       tournament.value = data;
       if (!localAdminPassword.value) autoLoginIfSuperAdmin();
       if (!hasInitialViewLoaded.value && tournament.value.stage === 'finals') {

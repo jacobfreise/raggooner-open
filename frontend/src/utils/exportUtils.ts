@@ -18,7 +18,7 @@ export const generateDiscordReport = (t: Tournament, shortened = false): string 
     const groupEmojis = { A: '🔵', B: '🔴', C: '🟢' };
 
     groupNames.forEach(groupName => {
-        const groupRaces = t.races
+        const groupRaces = Object.values(t.races)
             .filter(r => r.stage === 'groups' && r.group === groupName)
             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
@@ -41,7 +41,7 @@ export const generateDiscordReport = (t: Tournament, shortened = false): string 
     // ==========================================
     // FINALS
     // ==========================================
-    const finalsRaces = t.races
+    const finalsRaces = Object.values(t.races)
         .filter(r => r.stage === 'finals')
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
@@ -209,7 +209,7 @@ export const generateDiscordReportSplit = (t: Tournament, shortened = false): st
     const groupEmojis = { A: '🔵', B: '🔴', C: '🟢' };
 
     groupNames.forEach(groupName => {
-        const groupRaces = t.races.filter(r => r.stage === 'groups' && r.group === groupName);
+        const groupRaces = Object.values(t.races).filter(r => r.stage === 'groups' && r.group === groupName);
         const groupTeams = t.teams.filter(team => team.group === groupName);
 
         if (groupRaces.length > 0 && groupTeams.length > 0) {
@@ -228,7 +228,7 @@ export const generateDiscordReportSplit = (t: Tournament, shortened = false): st
     messages.push(msg1.join('\n'));
 
     // Message 2: Finals (if exists)
-    const finalsRaces = t.races.filter(r => r.stage === 'finals');
+    const finalsRaces = Object.values(t.races).filter(r => r.stage === 'finals');
     const finalsTeams = t.teams.filter(team => team.inFinals);
 
     if (finalsRaces.length > 0 && finalsTeams.length > 0) {
@@ -273,7 +273,7 @@ export const generateDiscordReportSplit3 = (t: Tournament, shortened = false): s
     msg1.push(`🏆 ${t.name.toUpperCase()}`);
     msg1.push('```');
 
-    const groupARaces = t.races.filter(r => r.stage === 'groups' && r.group === 'A');
+    const groupARaces = Object.values(t.races).filter(r => r.stage === 'groups' && r.group === 'A');
     const groupATeams = t.teams.filter(team => team.group === 'A');
     if (groupARaces.length > 0 && groupATeams.length > 0) {
         msg1.push(buildCompactStageSection(
@@ -291,7 +291,7 @@ export const generateDiscordReportSplit3 = (t: Tournament, shortened = false): s
     // Message 2: Group B (+ Group C if exists)
     const msg2: string[] = [];
     (['B', 'C'] as const).forEach(groupName => {
-        const groupRaces = t.races.filter(r => r.stage === 'groups' && r.group === groupName);
+        const groupRaces = Object.values(t.races).filter(r => r.stage === 'groups' && r.group === groupName);
         const groupTeams = t.teams.filter(team => team.group === groupName);
         if (groupRaces.length > 0 && groupTeams.length > 0) {
             msg2.push(buildCompactStageSection(
@@ -310,7 +310,7 @@ export const generateDiscordReportSplit3 = (t: Tournament, shortened = false): s
     }
 
     // Message 3: Finals + Bans
-    const finalsRaces = t.races.filter(r => r.stage === 'finals');
+    const finalsRaces = Object.values(t.races).filter(r => r.stage === 'finals');
     const finalsTeams = t.teams.filter(team => team.inFinals);
 
     if (finalsRaces.length > 0 && finalsTeams.length > 0) {

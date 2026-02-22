@@ -14,7 +14,10 @@ export default defineConfig({
             return 'vendor';
           }
         }
-      }
+      },
+      external: [
+        './src/components/Migrate.vue'
+      ]
     }
   }
 })

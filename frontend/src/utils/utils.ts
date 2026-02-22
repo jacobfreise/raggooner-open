@@ -1,5 +1,21 @@
-import type {Player, Team, Tournament, Wildcard} from "../types.ts";
+import type {Player, Race, Team, Tournament, Wildcard} from "../types.ts";
 import {POINTS_SYSTEM as DEFAULT_POINTS} from "./constants.ts";
+
+export const raceKey = (stage: string, group: string, raceNumber: number) =>
+    `${stage}-${group}-${raceNumber}`;
+
+export const migrateRaces = (races: any): Record<string, Race> => {
+    if (!races) return {};
+    if (Array.isArray(races)) {
+        const map: Record<string, Race> = {};
+        for (const race of races) {
+            const key = raceKey(race.stage, race.group, race.raceNumber);
+            map[key] = race;
+        }
+        return map;
+    }
+    return races as Record<string, Race>;
+};
 
 // Compare two teams (Returns positive if A is better, negative if B is better)
 export const compareTeams = (a: Team, b: Team, useIdFallback = true, tournament: Tournament, isFinals?: boolean) => {
@@ -44,7 +60,7 @@ const getTeamPlacements = (team: Team, tournament: Tournament) => {
     const roster = [team.captainId, ...team.memberIds];
 
     // Look at ONLY the races for this team's group
-    const relevantRaces = tournament.races.filter(r =>
+    const relevantRaces = Object.values(tournament.races).filter(r =>
         r.stage === 'groups' && r.group === team.group
     );
 
@@ -89,7 +105,7 @@ export const recalculateTournamentScores = (t: Tournament): { teams: Team[], pla
     const findWildcardIdx = (wid: string) => wildcards.findIndex(wc => wc.playerId === wid);
 
     // 2. Process ALL Races
-    t.races.forEach(race => {
+    Object.values(t.races).forEach(race => {
         const isFinals = race.stage === 'finals';
 
         Object.entries(race.placements).forEach(([pid, pos]) => {
@@ -176,12 +192,9 @@ const findRace = (group: string,
                   tournament: null | Tournament,
                   currentView: String) => {
     if (!tournament) return undefined;
-    const stage = currentView;
-    return tournament.races.find(r =>
-        r.stage === stage &&
-        r.group === group &&
-        r.raceNumber === raceNumber
-    );
+    const stage = currentView as string;
+    const key = raceKey(stage, group, raceNumber);
+    return tournament.races[key];
 };
 export const getPlayerAtPosition = (group: any,
                                     raceNumber: number,

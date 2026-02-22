@@ -111,7 +111,7 @@ const createTournament = async () => {
       stage: 'groups',
       players: [],
       teams: [],
-      races: [],
+      races: {},
       playerIds: [],
       isSecured: true,
       usePlacementTiebreaker: true,

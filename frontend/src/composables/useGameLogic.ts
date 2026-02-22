@@ -1,30 +1,17 @@
 import {ref, computed, type Ref, watch} from 'vue';
 import type {Tournament, Team, Race, FirestoreUpdate, Player, PointAdjustment} from '../types';
 import { POINTS_SYSTEM as DEFAULT_POINTS } from '../utils/constants';
-import {compareTeams, getPlayerUma, getPlayerName, recalculateTournamentScores} from '../utils/utils';
+import {compareTeams, getPlayerUma, getPlayerName, recalculateTournamentScores, raceKey} from '../utils/utils';
 import {
     arrayRemove,
     arrayUnion,
     doc,
-    setDoc,
     writeBatch,
     increment
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
-
-// Build a mapping of playerId -> uma for RaceDocument records
-const buildUmaMapping = (players: Player[], placements: Record<string, number>): Record<string, string> => {
-    const mapping: Record<string, string> = {};
-    for (const playerId of Object.keys(placements)) {
-        const player = players.find(p => p.id === playerId);
-        if (player) {
-            mapping[playerId] = player.uma;
-        }
-    }
-    return mapping;
-};
 
 export function useGameLogic(
     tournament: Ref<Tournament | null>,
@@ -51,7 +38,7 @@ export function useGameLogic(
     // --- HELPERS (Internal) ---
     const getRaceCount = (group: string) => {
         if (!tournament.value) return 0;
-        return tournament.value.races.filter(r => r.stage === currentView.value && r.group === group).length;
+        return Object.values(tournament.value.races).filter(r => r.stage === currentView.value && r.group === group).length;
     };
 
     const getPointsForPos = (pos: number) => {
@@ -63,7 +50,7 @@ export function useGameLogic(
     const getRoundPoints = (playerId: string) => {
         if (!tournament.value) return 0;
         let points = 0;
-        tournament.value.races
+        Object.values(tournament.value.races)
             .filter(r => r.stage === currentView.value)
             .forEach(race => {
                 const placement = race.placements[playerId];
@@ -76,7 +63,7 @@ export function useGameLogic(
     const getTotalPoints = (playerId: string) => {
         if (!tournament.value) return 0;
         let points = 0;
-        tournament.value.races.forEach(race => {
+        Object.values(tournament.value.races).forEach(race => {
             const placement = race.placements[playerId];
             if (placement) points += getPointsForPos(placement);
         });
@@ -131,7 +118,7 @@ export function useGameLogic(
 
     const sortedRaces = computed<Race[]>(() => {
         if (!tournament.value || !tournament.value.races) return [];
-        return [...tournament.value.races].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        return Object.values(tournament.value.races).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     });
 
     // --- COMPUTED: PROGRESSION ---
@@ -152,7 +139,7 @@ export function useGameLogic(
     const canEndTournament = computed(() => {
         if (!tournament.value) return false;
         if (tournament.value.status === 'completed') return false;
-        const finalsRaces = tournament.value.races.filter(r => r.stage === 'finals').length;
+        const finalsRaces = Object.values(tournament.value.races).filter(r => r.stage === 'finals').length;
         return finalsRaces >= 5;
     });
 
@@ -222,12 +209,12 @@ export function useGameLogic(
         if (!tournament.value) return;
         saving.value = true;
         const stage = currentView.value;
+        const key = raceKey(stage, group, raceNumber);
 
-        let currentRaces = [...tournament.value.races];
-        let raceIndex = currentRaces.findIndex(r => r.stage === stage && r.group === group && r.raceNumber === raceNumber);
         let raceData: Race;
+        const existingRace = tournament.value.races[key];
 
-        if (raceIndex === -1) {
+        if (!existingRace) {
             raceData = {
                 id: crypto.randomUUID(),
                 stage: stage,
@@ -236,10 +223,8 @@ export function useGameLogic(
                 timestamp: new Date().toISOString(),
                 placements: {}
             };
-            currentRaces.push(raceData);
-            raceIndex = currentRaces.length - 1;
         } else {
-            raceData = { ...currentRaces[raceIndex]! };
+            raceData = { ...existingRace };
         }
 
         const newPlacements = { ...raceData.placements };
@@ -258,44 +243,25 @@ export function useGameLogic(
         }
 
         raceData.placements = newPlacements;
-        currentRaces[raceIndex] = raceData;
 
-        // NEW: Recalculate everything before saving
-        // We create a temporary tournament object with the NEW races to calculate scores
+        // Recalculate everything before saving
+        const updatedRaces = { ...tournament.value.races, [key]: raceData };
         const tempTournament = {
             ...tournament.value,
-            races: currentRaces
+            races: updatedRaces
         };
 
         const { teams: updatedTeams, players: updatedPlayers, wildcards: updatedWildcards } = recalculateTournamentScores(tempTournament);
 
         try {
-            // Save Races, Teams (with new points), and Players (with new stats)
+            // Write only the specific race key using dot-notation, not the entire races object
             await secureUpdate({
-                races: currentRaces,
+                [`races.${key}`]: raceData,
                 teams: updatedTeams,
                 players: updatedPlayers,
                 wildcards: updatedWildcards
             });
 
-            // Dual-write: Also write RaceDocument to races/ collection
-            try {
-                const raceDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'races', raceData.id);
-                const raceDoc: Record<string, any> = {
-                    id: raceData.id,
-                    tournamentId: tournament.value!.id,
-                    stage: raceData.stage,
-                    group: raceData.group,
-                    raceNumber: raceData.raceNumber,
-                    timestamp: raceData.timestamp,
-                    placements: raceData.placements,
-                    umaMapping: buildUmaMapping(tournament.value!.players, raceData.placements)
-                };
-                if (tournament.value!.seasonId) raceDoc.seasonId = tournament.value!.seasonId;
-                await setDoc(raceDocRef, raceDoc);
-            } catch (e) {
-                console.error('Failed to dual-write race document:', e);
-            }
         } catch (e) {
             console.error(e);
             alert("Failed");
@@ -579,59 +545,22 @@ export function useGameLogic(
         const t = tournament.value!;
         const batch = writeBatch(db);
 
-        // 1. Create TournamentParticipation for each player
-        t.players.forEach(player => {
-            const partId = `${t.id}_${player.id}`;
-            const partRef = doc(db, 'artifacts', appId, 'public', 'data', 'participations', partId);
-            const participation: Record<string, any> = {
-                id: partId,
-                tournamentId: t.id,
-                playerId: player.id,
-                uma: player.uma,
-                isCaptain: player.isCaptain,
-                totalPoints: player.totalPoints || 0,
-                groupPoints: player.groupPoints || 0,
-                finalsPoints: player.finalsPoints || 0,
-                createdAt: new Date().toISOString()
-            };
-            if (t.seasonId) participation.seasonId = t.seasonId;
-            const team = t.teams.find(tm => tm.captainId === player.id || tm.memberIds.includes(player.id));
-            if (team) participation.teamId = team.id;
-            batch.set(partRef, participation);
-        });
-
-        // 2. Ensure all RaceDocuments exist in races/ collection
-        t.races.forEach(race => {
-            const raceRef = doc(db, 'artifacts', appId, 'public', 'data', 'races', race.id);
-            const raceDoc: Record<string, any> = {
-                id: race.id,
-                tournamentId: t.id,
-                stage: race.stage,
-                group: race.group,
-                raceNumber: race.raceNumber,
-                timestamp: race.timestamp,
-                placements: race.placements,
-                umaMapping: buildUmaMapping(t.players, race.placements)
-            };
-            if (t.seasonId) raceDoc.seasonId = t.seasonId;
-            batch.set(raceRef, raceDoc);
-        });
-
-        // 3. Update GlobalPlayer metadata (including dominance counters)
+        // 1. Update GlobalPlayer metadata (including dominance counters)
         // Deduplicate: wildcards can appear twice in t.players with the same id
         const seenPlayerIds = new Set<string>();
         t.players.forEach(player => {
             if (seenPlayerIds.has(player.id)) return;
             seenPlayerIds.add(player.id);
             const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', player.id);
-            const playerRaceCount = t.races.filter(r =>
+            const allRaces = Object.values(t.races);
+            const playerRaceCount = allRaces.filter(r =>
                 Object.keys(r.placements).includes(player.id)
             ).length;
 
             // Compute dominance: for each race, opponentsBeaten = playersInRace - position, opponentsFaced = playersInRace - 1
             let totalBeaten = 0;
             let totalFaced = 0;
-            t.races.forEach(race => {
+            allRaces.forEach(race => {
                 const position = race.placements[player.id];
                 if (position == null) return;
                 const playersInRace = Object.keys(race.placements).length;
@@ -663,7 +592,7 @@ export function useGameLogic(
         const completedAt = new Date().toISOString();
         await secureUpdate({ status: 'completed', completedAt });
 
-        // Sync participation, race documents, and global player metadata
+        // Sync global player metadata
         try {
             await syncTournamentData();
         } catch (e) {
@@ -675,29 +604,20 @@ export function useGameLogic(
         const t = tournament.value!;
         const batch = writeBatch(db);
 
-        // 1. Delete TournamentParticipations
-        t.players.forEach(player => {
-            const partId = `${t.id}_${player.id}`;
-            const partRef = doc(db, 'artifacts', appId, 'public', 'data', 'participations', partId);
-            batch.delete(partRef);
-        });
-
-        // (We leave Race documents intact because they are dual-written live during the active phase anyway,
-        // and any subsequent edits will just overwrite them normally).
-
-        // 2. Reverse GlobalPlayer metadata increments
+        // 1. Reverse GlobalPlayer metadata increments
         const seenPlayerIds = new Set<string>();
         t.players.forEach(player => {
             if (seenPlayerIds.has(player.id)) return;
             seenPlayerIds.add(player.id);
             const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', player.id);
-            const playerRaceCount = t.races.filter(r =>
+            const allRaces = Object.values(t.races);
+            const playerRaceCount = allRaces.filter(r =>
                 Object.keys(r.placements).includes(player.id)
             ).length;
 
             let totalBeaten = 0;
             let totalFaced = 0;
-            t.races.forEach(race => {
+            allRaces.forEach(race => {
                 const position = race.placements[player.id];
                 if (position == null) return;
                 const playersInRace = Object.keys(race.placements).length;
@@ -757,7 +677,7 @@ export function useGameLogic(
         if (!tournament.value || !tournament.value.races) return [];
         const stagePriority: Record<string, number> = { 'groups': 1, 'finals': 2 };
 
-        const relevantRaces = [...tournament.value.races]
+        const relevantRaces = Object.values(tournament.value.races)
             .filter(r => Object.keys(r.placements).includes(playerId))
             .sort((a, b) => {
                 const stageA = stagePriority[a.stage] || 99;

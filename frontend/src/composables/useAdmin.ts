@@ -1,6 +1,6 @@
 // src/composables/useAdmin.ts
 import { ref, computed, watch, type Ref } from 'vue';
-import { doc, setDoc, deleteDoc, collection, getDocs, query, where, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, collection } from 'firebase/firestore';
 import { auth, db } from '../firebase'; // Adjust path if needed
 import type { Tournament, FirestoreUpdate } from '../types';
 
@@ -149,31 +149,11 @@ export function useAdmin(
         try {
             const col = (name: string) => collection(db, 'artifacts', appId, 'public', 'data', name);
 
-            // Helper: query docs for this tournament and batch-delete them
-            const deleteByTournamentId = async (collectionName: string) => {
-                const snap = await getDocs(
-                    query(col(collectionName), where('tournamentId', '==', tid))
-                );
-                console.log(`[delete] ${collectionName}: found ${snap.size} docs for tournament ${tid}`);
-                if (snap.size === 0) return;
-
-                const docs = [...snap.docs];
-                while (docs.length > 0) {
-                    const batch = writeBatch(db);
-                    docs.splice(0, 500).forEach(d => batch.delete(d.ref));
-                    await batch.commit();
-                }
-            };
-
-            // 1. Delete participations and races FIRST (while admin doc still exists for rule checks)
-            await deleteByTournamentId('participations');
-            await deleteByTournamentId('races');
-
-            // 2. Delete secret and tournament docs (while admin doc still exists for rule checks)
+            // 1. Delete secret and tournament docs (while admin doc still exists for rule checks)
             await deleteDoc(doc(col('secrets'), tid)).catch(() => {});
             await deleteDoc(getTournamentRef(tid));
 
-            // 3. Delete current user's admin doc LAST (other steps need it for auth)
+            // 2. Delete current user's admin doc LAST (other steps need it for auth)
             const userId = auth.currentUser?.uid;
             if (userId) {
                 await deleteDoc(doc(col('admins'), `${tid}_${userId}`)).catch(() => {});

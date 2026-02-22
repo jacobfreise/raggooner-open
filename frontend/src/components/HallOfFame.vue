@@ -49,7 +49,7 @@ const categories: FameCategory[] = [
         let raceCount = 0;
 
         // 2. Check every race
-        for (const r of t.races) {
+        for (const r of Object.values(t.races)) {
           // Check if this team played this race (look for captain)
           if (r.placements[team.captainId] === undefined) continue;
 
@@ -104,7 +104,7 @@ const categories: FameCategory[] = [
     calculate: (t: Tournament) => {
       const maxPts = Math.max(...t.players.map(p => p.totalPoints || 0));
 
-      if (maxPts < 25 || t.races.length < 3) return [];
+      if (maxPts < 25 || Object.keys(t.races).length < 3) return [];
 
       return t.players
           .filter(p => (p.totalPoints || 0) === maxPts)
@@ -130,7 +130,7 @@ const categories: FameCategory[] = [
       t.players.forEach(p => {
         let g = 0, s = 0, b = 0, count = 0, valid = true;
 
-        for (const r of t.races) {
+        for (const r of Object.values(t.races)) {
           const pos = r.placements[p.id];
           if (pos === undefined) continue;
 
@@ -187,11 +187,11 @@ const categories: FameCategory[] = [
 
       t.players.forEach(p => {
         // 1. Get Placements for each stage
-        const groupPlaces = t.races
+        const groupPlaces = Object.values(t.races)
             .filter(r => r.stage === 'groups' && r.placements[p.id] !== undefined)
             .map(r => r.placements[p.id]!);
 
-        const finalsPlaces = t.races
+        const finalsPlaces = Object.values(t.races)
             .filter(r => r.stage === 'finals' && r.placements[p.id] !== undefined)
             .map(r => r.placements[p.id]!);
 
@@ -242,11 +242,11 @@ const categories: FameCategory[] = [
     calculate: (t: Tournament) => {
 
       const performances = t.players.map(p => {
-        const groupPlaces = t.races
+        const groupPlaces = Object.values(t.races)
             .filter(r => r.stage === 'groups' && r.placements[p.id] !== undefined)
             .map(r => r.placements[p.id]!);
 
-        const finalsPlaces = t.races
+        const finalsPlaces = Object.values(t.races)
             .filter(r => r.stage === 'finals' && r.placements[p.id] !== undefined)
             .map(r => r.placements[p.id]!);
 
@@ -290,7 +290,7 @@ const categories: FameCategory[] = [
       const variances = t.players.map(p => {
         // 1. Get all placements for this player
         const places: number[] = [];
-        t.races.forEach(r => {
+        Object.values(t.races).forEach(r => {
           if (r.placements[p.id]) places.push(r.placements[p.id]!);
         });
 
@@ -334,7 +334,7 @@ const categories: FameCategory[] = [
       const variances = t.players.map(p => {
         // 1. Get all placements for this player
         const places: number[] = [];
-        t.races.forEach(r => {
+        Object.values(t.races).forEach(r => {
           if (r.placements[p.id]) places.push(r.placements[p.id]!);
         });
 
@@ -377,7 +377,7 @@ const categories: FameCategory[] = [
 
       const yoyos = t.players.map(p => {
         // 1. Get ONLY the races this player actually raced in
-        const myRaces = t.races.filter(r => r.placements[p.id] !== undefined);
+        const myRaces = Object.values(t.races).filter(r => r.placements[p.id] !== undefined);
 
         // 2. Sort them Chronologically: Groups First, then by Race Number
         myRaces.sort((a, b) => {
@@ -459,7 +459,7 @@ const categories: FameCategory[] = [
     calculate: (t: Tournament) => {
       const lastCounts: Record<string, number> = {};
 
-      t.races.forEach(race => {
+      Object.values(t.races).forEach(race => {
         // Find the worst position in this specific race
         const positions = Object.values(race.placements);
         if (positions.length === 0) return;
@@ -513,7 +513,7 @@ const categories: FameCategory[] = [
     calculate: (t: Tournament) => {
       const seconds: Record<string, number> = {};
 
-      t.races.forEach(r => {
+      Object.values(t.races).forEach(r => {
         Object.entries(r.placements).forEach(([pid, pos]) => {
           if (pos === 2) {
             seconds[pid] = (seconds[pid] || 0) + 1;
@@ -567,7 +567,7 @@ const categories: FameCategory[] = [
         let totalMiddle = 0;
         let raceCount = 0;
 
-        t.races.forEach(r => {
+        Object.values(t.races).forEach(r => {
           const pos = r.placements[p.id];
           // Skip if player didn't race
           if (pos === undefined) return [];
@@ -629,7 +629,7 @@ const categories: FameCategory[] = [
 
       t.players.forEach(p => {
         // 1. Get Chronological Races
-        const myRaces = t.races
+        const myRaces = Object.values(t.races)
             .filter(r => r.placements[p.id] !== undefined)
             .sort((a, b) => {
               const sA = stageOrder[a.stage.toLowerCase()] || 99;
@@ -705,7 +705,7 @@ const categories: FameCategory[] = [
 
         members.forEach(p => {
           // 1. Safeguard: Must have participated in at least 3 races
-          const racesPlayed = t.races.filter(r => r.placements[p.id] !== undefined).length;
+          const racesPlayed = Object.values(t.races).filter(r => r.placements[p.id] !== undefined).length;
           if (racesPlayed < 3) return;
 
           const points = p.totalPoints || 0;
@@ -747,7 +747,7 @@ const categories: FameCategory[] = [
       let maxWins = 0;
 
       // 1. Iterate over every race history
-      t.races.forEach(race => {
+      Object.values(t.races).forEach(race => {
         // placements is { "playerId": position }
         // We want to find the ID where position === 1
         const winnerId = Object.keys(race.placements).find(
@@ -788,7 +788,7 @@ const categories: FameCategory[] = [
       let candidates: Player[] = [];
 
       t.players.forEach(p => {
-        const places = t.races
+        const places = Object.values(t.races)
             .map(r => r.placements[p.id])
             .filter(pos => pos !== undefined);
 
@@ -825,7 +825,7 @@ const categories: FameCategory[] = [
       const stats: Record<string, { sum: number, count: number, wins: number }> = {};
 
       // 1. Aggregate stats from races
-      t.races.forEach(race => {
+      Object.values(t.races).forEach(race => {
         Object.entries(race.placements).forEach(([pid, pos]) => {
           if (!stats[pid]) stats[pid] = { sum: 0, count: 0, wins: 0 };
           stats[pid].sum += pos;
@@ -886,7 +886,7 @@ const categories: FameCategory[] = [
 
         members.forEach(p => {
           // 1. Check Race Count (Don't shame people who haven't played yet)
-          const racesPlayed = t.races.filter(r => r.placements[p.id] !== undefined).length;
+          const racesPlayed = Object.values(t.races).filter(r => r.placements[p.id] !== undefined).length;
           if (racesPlayed < 3) return;
 
           // 2. Calculate Percentage
@@ -934,7 +934,7 @@ const categories: FameCategory[] = [
         const roster = [team.captainId, ...team.memberIds];
 
         // 1. Analyze every race
-        for (const r of t.races) {
+        for (const r of Object.values(t.races)) {
           // Check if ANY team member participated in this race
           const participated = roster.some(pid => r.placements[pid] !== undefined);
           if (!participated) continue;
@@ -1009,7 +1009,7 @@ const categories: FameCategory[] = [
         let count = 0;
         const roster = [team.captainId, ...team.memberIds];
 
-        t.races.forEach(r => {
+        Object.values(t.races).forEach(r => {
           // Check if this team owns position 1 AND position 2
           const pos1Player = Object.keys(r.placements).find(key => r.placements[key] === 1);
           const pos2Player = Object.keys(r.placements).find(key => r.placements[key] === 2);
@@ -1056,7 +1056,7 @@ const categories: FameCategory[] = [
         let count = 0;
         const roster = [team.captainId, ...team.memberIds];
 
-        t.races.forEach(r => {
+        Object.values(t.races).forEach(r => {
           // Check if this team owns position 1 AND position 2
           const pos1Player = Object.keys(r.placements).find(key => r.placements[key] === 6);
           const pos2Player = Object.keys(r.placements).find(key => r.placements[key] === 7);
@@ -1105,12 +1105,12 @@ const categories: FameCategory[] = [
 
         // 1. Safeguard check
         let qualifies = true;
-        const teamRacesPlayed = t.races.filter(r =>
+        const teamRacesPlayed = Object.values(t.races).filter(r =>
             roster.some(pid => r.placements[pid] !== undefined)
         ).length;
 
         for (const pid of roster) {
-          const playerRacesPlayed = t.races.filter(r => r.placements[pid] !== undefined).length;
+          const playerRacesPlayed = Object.values(t.races).filter(r => r.placements[pid] !== undefined).length;
           if (playerRacesPlayed < 3 || playerRacesPlayed < teamRacesPlayed) {
             qualifies = false;
             break;
@@ -1190,7 +1190,7 @@ const categories: FameCategory[] = [
       for (const team of t.teams) {
         const roster = [team.captainId, ...team.memberIds];
 
-        for (const r of t.races) {
+        for (const r of Object.values(t.races)) {
           let currentRaceScore = 0;
 
           for (const pid of roster) {
@@ -1236,8 +1236,8 @@ const categories: FameCategory[] = [
       // 1. FILTER RACES
       const isBigTournament = t.teams.length >= 6;
       let relevantRaces = isBigTournament
-          ? t.races.filter(r => r.stage === 'finals')
-          : [...t.races];
+          ? Object.values(t.races).filter(r => r.stage === 'finals')
+          : Object.values(t.races);
 
       relevantRaces.sort((a, b) => a.raceNumber - b.raceNumber);
 
@@ -1311,8 +1311,8 @@ const categories: FameCategory[] = [
       // 1. FILTER RACES
       const isBigTournament = t.teams.length >= 6;
       let relevantRaces = isBigTournament
-          ? t.races.filter(r => r.stage === 'finals')
-          : [...t.races];
+          ? Object.values(t.races).filter(r => r.stage === 'finals')
+          : Object.values(t.races);
 
       relevantRaces.sort((a, b) => a.raceNumber - b.raceNumber);
       if (relevantRaces.length < 3) return [];

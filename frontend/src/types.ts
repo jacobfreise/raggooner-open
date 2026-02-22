@@ -168,31 +168,6 @@ export interface Season {
     tournamentIds: string[];
 }
 
-export interface TournamentParticipation {
-    id: string;  // tournamentId_playerId
-    tournamentId: string;
-    playerId: string;
-    seasonId?: string;
-    uma: string;
-    teamId?: string;
-    isCaptain: boolean;
-    totalPoints: number;
-    groupPoints: number;
-    finalsPoints: number;
-    createdAt: string;
-}
-
-export interface RaceDocument {
-    id: string;
-    tournamentId: string;
-    seasonId?: string;
-    stage: 'groups' | 'finals';
-    group: 'A' | 'B' | 'C';
-    raceNumber: number;
-    timestamp: string;
-    placements: Record<string, number>;  // playerId: position
-    umaMapping: Record<string, string>;  // playerId: uma
-}
 
 export interface Tournament {
     id: string;
@@ -205,7 +180,7 @@ export interface Tournament {
     players: Player[];
     wildcards?: Wildcard[];
     teams: Team[];
-    races: Race[];
+    races: Record<string, Race>;
     bans?: string[];
     createdAt: string;
     completedAt?: string;

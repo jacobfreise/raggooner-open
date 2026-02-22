@@ -85,7 +85,7 @@ export const seedDatabase = async (db: any, auth: any, appId: string) => {
                 players,
                 playerIds: players.map(p => p.id),
                 teams,
-                races: [],
+                races: {},
                 wildcards: [],
                 bans: [],
                 isSecured: true,
