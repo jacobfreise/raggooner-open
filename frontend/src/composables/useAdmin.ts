@@ -1,8 +1,9 @@
 // src/composables/useAdmin.ts
 import { ref, computed, watch, type Ref } from 'vue';
-import { doc, setDoc, deleteDoc, collection, writeBatch, increment } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, collection } from 'firebase/firestore';
 import { auth, db } from '../firebase'; // Adjust path if needed
 import type { Tournament, FirestoreUpdate } from '../types';
+import { claimAndUnsyncMetadata } from '../utils/metadataSync';
 
 // Define the interface for the update function to ensure type safety
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament>) => Promise<void>;
@@ -149,44 +150,9 @@ export function useAdmin(
         try {
             const col = (name: string) => collection(db, 'artifacts', appId, 'public', 'data', name);
 
-            // 1. If tournament was completed, reverse player metadata before deleting
+            // 1. If tournament was completed, atomically claim and reverse player metadata
             if (tournament.value.status === 'completed') {
-                const t = tournament.value;
-                const batch = writeBatch(db);
-
-                Object.values(t.players).forEach(player => {
-                    const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', player.id);
-                    const allRaces = Object.values(t.races);
-                    const playerRaceCount = allRaces.filter(r =>
-                        Object.keys(r.placements).includes(player.id)
-                    ).length;
-
-                    let totalBeaten = 0;
-                    let totalFaced = 0;
-                    allRaces.forEach(race => {
-                        const position = race.placements[player.id];
-                        if (position == null) return;
-                        const playersInRace = Object.keys(race.placements).length;
-                        totalBeaten += playersInRace - position;
-                        totalFaced += playersInRace - 1;
-                    });
-
-                    const updateData: Record<string, any> = {
-                        'metadata.totalTournaments': increment(-1),
-                        'metadata.totalRaces': increment(-playerRaceCount),
-                        'metadata.opponentsFaced': increment(-totalFaced),
-                        'metadata.opponentsBeaten': increment(-totalBeaten),
-                    };
-
-                    if (t.seasonId) {
-                        updateData[`metadata.seasons.${t.seasonId}.opponentsFaced`] = increment(-totalFaced);
-                        updateData[`metadata.seasons.${t.seasonId}.opponentsBeaten`] = increment(-totalBeaten);
-                    }
-
-                    batch.update(playerRef, updateData);
-                });
-
-                await batch.commit();
+                await claimAndUnsyncMetadata(tournament.value, appId);
             }
 
             // 2. Delete secret and tournament docs (while admin doc still exists for rule checks)

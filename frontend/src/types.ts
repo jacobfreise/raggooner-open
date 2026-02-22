@@ -184,6 +184,7 @@ export interface Tournament {
     bans?: string[];
     createdAt: string;
     completedAt?: string;
+    metadataSynced?: boolean;
     draft?: {
         order: string[];
         currentIdx: number;

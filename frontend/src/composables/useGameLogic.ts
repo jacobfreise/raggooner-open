@@ -5,11 +5,8 @@ import {compareTeams, getPlayerUma, getPlayerName, raceKey} from '../utils/utils
 import {
     arrayRemove,
     arrayUnion,
-    doc,
-    writeBatch,
-    increment
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { claimAndSyncMetadata, claimAndUnsyncMetadata } from '../utils/metadataSync';
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
 
@@ -475,107 +472,24 @@ export function useGameLogic(
         tiebreakersNeeded.value = 0;
     };
 
-    const syncTournamentData = async () => {
-        const t = tournament.value!;
-        const batch = writeBatch(db);
-
-        // 1. Update GlobalPlayer metadata (including dominance counters)
-        Object.values(t.players).forEach(player => {
-            const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', player.id);
-            const allRaces = Object.values(t.races);
-            const playerRaceCount = allRaces.filter(r =>
-                Object.keys(r.placements).includes(player.id)
-            ).length;
-
-            // Compute dominance: for each race, opponentsBeaten = playersInRace - position, opponentsFaced = playersInRace - 1
-            let totalBeaten = 0;
-            let totalFaced = 0;
-            allRaces.forEach(race => {
-                const position = race.placements[player.id];
-                if (position == null) return;
-                const playersInRace = Object.keys(race.placements).length;
-                totalBeaten += playersInRace - position;
-                totalFaced += playersInRace - 1;
-            });
-
-            const updateData: Record<string, any> = {
-                'metadata.totalTournaments': increment(1),
-                'metadata.totalRaces': increment(playerRaceCount),
-                'metadata.lastPlayed': new Date().toISOString(),
-                'metadata.opponentsFaced': increment(totalFaced),
-                'metadata.opponentsBeaten': increment(totalBeaten),
-            };
-
-            if (t.seasonId) {
-                updateData[`metadata.seasons.${t.seasonId}.opponentsFaced`] = increment(totalFaced);
-                updateData[`metadata.seasons.${t.seasonId}.opponentsBeaten`] = increment(totalBeaten);
-            }
-
-            batch.update(playerRef, updateData);
-        });
-
-        await batch.commit();
-    };
-
     const endTournament = async () => {
         if (!tournament.value) return;
         const completedAt = new Date().toISOString();
         await secureUpdate({ status: 'completed', completedAt });
 
-        // Sync global player metadata
+        // Atomically claim and sync global player metadata
         try {
-            await syncTournamentData();
+            await claimAndSyncMetadata(tournament.value, appId);
         } catch (e) {
             console.error('Failed to sync tournament data on completion:', e);
         }
-    };
-
-    const unsyncTournamentData = async () => {
-        const t = tournament.value!;
-        const batch = writeBatch(db);
-
-        // 1. Reverse GlobalPlayer metadata increments
-        Object.values(t.players).forEach(player => {
-            const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', player.id);
-            const allRaces = Object.values(t.races);
-            const playerRaceCount = allRaces.filter(r =>
-                Object.keys(r.placements).includes(player.id)
-            ).length;
-
-            let totalBeaten = 0;
-            let totalFaced = 0;
-            allRaces.forEach(race => {
-                const position = race.placements[player.id];
-                if (position == null) return;
-                const playersInRace = Object.keys(race.placements).length;
-                totalBeaten += playersInRace - position;
-                totalFaced += playersInRace - 1;
-            });
-
-            // Use negative increments to subtract the exact amounts we previously added
-            const updateData: Record<string, any> = {
-                'metadata.totalTournaments': increment(-1),
-                'metadata.totalRaces': increment(-playerRaceCount),
-                'metadata.opponentsFaced': increment(-totalFaced),
-                'metadata.opponentsBeaten': increment(-totalBeaten),
-            };
-
-            if (t.seasonId) {
-                updateData[`metadata.seasons.${t.seasonId}.opponentsFaced`] = increment(-totalFaced);
-                updateData[`metadata.seasons.${t.seasonId}.opponentsBeaten`] = increment(-totalBeaten);
-            }
-
-            batch.update(playerRef, updateData);
-        });
-
-        await batch.commit();
     };
 
     const reopenTournament = async () => {
         if (!tournament.value) return;
         saving.value = true;
         try {
-            await unsyncTournamentData();
+            await claimAndUnsyncMetadata(tournament.value, appId);
             await secureUpdate({
                 status: 'active',
                 completedAt: null
