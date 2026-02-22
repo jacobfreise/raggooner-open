@@ -1241,7 +1241,7 @@ const structuredPlayerStats = computed(() => {
                       </div>
 
                       <div class="p-2 grid grid-cols-2 gap-2 flex-1 content-start overflow-y-auto custom-scrollbar">
-                        <button v-for="player in activeStagePlayers(group.id)"
+                        <button v-for="player in activeStagePlayers(group.id).sort((a,b) => a.name.localeCompare(b.name))"
                                 :key="player.id"
                                 @click="handleTapToRank(player.id)"
                                 class="relative p-2 rounded-lg border text-left transition-all duration-200 group flex flex-col gap-0.5 min-h-[48px]"
@@ -1355,7 +1355,7 @@ const structuredPlayerStats = computed(() => {
                     </div>
 
                     <div class="p-2 grid grid-cols-2 gap-2 flex-1 content-start overflow-y-auto custom-scrollbar">
-                      <button v-for="player in activeStagePlayers('Finals')"
+                      <button v-for="player in activeStagePlayers('Finals').sort((a,b) => a.name.localeCompare(b.name))"
                               :key="player.id"
                               @click="handleTapToRank(player.id)"
                               class="relative p-2 rounded-lg border text-left transition-all duration-200 group flex flex-col gap-0.5 min-h-[48px]"
