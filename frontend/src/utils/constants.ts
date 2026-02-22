@@ -19,6 +19,10 @@ export const TEAM_COLORS = [
     '#f43f5e', // Rose
 ];
 
+export const SUPERADMIN_UIDS = [
+    'mehTFP5BuqdrT6mw4xqnaNrHSMk1', 'j7kIBg1mIXO5m824GeBQmXYfb6q2', 'LCwXSR9TZUPqdpv8qM7qD3y7m0uh'
+];
+
 export const UMAS = [
     'Valentine Mihono Bourbon', 'Valentine Eishin Flash', 'Sakura Chiyono O', 'New Year TM Opera O', 'New Year Haru Urara',
     'Tamamo Cross', 'Fine Motion', 'Christmas Oguri Cap', 'Christmas Biwa Hayahide', 'Mejiro Dober', 'Tosan Jordan',

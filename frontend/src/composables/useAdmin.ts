@@ -4,12 +4,12 @@ import { doc, setDoc, deleteDoc, collection } from 'firebase/firestore';
 import { auth, db } from '../firebase'; // Adjust path if needed
 import type { Tournament, FirestoreUpdate } from '../types';
 import { claimAndUnsyncMetadata } from '../utils/metadataSync';
+import { SUPERADMIN_UIDS } from '../utils/constants.ts';
 
 // Define the interface for the update function to ensure type safety
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament>) => Promise<void>;
 type FetchTournamentsFn = () => Promise<void>;
 
-const SUPERADMIN_UIDS = ['mehTFP5BuqdrT6mw4xqnaNrHSMk1', 'j7kIBg1mIXO5m824GeBQmXYfb6q2'];
 
 export function useAdmin(
     tournament: Ref<Tournament | null>,

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref, provide } from 'vue';
-import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
+import {onMounted, ref, provide, computed} from 'vue';
+import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { auth } from './firebase';
 import { APP_VERSION } from './data/changelog';
 import ChangelogModal from './components/ChangelogModal.vue';
+import SuperAdminPanel from "./components/SuperAdminPanel.vue";
+import {SUPERADMIN_UIDS} from "./utils/constants.ts";
 // import SeasonSetup from "./components/SeasonSetup.vue";
 // import Migrate from "./components/Migrate.vue";
 
@@ -11,8 +13,18 @@ const showChangelog = ref(false);
 const hasNewUpdates = ref(false);
 const previousVersion = ref('0.0.0');
 
+const currentUserUid = ref<string | null>(null);
+const isPanelOpen = ref(false);
+
+const isSuperAdmin = computed(() => {
+  return currentUserUid.value && SUPERADMIN_UIDS.includes(currentUserUid.value);
+});
 
 const init = async () => {
+  onAuthStateChanged(auth, (user) => {
+    currentUserUid.value = user?.uid || null;
+  });
+
   const initialToken = (window as any).__initial_auth_token;
   if (initialToken) {
     await signInWithCustomToken(auth, initialToken);
@@ -50,6 +62,22 @@ onMounted(() => {
 
 <!--          <SeasonSetup></SeasonSetup>-->
 <!--          <Migrate></Migrate>-->
+
+    <div v-if="isSuperAdmin"
+         class="fixed left-0 top-1/2 -translate-y-1/2 z-[100] transition-transform duration-300"
+         :class="isPanelOpen ? 'translate-x-80' : 'translate-x-0'">
+      <button
+          @click="isPanelOpen = !isPanelOpen"
+          class="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-r-lg shadow-lg border-y border-r border-indigo-400 flex items-center justify-center group">
+        <i class="ph-bold ph-caret-right transition-transform duration-300" :class="isPanelOpen ? 'rotate-180' : ''"></i>
+      </button>
+    </div>
+
+    <SuperAdminPanel
+        v-if="isSuperAdmin"
+        :is-open="isPanelOpen"
+        @close="isPanelOpen = false"
+    />
 
     <router-view class="flex-grow flex flex-col"></router-view>
 
