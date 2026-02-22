@@ -204,72 +204,6 @@ export function useGameLogic(
         return ids;
     });
 
-    // --- ACTIONS: RACE UPDATES ---
-    const updateRacePlacement = async (group: string, raceNumber: number, position: number, playerId: string) => {
-        if (!tournament.value) return;
-        saving.value = true;
-        const stage = currentView.value;
-        const key = raceKey(stage, group, raceNumber);
-
-        let raceData: Race;
-        const existingRace = tournament.value.races[key];
-
-        if (!existingRace) {
-            raceData = {
-                id: crypto.randomUUID(),
-                stage: stage,
-                group: group as 'A' | 'B' | 'C',
-                raceNumber: raceNumber,
-                timestamp: new Date().toISOString(),
-                placements: {}
-            };
-        } else {
-            raceData = { ...existingRace };
-        }
-
-        const newPlacements = { ...raceData.placements };
-
-        // Logic: Remove player from old pos, remove anyone in new pos, set player to new pos
-        if (playerId) {
-            for (const [pid] of Object.entries(newPlacements)) {
-                if (pid === playerId) delete newPlacements[pid];
-            }
-        }
-        for (const [pid, pos] of Object.entries(newPlacements)) {
-            if (pos == position) delete newPlacements[pid];
-        }
-        if (playerId) {
-            newPlacements[playerId] = position;
-        }
-
-        raceData.placements = newPlacements;
-
-        // Recalculate everything before saving
-        const updatedRaces = { ...tournament.value.races, [key]: raceData };
-        const tempTournament = {
-            ...tournament.value,
-            races: updatedRaces
-        };
-
-        const { teams: updatedTeams, players: updatedPlayers, wildcards: updatedWildcards } = recalculateTournamentScores(tempTournament);
-
-        try {
-            // Write only the specific race key using dot-notation, not the entire races object
-            await secureUpdate({
-                [`races.${key}`]: raceData,
-                teams: updatedTeams,
-                players: updatedPlayers,
-                wildcards: updatedWildcards
-            });
-
-        } catch (e) {
-            console.error(e);
-            alert("Failed");
-        } finally {
-            saving.value = false;
-        }
-    };
-
     const projectedProgression = computed(() => {
         if (!tournament.value) return { tied: [], safe: [], needed: 0 };
 
@@ -858,6 +792,86 @@ export function useGameLogic(
         return index;
     };
 
+    // --- TAP-TO-RANK RACE EDITING ---
+    const editingRaceKey = ref<string | null>(null);
+    const entryMap = ref<Record<number, string>>({});
+
+    const toggleEditRace = (stage: 'groups' | 'finals', group: string, raceNum: number) => {
+        if (!tournament.value) return;
+        const key = raceKey(stage, group, raceNum);
+        if (editingRaceKey.value === key) {
+            editingRaceKey.value = null;
+            entryMap.value = {};
+        } else {
+            editingRaceKey.value = key;
+            const existingRace = tournament.value.races[key];
+            const initialMap: Record<number, string> = {};
+            if (existingRace?.placements) {
+                Object.entries(existingRace.placements).forEach(([pid, pos]) => {
+                    initialMap[pos] = pid;
+                });
+            }
+            entryMap.value = initialMap;
+        }
+    };
+
+    const handleTapToRank = (playerId: string) => {
+        const existingRank = Object.keys(entryMap.value).find(
+            (key) => entryMap.value[parseInt(key)] === playerId
+        );
+
+        if (existingRank) {
+            delete entryMap.value[parseInt(existingRank)];
+        } else {
+            let nextRank = 1;
+            while (entryMap.value[nextRank]) {
+                nextRank++;
+            }
+            entryMap.value[nextRank] = playerId;
+        }
+    };
+
+    const saveTapResults = async (group: string, raceNumber: number) => {
+        if (!tournament.value) return;
+        saving.value = true;
+        const stage = currentView.value;
+        const key = raceKey(stage, group, raceNumber);
+
+        const placements: Record<string, number> = {};
+        Object.entries(entryMap.value).forEach(([rank, pid]) => {
+            placements[pid] = parseInt(rank);
+        });
+
+        const raceData: Race = {
+            id: tournament.value.races[key]?.id || crypto.randomUUID(),
+            stage,
+            group: group as any,
+            raceNumber,
+            timestamp: new Date().toISOString(),
+            placements
+        };
+
+        // Recalculate scores before saving
+        const updatedRaces = { ...tournament.value.races, [key]: raceData };
+        const tempTournament = { ...tournament.value, races: updatedRaces };
+        const { teams: updatedTeams, players: updatedPlayers, wildcards: updatedWildcards } = recalculateTournamentScores(tempTournament);
+
+        try {
+            await secureUpdate({
+                [`races.${key}`]: raceData,
+                teams: updatedTeams,
+                players: updatedPlayers,
+                wildcards: updatedWildcards
+            });
+        } catch (e) {
+            console.error(e);
+        } finally {
+            saving.value = false;
+            editingRaceKey.value = null;
+            entryMap.value = {};
+        }
+    };
+
     return {
         // State
         currentView,
@@ -866,6 +880,8 @@ export function useGameLogic(
         tiedTeams,
         guaranteedIds,
         tiebreakersNeeded,
+        editingRaceKey,
+        entryMap,
         // Computed
         sortedTeamsA,
         sortedTeamsB,
@@ -878,7 +894,6 @@ export function useGameLogic(
         sortedPlayers,
         winningTeams,
         // Actions
-        updateRacePlacement,
         advanceToFinals,
         resolveManually,
         endTournament,
@@ -899,6 +914,9 @@ export function useGameLogic(
         addTeamAdjustment,
         removeTeamAdjustment,
         confirmTiebreakerSelection,
-        cancelTieBreaker
+        cancelTieBreaker,
+        toggleEditRace,
+        handleTapToRank,
+        saveTapResults
     };
 }
