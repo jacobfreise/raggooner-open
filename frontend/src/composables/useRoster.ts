@@ -153,7 +153,8 @@ export function useRoster(
         const isWildcard = tournament.value.wildcards?.some(w => w.playerId === playerId);
         if (isWildcard) return '#94a3b8';
 
-        return '#e2e8f0';
+        //71 85 105
+        return '#475569';
     };
 
     const getPlayerNameOrUma = (id: string, showName: boolean) => showName ? getPlayerName(tournament.value, id) : getPlayerUma(tournament.value, id);
