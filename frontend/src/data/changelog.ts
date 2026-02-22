@@ -9,9 +9,18 @@ export interface ChangeLogEntry {
     }[];
 }
 
-export const APP_VERSION = '2.0.1'; // Update this manually when you deploy
+export const APP_VERSION = '2.0.2'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '2.0.2',
+        date: '2026-02-22',
+        title: 'New Way of Entering Race Results',
+        changes: [
+            { type: 'improvement', text: 'Entering Race Results has a new Method of Input' },
+            { type: 'improvement', text: 'Disappearing inputs when multiple people edit at the same time should now happen much less often.' },
+        ]
+    },
     {
         version: '2.0.1',
         date: '2026-02-20',
