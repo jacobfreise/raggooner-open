@@ -87,7 +87,7 @@ export interface EggConfig {
 }
 
 export interface FameResult {
-    player: Player | Team;
+    winner: Player | Team;
     value: string | number;
     subtext: string;
 }
