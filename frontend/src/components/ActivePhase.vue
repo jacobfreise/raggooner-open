@@ -916,7 +916,7 @@ const structuredPlayerStats = computed(() => {
                             </div>
                           </template>
                           <template v-else>
-                            <div class="flex-1 border border-dashed border-slate-700/50 rounded px-2 py-1 text-[12px] text-slate-600 uppercase tracking-widest">
+                            <div class="flex-1 border border-dashed border-slate-700/50 rounded px-2 py-1 text-xs text-slate-600 uppercase tracking-widest">
                               Vacant
                             </div>
                           </template>
@@ -1064,7 +1064,7 @@ const structuredPlayerStats = computed(() => {
                           </div>
                         </template>
                         <template v-else>
-                          <div class="flex-1 border border-dashed border-slate-700/50 rounded px-2 py-1 text-[12px] text-slate-600 uppercase tracking-widest">
+                          <div class="flex-1 border border-dashed border-slate-700/50 rounded px-2 py-1 text-xs text-slate-600 uppercase tracking-widest">
                             Vacant
                           </div>
                         </template>
