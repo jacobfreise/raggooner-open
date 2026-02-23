@@ -835,7 +835,7 @@ const structuredPlayerStats = computed(() => {
           </div>
 
           <!-- DROPDOWN MODE (Groups) -->
-          <div v-if="raceInputMode === 'dropdown'" class="overflow-x-auto pb-4">
+          <div v-if="raceInputMode === 'dropdown'" class="overflow-x-auto">
             <div class="flex gap-4 min-w-max">
               <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex-1 flex-col">
                 <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center relative overflow-hidden">
@@ -869,7 +869,7 @@ const structuredPlayerStats = computed(() => {
           <!-- TAP-TO-RANK MODE (Groups) -->
           <div v-else class="overflow-x-auto">
             <div class="flex gap-4 min-w-max">
-              <div class="flex sm:flex-nowrap flex-wrap pb-4 gap-4 w-full">
+<!--              <div class="flex sm:flex-nowrap flex-wrap pb-4 gap-4 w-full">-->
                 <div v-for="raceNum in 5" :key="raceNum"
                      class="flex-1 w-64 transition-all duration-500 perspective-1000">
 
@@ -958,7 +958,7 @@ const structuredPlayerStats = computed(() => {
 
                   </div>
                 </div>
-              </div>
+<!--              </div>-->
             </div>
           </div>
         </div>
@@ -979,7 +979,7 @@ const structuredPlayerStats = computed(() => {
         </div>
 
         <!-- DROPDOWN MODE (Finals) -->
-        <div v-if="raceInputMode === 'dropdown'" class="overflow-x-auto pb-4">
+        <div v-if="raceInputMode === 'dropdown'" class="overflow-x-auto">
           <div class="flex gap-4 min-w-max">
             <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex-1 flex-col">
               <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center relative overflow-hidden">
