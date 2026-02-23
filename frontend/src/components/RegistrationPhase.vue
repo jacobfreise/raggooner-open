@@ -45,6 +45,7 @@ const sortedPlayers = computed(() => {
     // Then by dominance descending
     const domA = getDominance(a.id) ?? -1;
     const domB = getDominance(b.id) ?? -1;
+    if (domA === domB) return a.name.localeCompare(b.name);
     return domB - domA;
   });
 });

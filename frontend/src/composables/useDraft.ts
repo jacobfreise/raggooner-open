@@ -1,6 +1,7 @@
 import {computed, ref, type Ref} from 'vue';
 import type {FirestoreUpdate, Player, Team, Tournament} from '../types';
 import {generateDraftStructure} from '../utils/draftUtils';
+import {getPlayerName} from "../utils/utils.ts";
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
 
@@ -16,6 +17,22 @@ export function useDraft(
     const randomWinner = ref<Player | null>(null);
 
     // --- COMPUTED ---
+    const remainingPicks = computed(() => {
+        if (!tournament.value || !tournament.value.draft) return [];
+        const draft = tournament.value.draft;
+
+        // Slice from the current index to the end to get ALL remaining picks
+        return draft.order.slice(draft.currentIdx).map((teamId, index) => {
+            const team = tournament.value!.teams.find(t => t.id === teamId);
+            return {
+                id: `${teamId}-${index}`, // Unique key because a team picks multiple times
+                captainName: team ? getPlayerName(tournament.value!, team.captainId) : 'Unknown',
+                color: team?.color || '#94a3b8', // Fallback to slate-400 if no color is set
+                isCurrent: index === 0
+            };
+        });
+    });
+
     const availablePlayers = computed(() => {
         if (!tournament.value) return [];
         const assignedIds = new Set<string>();
@@ -32,11 +49,11 @@ export function useDraft(
         return team ? { ...team, name: capName, teamName: team.name } : null;
     });
 
-    const draftPreview = computed(() => {
-        if (!tournament.value?.draft) return [];
-        const d = tournament.value.draft;
-        return d.order.slice(d.currentIdx, d.currentIdx + 10);
-    });
+    // const draftPreview = computed(() => {
+    //     if (!tournament.value?.draft) return [];
+    //     const d = tournament.value.draft;
+    //     return d.order.slice(d.currentIdx, d.currentIdx + 10);
+    // });
 
     const getRandomWheelGradient = computed(() => {
         const count = randomCandidates.value.length;
@@ -194,6 +211,8 @@ export function useDraft(
         availablePlayers,
         currentDrafter,
         draftPreview,
+        remainingPicks,
+        // draftPreview,
         getRandomWheelGradient,
         startDraft,
         draftPlayer,
