@@ -210,7 +210,6 @@ export function useDraft(
         randomCandidates,
         availablePlayers,
         currentDrafter,
-        draftPreview,
         remainingPicks,
         // draftPreview,
         getRandomWheelGradient,
