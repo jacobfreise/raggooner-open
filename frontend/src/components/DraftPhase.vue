@@ -50,7 +50,7 @@ const {
   undoLastPick,
   availablePlayers,
   currentDrafter,
-  draftPreview,
+  remainingPicks,
   showRandomModal,
   randomWheelRotation,
   randomCandidates,
@@ -61,6 +61,7 @@ const sortedAvailablePlayers = computed(() => {
   return [...availablePlayers.value].sort((a, b) => {
     const domA = getDominance(a.id) ?? -1;
     const domB = getDominance(b.id) ?? -1;
+    if (domA === domB) return a.name.localeCompare(b.name);
     return domB - domA;
   });
 });
@@ -80,27 +81,36 @@ const sortedAvailablePlayers = computed(() => {
           <div class="text-2xl font-mono font-bold">{{ availablePlayers.length }}</div>
         </div>
       </div>
-      <div class="bg-slate-800 p-4 rounded-xl border border-indigo-500/30 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg shadow-indigo-900/10">
-        <div class="flex items-center gap-3">
-          <span class="text-slate-400 uppercase text-xs font-bold tracking-wider">Current Pick:</span>
-          <div class="flex items-center gap-2">
-            <span class="text-amber-400 font-bold text-xl heading">{{ currentDrafter?.name }}</span>
-            <span class="text-slate-500 text-sm">({{ currentDrafter?.teamName }})</span>
-          </div>
-        </div>
+      <div class="bg-slate-800 p-4 rounded-xl border border-indigo-500/30 flex flex-col md:flex-row items-center gap-4 shadow-lg shadow-indigo-900/10 overflow-hidden">
 
-        <div class="flex items-center gap-4">
+        <div class="flex items-center shrink-0">
           <button @click="undoLastPick"
                   :disabled="!isAdmin || (tournament.draft?.currentIdx || 0) === 0"
                   class="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-slate-200 text-sm font-bold transition-colors border border-slate-600">
             <i class="ph-bold ph-arrow-u-up-left"></i> Undo
           </button>
+        </div>
 
-          <div class="flex gap-1">
-            <div v-for="idx in draftPreview.length" :key="idx"
-                 class="w-3 h-3 rounded-full transition-all"
-                 :class="(idx - 1) === 0 ? 'bg-amber-500 scale-125' : 'bg-slate-700'">
-            </div>
+        <div class="flex-1 flex items-center gap-3 overflow-x-auto hide-scrollbar">
+          <span class="text-slate-400 uppercase text-xs font-bold tracking-wider shrink-0">Lineup:</span>
+
+          <div v-for="(pick, idx) in remainingPicks" :key="pick.id"
+               class="flex items-center shrink-0 transition-all duration-300"
+               :class="pick.isCurrent ? 'scale-110 mx-3 opacity-100' : 'scale-90 opacity-50'">
+
+            <span class="font-bold whitespace-nowrap tracking-wide"
+                  :class="pick.isCurrent ? 'text-xl drop-shadow-md' : 'text-sm'"
+                  :style="{ color: pick.color }">
+              {{ pick.captainName }}
+            </span>
+
+            <i v-if="idx < remainingPicks.length - 1"
+               class="ph-bold ph-caret-right text-slate-600 ml-3"
+               :class="pick.isCurrent ? 'text-lg' : 'text-xs'"></i>
+          </div>
+
+          <div v-if="remainingPicks.length === 0" class="text-slate-500 text-sm italic">
+            Draft Complete
           </div>
         </div>
       </div>
@@ -225,5 +235,12 @@ const sortedAvailablePlayers = computed(() => {
 }
 .group:hover .shine-effect {
   animation: shine 1s ease-in-out infinite;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 </style>
