@@ -868,7 +868,7 @@ const structuredPlayerStats = computed(() => {
 
           <!-- TAP-TO-RANK MODE (Groups) -->
           <div v-else class="overflow-x-auto">
-            <div class="flex gap-4">
+            <div class="flex gap-4 min-w-max">
               <div class="flex sm:flex-nowrap flex-wrap pb-4 gap-4 w-full">
                 <div v-for="raceNum in 5" :key="raceNum"
                      class="flex-1 w-64 transition-all duration-500 perspective-1000">
@@ -1012,7 +1012,7 @@ const structuredPlayerStats = computed(() => {
         <!-- TAP-TO-RANK MODE (Finals) -->
         <div v-else class="overflow-x-auto">
           <div class="flex gap-4">
-            <div class="flex sm:flex-nowrap flex-wrap gap-4 pb-4 w-full">
+            <div class="flex sm:flex-nowrap flex-wrap gap-4 pb-4 w-full min-w-max">
               <div v-for="raceNum in 5" :key="raceNum"
                    class="flex-1 w-64 transition-all duration-500 perspective-1000">
 
@@ -1051,7 +1051,7 @@ const structuredPlayerStats = computed(() => {
                         </div>
 
                         <template v-if="getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)">
-                          <div class="flex-1 border border-slate-700 bg-slate-900 rounded px-2 py-1 text-xs font-medium truncate"
+                          <div class="flex-1 min-w-0 border border-slate-700 bg-slate-900 rounded px-2 py-1 text-xs font-medium truncate"
                                :style="{ color: getPlayerColor(getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)) }">
                             <span class="ml-1">
                               {{ tournament.players[getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)]?.name || 'Unknown Player' }}
