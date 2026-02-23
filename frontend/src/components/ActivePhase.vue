@@ -7,6 +7,7 @@ import {
   getPlayerAtPosition,
   getPositionStyle,
   getRankColor,
+  getRaceTimestamp,
   raceKey,
 } from '../utils/utils';
 import {getRaceWinnerGif} from "../utils/umaGifs.ts";
@@ -78,7 +79,8 @@ const {
   entryMap,
   toggleEditRace,
   handleTapToRank,
-  saveTapResults
+  saveTapResults,
+  updateRacePlacement
 } = useGameLogic(tournament, props.secureUpdate);
 
 // Initialize Roster (for visual helpers like colors/names)
@@ -107,6 +109,7 @@ const tournamentPlayerIds = computed(() => {
 
 const showBans = ref(false);
 const showPlayerOrUmaName = ref(true);
+const raceInputMode = ref<'tap' | 'dropdown'>('tap');
 
 // Helper for 'shouldShowGroup' since it relies on local 'currentView'
 const shouldShowGroup = (group: string) => {
@@ -800,26 +803,71 @@ const structuredPlayerStats = computed(() => {
       </button>
     </div>
 
+<!--    RACE RESULT INPUTS-->
     <div class="space-y-8">
       <div v-for="group in ([
-          { id: 'A', color: 'text-indigo-400' },
-          { id: 'B', color: 'text-rose-400' },
-          { id: 'C', color: 'text-emerald-400' }
+          { id: 'A', color: 'text-indigo-400', focusColor: 'focus:border-indigo-500 focus:ring-indigo-500' },
+          { id: 'B', color: 'text-rose-400', focusColor: 'focus:border-indigo-500 focus:ring-indigo-500' },
+          { id: 'C', color: 'text-emerald-400', focusColor: 'focus:border-emerald-500 focus:ring-emerald-500' }
         ] as const)" :key="group.id">
 
         <div v-if="shouldShowGroup(group.id)">
-          <div class="flex items-center gap-4 mb-4" :class="{ 'border-t border-slate-700 pt-8': group.id !== 'A' }">
-            <h3 class="text-2xl font-bold text-white tracking-wide">
-              <span :class="group.color">
-                {{ group.id === 'A' && tData?.teams.length < 6 ? 'Race' : `Group ${group.id}` }}
-              </span> Results
-            </h3>
-            <div v-if="saving && group.id === 'A'" class="text-xs font-mono text-emerald-400 animate-pulse">
-              <i class="ph-bold ph-floppy-disk"></i> SAVING...
+          <div class="flex items-center justify-between mb-4" :class="{ 'border-t border-slate-700 pt-8': group.id !== 'A' }">
+            <div class="flex items-center gap-4">
+              <h3 class="text-2xl font-bold text-white tracking-wide">
+                <span :class="group.color">
+                  {{ group.id === 'A' && tData?.teams.length < 6 ? 'Race' : `Group ${group.id}` }}
+                </span> Results
+              </h3>
+              <div v-if="saving && group.id === 'A'" class="text-xs font-mono text-emerald-400 animate-pulse">
+                <i class="ph-bold ph-floppy-disk"></i> SAVING...
+              </div>
+            </div>
+            <button v-if="group.id === 'A' && isAdminRef && tournament.status === 'active'"
+                    @click="raceInputMode = raceInputMode === 'tap' ? 'dropdown' : 'tap'"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all shrink-0"
+                    :class="raceInputMode === 'tap'
+                      ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
+                      : 'bg-amber-600/20 border-amber-500/50 text-amber-300'">
+              <i :class="raceInputMode === 'tap' ? 'ph-bold ph-hand-tap' : 'ph-bold ph-list'"></i>
+              {{ raceInputMode === 'tap' ? 'Tap to Rank' : 'Dropdowns' }}
+            </button>
+          </div>
+
+          <!-- DROPDOWN MODE -->
+          <div v-if="raceInputMode === 'dropdown'" class="overflow-x-auto pb-4">
+            <div class="flex gap-4 min-w-max">
+              <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
+                <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center relative overflow-hidden">
+                  <span class="font-bold" :class="group.color">Race {{ raceNum }}</span>
+                  <div v-if="getGifForRace(group.id, raceNum)" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-80">
+                    <img :src="getGifForRace(group.id, raceNum)" class="h-10 w-10 object-contain" alt="Winner GIF" />
+                  </div>
+                  <span class="text-xs text-slate-500 z-10 relative">{{ getRaceTimestamp(group.id, raceNum, tournament, currentView) }}</span>
+                </div>
+                <div class="p-2 space-y-1 flex-1">
+                  <div v-for="pos in activeStagePlayers(group.id).length" :key="pos" class="flex items-center gap-2">
+                    <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold" :class="getPositionStyle(pos)">{{ pos }}</div>
+                    <select
+                        :disabled="!isAdminRef || tournament.status !== 'active'"
+                        :value="getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)"
+                        @change="updateRacePlacement(group.id, raceNum, pos, ($event.target as HTMLSelectElement).value)"
+                        :style="{ color: getPlayerColor(getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)) }"
+                        class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 transition-all"
+                        :class="group.focusColor">
+                      <option value="">- Select -</option>
+                      <option v-for="player in activeStagePlayers(group.id)" :key="player.id" :value="player.id" :style="{ color: getPlayerColor(player.id) }">
+                        {{ player.name }} {{ player.uma ? `(${player.uma})` : '' }}
+                      </option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="overflow-x-auto pb-4">
+          <!-- TAP-TO-RANK MODE -->
+          <div v-else class="overflow-x-auto pb-4">
             <div class="flex gap-4">
               <div class="flex sm:flex-nowrap flex-wrap gap-4 pb-4 w-full">
                 <div v-for="raceNum in 5" :key="raceNum"
@@ -915,16 +963,56 @@ const structuredPlayerStats = computed(() => {
       </div>
 
       <div v-if="currentView === 'finals'">
-        <div class="flex items-center gap-4 mb-4">
+        <div class="flex items-center justify-between mb-4">
           <h3 class="text-2xl font-bold text-white tracking-wide"><span class="text-amber-500">Finals</span> Results</h3>
+          <button v-if="isAdminRef && tournament.status === 'active'"
+                  @click="raceInputMode = raceInputMode === 'tap' ? 'dropdown' : 'tap'"
+                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all shrink-0"
+                  :class="raceInputMode === 'tap'
+                    ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
+                    : 'bg-amber-600/20 border-amber-500/50 text-amber-300'">
+            <i :class="raceInputMode === 'tap' ? 'ph-bold ph-hand-tap' : 'ph-bold ph-list'"></i>
+            {{ raceInputMode === 'tap' ? 'Tap to Rank' : 'Dropdowns' }}
+          </button>
         </div>
 
-        <div class="overflow-x-auto pb-4">
+        <!-- DROPDOWN MODE (Finals) -->
+        <div v-if="raceInputMode === 'dropdown'" class="overflow-x-auto pb-4">
+          <div class="flex gap-4 min-w-max">
+            <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
+              <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center relative overflow-hidden">
+                <span class="font-bold text-amber-500">Race {{ raceNum }}</span>
+                <div v-if="getGifForRace('Finals', raceNum)" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-80">
+                  <img :src="getGifForRace('Finals', raceNum)" class="h-10 w-10 object-contain" alt="Winner GIF" />
+                </div>
+                <span class="text-xs text-slate-500 z-10 relative">{{ getRaceTimestamp('Finals', raceNum, tournament, currentView) }}</span>
+              </div>
+              <div class="p-2 space-y-1 flex-1">
+                <div v-for="pos in activeStagePlayers('Finals').length" :key="pos" class="flex items-center gap-2">
+                  <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold" :class="getPositionStyle(pos)">{{ pos }}</div>
+                  <select
+                      :disabled="!isAdminRef || !(tournament.stage === 'finals' && tournament.status === 'active')"
+                      :value="getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)"
+                      @change="updateRacePlacement('Finals', raceNum, pos, ($event.target as HTMLSelectElement).value)"
+                      :style="{ color: getPlayerColor(getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)) }"
+                      class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all">
+                    <option value="">- Select -</option>
+                    <option v-for="player in activeStagePlayers('Finals')" :key="player.id" :value="player.id" :style="{ color: getPlayerColor(player.id) }">
+                      {{ player.name }} {{ player.uma ? `(${player.uma})` : '' }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAP-TO-RANK MODE (Finals) -->
+        <div v-else class="overflow-x-auto pb-4">
           <div class="flex gap-4">
             <div class="flex sm:flex-nowrap flex-wrap gap-4 pb-4 w-full">
               <div v-for="raceNum in 5" :key="raceNum"
                    class="flex-1 min-w-[280px] transition-all duration-500 perspective-1000">
-<!--                   :class="editingRaceKey === raceKey('finals', 'Finals', raceNum) ? 'lg:flex-[1.5]' : 'flex-1'">-->
                 <div class="relative transition-transform duration-500 preserve-3d h-full"
                      :class="{ 'rotate-y-180': editingRaceKey === raceKey('finals', 'Finals', raceNum) }">
 

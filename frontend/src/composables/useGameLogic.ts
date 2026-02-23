@@ -737,6 +737,57 @@ export function useGameLogic(
         }
     };
 
+    // --- DROPDOWN RACE INPUT (old method) ---
+    const updateRacePlacement = async (group: string, raceNumber: number, position: number, playerId: string) => {
+        if (!tournament.value) return;
+        saving.value = true;
+        const stage = currentView.value;
+        const key = raceKey(stage, group, raceNumber);
+
+        const existingRace = tournament.value.races[key];
+        const raceData: Race = existingRace
+            ? { ...existingRace }
+            : {
+                id: crypto.randomUUID(),
+                stage,
+                group: group as any,
+                raceNumber,
+                timestamp: new Date().toISOString(),
+                placements: {}
+            };
+
+        const newPlacements = { ...raceData.placements };
+
+        // Remove player from any old position
+        if (playerId) {
+            for (const pid of Object.keys(newPlacements)) {
+                if (pid === playerId) delete newPlacements[pid];
+            }
+        }
+        // Remove anyone currently at this position
+        for (const [pid, pos] of Object.entries(newPlacements)) {
+            if (pos === position) delete newPlacements[pid];
+        }
+        // Place the player at the new position
+        if (playerId) {
+            newPlacements[playerId] = position;
+        }
+
+        raceData.placements = newPlacements;
+        raceData.timestamp = new Date().toISOString();
+
+        try {
+            await secureUpdate({
+                [`races.${key}`]: raceData,
+            });
+        } catch (e) {
+            console.error(e);
+        } finally {
+            saving.value = false;
+        }
+    };
+
+    // --- TAP-TO-RANK RACE INPUT (new method) ---
     const saveTapResults = async (group: string, raceNumber: number) => {
         if (!tournament.value) return;
         saving.value = true;
@@ -815,6 +866,7 @@ export function useGameLogic(
         cancelTieBreaker,
         toggleEditRace,
         handleTapToRank,
-        saveTapResults
+        saveTapResults,
+        updateRacePlacement
     };
 }
