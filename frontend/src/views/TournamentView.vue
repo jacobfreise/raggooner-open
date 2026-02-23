@@ -141,11 +141,11 @@ const savePointsSystem = async () => {
 
       <header class="border-b border-slate-700 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
         <div class="max-w-[1800px] mx-auto px-4 h-16 md:px-8 flex items-center justify-between relative">
-          <div class="flex items-center gap-2 text-indigo-500 cursor-pointer z-10" @click="exitTournament">
+          <router-link to="/" class="flex items-center gap-2 text-indigo-500 hover:text-indigo-400 transition-colors z-10">
             <i class="ph-fill ph-flag-checkered text-3xl"></i>
             <span class="text-2xl font-bold text-white heading tracking-widest hidden sm:block">Raccoon Open</span>
             <span class="text-2xl font-bold text-white heading tracking-widest sm:hidden">RO</span>
-          </div>
+          </router-link>
 
           <div v-if="tournament" class="absolute left-1/2 -translate-x-1/2 font-bold text-slate-200 uppercase tracking-widest text-sm md:text-base hidden md:block whitespace-nowrap overflow-hidden text-ellipsis max-w-[300px] text-center">
             {{ tData.name }}
