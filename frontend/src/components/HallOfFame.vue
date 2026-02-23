@@ -1495,7 +1495,7 @@ onUnmounted(() => {
 
 <template>
   <div v-if="activeStats.length > 0" class="animate-fade-in">
-    <div class="mt-12 pt-8 border-t border-slate-700">
+    <div class="mt-8 pt-8 border-t border-slate-700">
 
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div class="flex items-center gap-3">
