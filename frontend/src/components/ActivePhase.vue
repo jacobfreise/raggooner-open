@@ -834,7 +834,7 @@ const structuredPlayerStats = computed(() => {
             </button>
           </div>
 
-          <!-- DROPDOWN MODE -->
+          <!-- DROPDOWN MODE (Groups) -->
           <div v-if="raceInputMode === 'dropdown'" class="overflow-x-auto pb-4">
             <div class="flex gap-4 min-w-max">
               <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
@@ -866,7 +866,7 @@ const structuredPlayerStats = computed(() => {
             </div>
           </div>
 
-          <!-- TAP-TO-RANK MODE -->
+          <!-- TAP-TO-RANK MODE (Groups) -->
           <div v-else class="overflow-x-auto pb-4">
             <div class="flex gap-4">
               <div class="flex sm:flex-nowrap flex-wrap gap-4 pb-4 w-full">
@@ -898,17 +898,19 @@ const structuredPlayerStats = computed(() => {
                         <div v-for="pos in activeStagePlayers(group.id).length" :key="pos"
                              class="flex items-center gap-2">
 
-                          <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-[12px] font-mono font-bold"
+                          <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold"
                                :class="getPositionStyle(pos)">
                             {{ pos }}
                           </div>
 
                           <template v-if="getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)">
-                            <div class="flex-1 min-w-0 border border-slate-700/50 bg-slate-900 rounded px-2 py-1 text-[12px] font-medium truncate"
+                            <div class="flex-1 min-w-0 border border-slate-700 bg-slate-900 rounded px-2 py-1 text-xs font-medium truncate"
                                  :style="{ color: getPlayerColor(getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)) }">
-                              {{ tournament.players[getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)]?.name }}
+                              <span class="ml-1">
+                                {{ tournament.players[getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)]?.name || 'Unknown Player' }}
+                              </span>
                               <span v-if="tournament.players[getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)]?.uma"
-                                    class="opacity-60 ml-1">
+                                    class="opacity">
                                 ({{ tournament.players[getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)]!.uma }})
                               </span>
                             </div>
