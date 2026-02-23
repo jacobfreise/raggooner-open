@@ -837,7 +837,7 @@ const structuredPlayerStats = computed(() => {
           <!-- DROPDOWN MODE (Groups) -->
           <div v-if="raceInputMode === 'dropdown'" class="overflow-x-auto pb-4">
             <div class="flex gap-4 min-w-max">
-              <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
+              <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex-1 flex-col">
                 <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center relative overflow-hidden">
                   <span class="font-bold" :class="group.color">Race {{ raceNum }}</span>
                   <div v-if="getGifForRace(group.id, raceNum)" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-80">
@@ -981,7 +981,7 @@ const structuredPlayerStats = computed(() => {
         <!-- DROPDOWN MODE (Finals) -->
         <div v-if="raceInputMode === 'dropdown'" class="overflow-x-auto pb-4">
           <div class="flex gap-4 min-w-max">
-            <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
+            <div v-for="raceNum in 5" :key="raceNum" class="w-64 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex-1 flex-col">
               <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center relative overflow-hidden">
                 <span class="font-bold text-amber-500">Race {{ raceNum }}</span>
                 <div v-if="getGifForRace('Finals', raceNum)" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-80">
