@@ -807,7 +807,7 @@ const structuredPlayerStats = computed(() => {
     <div class="space-y-8">
       <div v-for="group in ([
           { id: 'A', color: 'text-indigo-400', focusColor: 'focus:border-indigo-500 focus:ring-indigo-500' },
-          { id: 'B', color: 'text-rose-400', focusColor: 'focus:border-indigo-500 focus:ring-indigo-500' },
+          { id: 'B', color: 'text-rose-400', focusColor: 'focus:border-rose-500 focus:ring-rose-500' },
           { id: 'C', color: 'text-emerald-400', focusColor: 'focus:border-emerald-500 focus:ring-emerald-500' }
         ] as const)" :key="group.id">
 
@@ -878,7 +878,7 @@ const structuredPlayerStats = computed(() => {
 
                     <div class="front-face select-none bg-slate-800 rounded-xl border border-slate-700 flex flex-col shadow-lg backface-hidden overflow-hidden h-full">
                       <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center relative overflow-hidden">
-                        <span class="font-bold text-amber-500 z-10 relative">Race {{ raceNum }}</span>
+                        <span class="font-bold z-10 relative" :class="group.color">Race {{ raceNum }}</span>
 
                         <div v-if="getGifForRace(group.id, raceNum)"
                              class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-80">
