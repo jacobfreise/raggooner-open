@@ -83,11 +83,8 @@ const categories: FameCategory[] = [
 
       if (!winner) return [];
 
-      const captain = t.players[winner!.captainId];
-      if (!captain) return [];
-
       return [{
-        player: { ...captain, name: winner.name },
+        winner: winner,
         value: '100%',
         subtext: 'Podium Lockouts'
       }];
@@ -110,7 +107,7 @@ const categories: FameCategory[] = [
       return playerValues
           .filter(p => (p.totalPoints || 0) === maxPts)
           .map(p => ({
-            player: p,
+            winner: p,
             value: maxPts,
             subtext: 'Total Pts'
           }));
@@ -168,7 +165,7 @@ const categories: FameCategory[] = [
       return candidates
           .filter(c => compareStats(c.stats, bestStats) === 0)
           .map(c => ({
-            player: c.player,
+            winner: c.player,
             value: `${c.stats.g}G ${c.stats.s}S ${c.stats.b}B`,
             subtext: `in ${c.stats.count} Race${c.stats.count === 1 ? '' : 's'}`
           }));
@@ -225,7 +222,7 @@ const categories: FameCategory[] = [
 
       return winners.map(w => {
         return {
-          player: w,
+          winner: w,
           value: `+${maxImprovement.toFixed(1)}`,
           subtext: 'avg Place Improv.'
         }
@@ -270,7 +267,7 @@ const categories: FameCategory[] = [
           .filter(per => per.performance === maxPer)
           .map(per => {
             return {
-              player: per.player,
+              winner: per.player,
               value: `-${per.performance.toFixed(1)}`,
               subtext: 'avg Place Drop'
             }
@@ -314,7 +311,7 @@ const categories: FameCategory[] = [
           .filter(v => v.value === maxDev)
           .map(v => {
                 return {
-                  player: v.player,
+                  winner: v.player,
                   value: maxDev.toFixed(2),
                   subtext: 'Std Dev'
                 }
@@ -358,7 +355,7 @@ const categories: FameCategory[] = [
           .filter(v => v.value === minStdDev)
           .map(v => {
             return {
-              player: v.player,
+              winner: v.player,
               value: minStdDev.toFixed(2),
               subtext: 'Std Dev'
             }
@@ -442,7 +439,7 @@ const categories: FameCategory[] = [
           .filter(v => v.value === maxYoyos)
           .map(v => {
             return {
-              player: v.player,
+              winner: v.player,
               value: maxYoyos,
               subtext: 'Whiplashes'
             };
@@ -495,7 +492,7 @@ const categories: FameCategory[] = [
             if (!player) return null;
 
             return {
-              player: player,
+              winner: player,
               value: count,
               subtext: 'Last Places'
             }
@@ -541,7 +538,7 @@ const categories: FameCategory[] = [
             if (!player) return null;
 
             return {
-              player: player,
+              winner: player,
               value: count,
               subtext: 'Silvers'
             }
@@ -605,7 +602,7 @@ const categories: FameCategory[] = [
       if (!winner) return [];
 
       return [{
-        player: winner,
+        winner: winner,
         // e.g. "0.50 Dev"
         value: `${bestDev.toFixed(2)} Dev`,
         // e.g. "from Middle 6.5"
@@ -676,7 +673,7 @@ const categories: FameCategory[] = [
       if (!winner) return [];
 
       return [{
-        player: winner,
+        winner: winner,
         value: Math.abs(bestSlope).toFixed(2), // Show as positive number for display
         subtext: 'Places / Race' // e.g. "1.50 Places / Race"
       }];
@@ -727,7 +724,7 @@ const categories: FameCategory[] = [
 
       // 4. Map all tied players to the output format
       return winners.map(w => ({
-        player: w,
+        winner: w,
         value: (maxPct * 100).toFixed(0) + '%',
         subtext: 'of Team Pts'
       }));
@@ -769,7 +766,7 @@ const categories: FameCategory[] = [
           .filter(p => wins[p.id] === maxWins)
           .map(p => {
             return {
-              player: p,
+              winner: p,
               value: maxWins,
               subtext: 'Victories'
             }
@@ -807,7 +804,7 @@ const categories: FameCategory[] = [
       return candidates
           .map(p => {
             return {
-              player: p,
+              winner: p,
               value: bestAvg.toFixed(2),
               subtext: 'Avg Place'
             }
@@ -857,7 +854,7 @@ const categories: FameCategory[] = [
       return candidates
           .map(p => {
             return {
-              player: p,
+              winner: p,
               value: bestAvg.toFixed(1),
               subtext: 'Avg Place'
             };
@@ -906,7 +903,7 @@ const categories: FameCategory[] = [
       if (!liability || minPct > 0.1) return [];
 
       return [{
-        player: liability,
+        winner: liability,
         value: (minPct * 100).toFixed(1) + '%',
         subtext: 'of team pts'
       }];
@@ -983,11 +980,8 @@ const categories: FameCategory[] = [
 
       if (!bestTeam) return [];
 
-      const captain = t.players[bestTeam!.captainId];
-      if (!captain) return [];
-
       return [{
-        player: { ...captain, name: bestTeam.name },
+        winner: bestTeam,
         value: `${bestStats.g}G ${bestStats.s}S ${bestStats.b}B`,
         subtext: 'Team Total'
       }];
@@ -1033,7 +1027,7 @@ const categories: FameCategory[] = [
 
       return winners.map(winner => {
         return {
-          player: winner,
+          winner: winner,
           value: `${maxCount}x`,
           subtext: 'Perfect Races'
         }
@@ -1080,7 +1074,7 @@ const categories: FameCategory[] = [
 
       return winners.map(winner => {
         return {
-          player: winner,
+          winner: winner,
           value: `${maxCount}x`,
           subtext: 'SHOOT THESE GUYS IMMEDIATELY'
         }
@@ -1161,11 +1155,8 @@ const categories: FameCategory[] = [
       if (winners.length === 0) return [];
 
       return winners.map(winner => {
-        const captain = t.players[winner.captainId];
-        const displayPlayer = captain ? { ...captain, name: winner.name } : winner;
-
         return {
-          player: displayPlayer,
+          winner: winner,
           value: `${minGap} pts`,
           subtext: 'Spread'
         };
@@ -1215,7 +1206,7 @@ const categories: FameCategory[] = [
 
       return winners.map(winner => {
         return {
-          player: winner,
+          winner: winner,
           value: `${maxRaceScore} pts`,
           subtext: 'Single Race'
         }
@@ -1287,11 +1278,8 @@ const categories: FameCategory[] = [
       const winnerTeam = t.teams.find(tm => tm.id === winnerId);
       if (!winnerTeam) return [];
 
-      const captain = t.players[winnerTeam.captainId];
-      if (!captain) return [];
-
       return [{
-        player: { ...captain, name: winnerTeam.name },
+        winner: winnerTeam,
         value: `${deficit} pts`,
         subtext: 'Deficit Overcome'
       }];
@@ -1362,11 +1350,8 @@ const categories: FameCategory[] = [
       const bottlerTeam = t.teams.find(tm => tm.id === leaderId);
       if (!bottlerTeam) return [];
 
-      const captain = t.players[bottlerTeam.captainId];
-      if (!captain) return [];
-
       return [{
-        player: { ...captain, name: bottlerTeam.name },
+        winner: bottlerTeam,
         value: `${lead} pts`,
         subtext: 'Lead Blown'
       }];
@@ -1547,7 +1532,7 @@ onUnmounted(() => {
                      class="flex items-center justify-between gap-4 px-5 py-3 rounded-xl bg-slate-900/80 border border-slate-700 shadow-sm min-w-[280px]">
 
                   <span class="text-lg font-bold text-white truncate">
-                    {{ result.player.name }}
+                    {{ result.winner.name }}
                   </span>
 
                   <div class="flex flex-col items-end">
@@ -1630,7 +1615,7 @@ onUnmounted(() => {
 
               <div v-if="!stat.hasMultipleWinners" class="flex items-center justify-between gap-2 w-full">
                 <div class="text-base font-bold text-white group-hover:text-amber-50 leading-tight break-words min-w-0">
-                  {{ stat.results[0]?.player.name }}
+                  {{ stat.results[0]?.winner.name }}
                 </div>
                 <div class="shrink-0 flex flex-col items-end pl-2 max-w-[50%]">
                   <span class="text-xs font-bold text-white whitespace-nowrap">{{ stat.results[0]?.value }}</span>
@@ -1641,11 +1626,11 @@ onUnmounted(() => {
               <div v-else class="flex flex-col gap-1">
                 <div v-for="(result, idx) in stat.results.slice(0, -1)" :key="idx"
                      class="text-sm font-bold text-white/90 leading-tight truncate">
-                  {{ result.player.name }},
+                  {{ result.winner.name }},
                 </div>
                 <div class="flex items-center justify-between gap-2 w-full">
                   <div class="text-sm font-bold text-white/90 leading-tight break-words">
-                    {{ stat.results[stat.results.length - 1]?.player.name }}
+                    {{ stat.results[stat.results.length - 1]?.winner.name }}
                   </div>
                   <div class="shrink-0 flex flex-col items-end pl-2 max-w-[50%]">
                     <span class="text-xs font-bold text-white whitespace-nowrap">{{ stat.results[0]?.value }}</span>
