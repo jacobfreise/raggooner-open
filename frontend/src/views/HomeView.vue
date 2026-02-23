@@ -157,7 +157,8 @@ const formatTournamentStatus = (t: Tournament): string => {
     draft: 'Draft Phase',
     ban: 'Ban Phase',
     completed: 'Tournament Finished',
-    active: '' // Handled above
+    active: '', // Handled above
+    pick: 'Pick Phase'
   };
 
   return statusMap[t.status] || t.status;

@@ -1,4 +1,6 @@
 // Constants
+import type {TournamentFormat} from "../types.ts";
+
 export const POINTS_SYSTEM: Record<number, number> = {
     1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2,
     10: 1, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0, 16: 0, 17: 0, 18: 0
@@ -18,6 +20,23 @@ export const TEAM_COLORS = [
     '#22d3ee', // Cyan
     '#f43f5e', // Rose
 ];
+
+export const TOURNAMENT_FORMATS: Record<string, TournamentFormat> = {
+    'uma-ban': {
+        id: 'uma-ban',
+        name:
+            'Ban Umas',
+        description:
+            'Classic Tournament format with 1 Uma ban per team.'
+    },
+    'uma-draft': {
+        id: 'uma-draft',
+        name:
+            'Draft Umas',
+        description:
+            'Classic Tournament format with an Uma draft phase instead of an Uma ban phase.'
+    }
+}
 
 export const SUPERADMIN_UIDS = [
     'mehTFP5BuqdrT6mw4xqnaNrHSMk1', 'j7kIBg1mIXO5m824GeBQmXYfb6q2', 'LCwXSR9TZUPqdpv8qM7qD3y7m0uh'
