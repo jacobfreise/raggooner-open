@@ -869,7 +869,7 @@ const structuredPlayerStats = computed(() => {
           <!-- TAP-TO-RANK MODE (Groups) -->
           <div v-else class="overflow-x-auto pb-4">
             <div class="flex gap-4">
-              <div class="flex sm:flex-nowrap flex-wrap gap-4 pb-4 w-full">
+              <div class="flex sm:flex-nowrap flex-wrap gap-4 w-full">
                 <div v-for="raceNum in 5" :key="raceNum"
                      class="flex-1 w-64 transition-all duration-500 perspective-1000">
 
@@ -1010,7 +1010,7 @@ const structuredPlayerStats = computed(() => {
         </div>
 
         <!-- TAP-TO-RANK MODE (Finals) -->
-        <div v-else class="overflow-x-auto pb-4">
+        <div v-else class="overflow-x-auto">
           <div class="flex gap-4">
             <div class="flex sm:flex-nowrap flex-wrap gap-4 pb-4 w-full">
               <div v-for="raceNum in 5" :key="raceNum"
