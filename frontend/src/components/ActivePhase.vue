@@ -904,10 +904,10 @@ const structuredPlayerStats = computed(() => {
                           </div>
 
                           <template v-if="getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)">
-                            <div class="flex-1 min-w-0 border border-slate-700 bg-slate-900 rounded px-2 py-1 text-xs font-medium truncate"
+                            <div class="flex-1 border border-slate-700 bg-slate-900 rounded px-2 py-1 text-xs font-medium truncate"
                                  :style="{ color: getPlayerColor(getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)) }">
                               <span class="ml-1">
-                                {{ tournament.players[getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)]?.name || 'Unknown Player' }}
+                                {{ tournament.players[getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)]?.name || 'Unknown Player' }}
                               </span>
                               <span v-if="tournament.players[getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)]?.uma"
                                     class="opacity">
@@ -1015,6 +1015,7 @@ const structuredPlayerStats = computed(() => {
             <div class="flex sm:flex-nowrap flex-wrap gap-4 pb-4 w-full">
               <div v-for="raceNum in 5" :key="raceNum"
                    class="flex-1 w-64 transition-all duration-500 perspective-1000">
+
                 <div class="relative transition-transform duration-500 preserve-3d h-full"
                      :class="{ 'rotate-y-180': editingRaceKey === raceKey('finals', 'Finals', raceNum) }">
 
