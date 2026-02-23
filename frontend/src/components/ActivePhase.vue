@@ -871,7 +871,7 @@ const structuredPlayerStats = computed(() => {
             <div class="flex gap-4">
               <div class="flex sm:flex-nowrap flex-wrap gap-4 pb-4 w-full">
                 <div v-for="raceNum in 5" :key="raceNum"
-                     class="flex-1 min-w-0 md:min-w-[280px] transition-all duration-500 perspective-1000">
+                     class="flex-1 w-64 transition-all duration-500 perspective-1000">
 
                   <div class="relative transition-transform duration-500 preserve-3d h-full"
                        :class="{ 'rotate-y-180': editingRaceKey === raceKey('groups', group.id, raceNum) }">
@@ -889,12 +889,12 @@ const structuredPlayerStats = computed(() => {
 
                         <button v-if="isAdminRef && tournament.status === 'active'"
                                 @click="toggleEditRace(currentView, group.id, raceNum)"
-                                class="z-10 relative p-1.5 rounded bg-slate-800/80 hover:bg-indigo-600 text-slate-400 hover:text-white transition-all backdrop-blur-sm">
+                                class="z-10 relative px-1.5 rounded bg-slate-800/80 hover:bg-indigo-600 text-slate-400 hover:text-white transition-all backdrop-blur-sm">
                           <i class="ph-bold ph-pencil-simple"></i>
                         </button>
                       </div>
 
-                      <div class="p-2 space-y-1.5 flex-1">
+                      <div class="p-2 space-y-1 flex-1">
                         <div v-for="pos in activeStagePlayers(group.id).length" :key="pos"
                              class="flex items-center gap-2">
 
@@ -904,7 +904,7 @@ const structuredPlayerStats = computed(() => {
                           </div>
 
                           <template v-if="getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)">
-                            <div class="flex-1 min-w-0 border border-slate-700/50 bg-slate-900/30 rounded px-2 py-1 text-[12px] font-medium truncate"
+                            <div class="flex-1 min-w-0 border border-slate-700/50 bg-slate-900 rounded px-2 py-1 text-[12px] font-medium truncate"
                                  :style="{ color: getPlayerColor(getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)) }">
                               {{ tournament.players[getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)]?.name }}
                               <span v-if="tournament.players[getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)]?.uma"
@@ -936,7 +936,7 @@ const structuredPlayerStats = computed(() => {
                         <button v-for="player in activeStagePlayers(group.id).sort((a,b) => a.name.localeCompare(b.name))"
                                 :key="player.id"
                                 @click="handleTapToRank(player.id)"
-                                class="relative p-2 rounded-lg border text-left transition-all duration-200 group flex flex-col gap-0.5 min-h-[48px]"
+                                class="relative px-2 py-1.5 rounded-lg border text-left transition-all duration-200 group flex flex-col gap-0 min-h-0"
                                 :class="Object.values(entryMap).includes(player.id) ? 'bg-indigo-600 border-indigo-400' : 'bg-slate-800 border-slate-700'">
 
                           <div v-if="Object.values(entryMap).includes(player.id)"
@@ -944,10 +944,10 @@ const structuredPlayerStats = computed(() => {
                             {{ Object.keys(entryMap).find(key => entryMap[parseInt(key)] === player.id) }}
                           </div>
 
-                          <span class="text-[13px] font-bold truncate" :style="{ color: Object.values(entryMap).includes(player.id) ? '#fff' : getPlayerColor(player.id) }">
+                          <span class="text-[11px] font-bold truncate" :style="{ color: Object.values(entryMap).includes(player.id) ? '#fff' : getPlayerColor(player.id) }">
                             {{ player.name }}
                           </span>
-                          <span class="text-[11px] opacity-70 truncate font-medium" :style="{ color: Object.values(entryMap).includes(player.id) ? '#fff' : getPlayerColor(player.id) }">
+                          <span class="text-[10px] opacity-70 truncate font-medium" :style="{ color: Object.values(entryMap).includes(player.id) ? '#fff' : getPlayerColor(player.id) }">
                             {{ player.uma || '' }}
                           </span>
                         </button>
@@ -1012,7 +1012,7 @@ const structuredPlayerStats = computed(() => {
           <div class="flex gap-4">
             <div class="flex sm:flex-nowrap flex-wrap gap-4 pb-4 w-full">
               <div v-for="raceNum in 5" :key="raceNum"
-                   class="flex-1 min-w-[280px] transition-all duration-500 perspective-1000">
+                   class="flex-1 w-64 transition-all duration-500 perspective-1000">
                 <div class="relative transition-transform duration-500 preserve-3d h-full"
                      :class="{ 'rotate-y-180': editingRaceKey === raceKey('finals', 'Finals', raceNum) }">
 
@@ -1032,27 +1032,29 @@ const structuredPlayerStats = computed(() => {
 
                       <button v-if="isAdminRef && tournament.status === 'active'"
                               @click="toggleEditRace(currentView, 'Finals', raceNum)"
-                              class="z-10 relative p-1.5 rounded bg-slate-800/80 hover:bg-indigo-600 text-slate-400 hover:text-white transition-all backdrop-blur-sm">
+                              class="z-10 relative px-1.5 rounded bg-slate-800/80 hover:bg-indigo-600 text-slate-400 hover:text-white transition-all backdrop-blur-sm">
                         <i class="ph-bold ph-pencil-simple"></i>
                       </button>
 
                     </div>
 
-                    <div class="p-2 space-y-1.5 flex-1">
+                    <div class="p-2 space-y-1 flex-1">
                       <div v-for="pos in activeStagePlayers('Finals').length" :key="pos"
                            class="flex items-center gap-2">
 
-                        <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-[12px] font-mono font-bold"
+                        <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold"
                              :class="getPositionStyle(pos)">
                           {{ pos }}
                         </div>
 
                         <template v-if="getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)">
-                          <div class="flex-1 border border-slate-700/50 bg-slate-900/30 rounded px-2 py-1 text-[12px] font-medium truncate"
+                          <div class="flex-1 border border-slate-700 bg-slate-900 rounded px-2 py-1 text-xs font-medium truncate"
                                :style="{ color: getPlayerColor(getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)) }">
-                            {{ tournament.players[getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)]?.name || 'Unknown Player' }}
+                            <span class="ml-1">
+                              {{ tournament.players[getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)]?.name || 'Unknown Player' }}
+                            </span>
                             <span v-if="tournament.players[getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)]?.uma"
-                                  class="opacity-60 ml-1">
+                                  class="opacity">
                               ({{ tournament.players[getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)]!.uma }})
                             </span>
 
@@ -1090,7 +1092,7 @@ const structuredPlayerStats = computed(() => {
                       <button v-for="player in activeStagePlayers('Finals').sort((a,b) => a.name.localeCompare(b.name))"
                               :key="player.id"
                               @click="handleTapToRank(player.id)"
-                              class="relative p-2 rounded-lg border text-left transition-all duration-200 group flex flex-col gap-0.5 min-h-[48px]"
+                              class="relative px-2 py-1.5 rounded-lg border text-left transition-all duration-200 group flex flex-col gap-0 min-h-0"
                               :class="Object.values(entryMap).includes(player.id)
                                 ? 'bg-indigo-600 border-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.4)]'
                                 : 'bg-slate-800 border-slate-700 hover:border-slate-500'">
@@ -1100,12 +1102,12 @@ const structuredPlayerStats = computed(() => {
                           {{ Object.keys(entryMap).find(key => entryMap[parseInt(key)] === player.id) }}
                         </div>
 
-                        <span class="text-[13px] font-bold truncate group-hover:text-white leading-tight"
+                        <span class="text-[11px] font-bold truncate group-hover:text-white leading-tight"
                               :class="Object.values(entryMap).includes(player.id) ? 'text-indigo-100' : 'text-slate-200'"
                               :style="{ color: Object.values(entryMap).includes(player.id) ? '#fff' : getPlayerColor(player.id) }">
                           {{ player.name }}
                         </span>
-                        <span class="text-[11px] opacity-70 truncate font-medium leading-none"
+                        <span class="text-[10px] opacity-70 truncate font-medium leading-none"
                               :style="{ color: Object.values(entryMap).includes(player.id) ? '#fff' : getPlayerColor(player.id) }">
                           {{ player.uma || '' }}
                         </span>
