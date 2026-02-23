@@ -849,7 +849,7 @@ const structuredPlayerStats = computed(() => {
                   <div v-for="pos in activeStagePlayers(group.id).length" :key="pos" class="flex items-center gap-2">
                     <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold" :class="getPositionStyle(pos)">{{ pos }}</div>
                     <select
-                        :disabled="!isAdminRef || tournament.status !== 'active'"
+                        :disabled="!isAdminRef || tournament.stage !== 'groups'"
                         :value="getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)"
                         @change="updateRacePlacement(group.id, raceNum, pos, ($event.target as HTMLSelectElement).value)"
                         :style="{ color: getPlayerColor(getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)) }"
@@ -869,7 +869,7 @@ const structuredPlayerStats = computed(() => {
           <!-- TAP-TO-RANK MODE (Groups) -->
           <div v-else class="overflow-x-auto">
             <div class="flex gap-4 min-w-max">
-              <div class="flex sm:flex-nowrap flex-wrap gap-4 w-full">
+              <div class="flex sm:flex-nowrap flex-wrap gap-4 w-full overflow-y-hidden">
                 <div v-for="raceNum in 5" :key="raceNum"
                      class="flex-1 w-64 transition-all duration-500 perspective-1000">
 
@@ -887,7 +887,7 @@ const structuredPlayerStats = computed(() => {
                                alt="Winner GIF" />
                         </div>
 
-                        <button v-if="isAdminRef && tournament.status === 'active'"
+                        <button v-if="isAdminRef && tournament.stage === 'groups'"
                                 @click="toggleEditRace(currentView, group.id, raceNum)"
                                 class="z-10 relative px-1.5 rounded bg-slate-800/80 hover:bg-indigo-600 text-slate-400 hover:text-white transition-all backdrop-blur-sm">
                           <i class="ph-bold ph-pencil-simple"></i>
@@ -1012,7 +1012,7 @@ const structuredPlayerStats = computed(() => {
         <!-- TAP-TO-RANK MODE (Finals) -->
         <div v-else class="overflow-x-auto">
           <div class="flex gap-4">
-            <div class="flex sm:flex-nowrap flex-wrap gap-4 w-full min-w-max">
+            <div class="flex sm:flex-nowrap flex-wrap gap-4 w-full min-w-max overflow-y-hidden">
               <div v-for="raceNum in 5" :key="raceNum"
                    class="flex-1 w-64 transition-all duration-500 perspective-1000">
 
