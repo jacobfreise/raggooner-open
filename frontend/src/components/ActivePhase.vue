@@ -128,6 +128,14 @@ const submitAdjustment = async () => {
 
   showAdjustmentModal.value = false;
 };
+
+const sortedTeamsForModal = computed(() => {
+  if (!props.tournamentProp?.teams) return [];
+  return [...props.tournamentProp.teams].sort((a, b) => {
+    if (a.group !== b.group) return a.group.localeCompare(b.group);
+    return a.name.localeCompare(b.name);
+  });
+});
 </script>
 
 <template>
@@ -948,36 +956,67 @@ const submitAdjustment = async () => {
             Changes are saved automatically.
           </p>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div
-                v-for="player in Object.values(tournament!.players).sort((a, b) => a.name.localeCompare(b.name))"
-                :key="player.id"
-                class="flex items-center justify-between bg-slate-800 p-3 rounded border border-slate-700"
-            >
-              <span class="text-sm font-medium truncate flex-1 text-slate-200">
-                {{ player.name }}
-              </span>
+          <div class="space-y-8">
+            <div v-for="team in sortedTeamsForModal" :key="team.id" class="space-y-3">
+              <h4 class="font-bold text-lg flex items-center gap-2">
+                <span v-if="tournament.teams.length > 5" class="text-xs font-mono px-2 py-0.5 rounded border bg-slate-800 border-slate-700 text-slate-400">Group {{ team.group }}</span>
+                <span :style="{ color: team.color }">{{ team.name }}</span>
+              </h4>
 
-              <select
-                  v-model="player.uma"
-                  @change="submitUmaForPlayer(player.id, player.uma)"
-                  class="w-46 shrink-0 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all cursor-pointer"
-              >
-                <option value="">- Select -</option>
-                <option v-for="uma in getUmaList(player.id)" :key="uma" :value="uma">
-                  {{ uma }}
-                </option>
-              </select>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div
+                    v-for="playerId in [team.captainId, ...team.memberIds]"
+                    :key="playerId"
+                    class="flex items-center gap-3 bg-slate-800 p-3 rounded border border-slate-700"
+                >
+                  <span class="text-sm font-medium truncate flex-1 text-slate-200">
+                    {{ tournament.players[playerId]?.name || 'Unknown' }}
+                  </span>
+
+                  <select
+                      v-if="tournament.players[playerId]"
+                      v-model="tournament.players[playerId].uma"
+                      @change="submitUmaForPlayer(playerId, tournament.players[playerId].uma)"
+                      class="w-48 shrink-0 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all cursor-pointer"
+                  >
+                    <option value="">- Select -</option>
+                    <option v-for="uma in getUmaList(playerId)" :key="uma" :value="uma">
+                      {{ uma }}
+                    </option>
+                  </select>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div class="pt-4 border-t border-slate-700 flex justify-end gap-3">
-            <button
-                @click="closeUmaModal"
-                class="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded font-bold transition-colors"
-            >
-              Done
-            </button>
+            <div v-if="tournament.wildcards && tournament.wildcards.length > 0" class="space-y-3">
+              <h4 class="font-bold text-lg text-slate-300 flex items-center gap-2">
+                <i class="ph-fill ph-ghost text-slate-500"></i> Wildcards
+              </h4>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div
+                    v-for="wc in tournament.wildcards"
+                    :key="wc.playerId"
+                    class="flex items-center gap-3 bg-slate-800 p-3 rounded border border-slate-700"
+                >
+                  <span class="text-sm font-medium truncate flex-1 text-slate-200">
+                    {{ tournament.players[wc.playerId]?.name || 'Unknown' }}
+                  </span>
+
+                  <select
+                      v-if="tournament.players[wc.playerId]"
+                      v-model="tournament.players[wc.playerId]!.uma"
+                      @change="submitUmaForPlayer(wc.playerId, tournament.players[wc.playerId]!.uma)"
+                      class="w-48 shrink-0 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all cursor-pointer"
+                  >
+                    <option value="">- Select -</option>
+                    <option v-for="uma in getUmaList(wc.playerId)" :key="uma" :value="uma">
+                      {{ uma }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
