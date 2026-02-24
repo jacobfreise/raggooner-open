@@ -72,8 +72,15 @@ onMounted(async () => {
   }
 });
 
+const cleanupSubscription = () => {
+  if (currentUnsubscribe) {
+    currentUnsubscribe();
+    currentUnsubscribe = null;
+  }
+};
+
 const subscribeToTournament = (id: string) => {
-  if (currentUnsubscribe) currentUnsubscribe();
+  cleanupSubscription();
   loading.value = true;
   currentUnsubscribe = onSnapshot(getTournamentRef(id), (docSnap) => {
     if (isDeleting.value) return;
@@ -93,6 +100,7 @@ const subscribeToTournament = (id: string) => {
         hasInitialViewLoaded.value = true;
       }
     } else {
+      cleanupSubscription();
       alert('Tournament not found or deleted.');
       router.push('/');
     }
@@ -111,7 +119,7 @@ watch(() => route.params.id, (newId) => {
   }
 }, { immediate: true });
 
-onUnmounted(() => { if (currentUnsubscribe) currentUnsubscribe(); });
+onUnmounted(() => { cleanupSubscription(); });
 
 // Replace exitTournament with router navigation
 const exitTournament = () => { router.push('/'); };
