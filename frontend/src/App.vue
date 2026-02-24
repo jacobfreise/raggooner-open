@@ -68,7 +68,7 @@ onMounted(() => {
          :class="isPanelOpen ? 'translate-x-80' : 'translate-x-0'">
       <button
           @click="isPanelOpen = !isPanelOpen"
-          class="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-r-lg shadow-lg border-y border-r border-indigo-400 flex items-center justify-center group">
+          class="bg-indigo-600 w-0.5 hover:bg-indigo-500 text-white p-2 rounded-r-lg shadow-lg border-y border-r border-indigo-400 flex items-center justify-center group">
         <i class="ph-bold ph-caret-right transition-transform duration-300" :class="isPanelOpen ? 'rotate-180' : ''"></i>
       </button>
     </div>
