@@ -9,9 +9,19 @@ export interface ChangeLogEntry {
     }[];
 }
 
-export const APP_VERSION = '2.0.2'; // Update this manually when you deploy
+export const APP_VERSION = '2.1.0'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '2.1.0',
+        date: '2026-02-24',
+        title: 'New Format: Uma Draft Phase',
+        changes: [
+            { type: 'new', text: 'Added a new tournament format: "Pick Format"' },
+            { type: 'new', text: 'Instead of banning umas, teams can now snake-draft their own umas into a team pool.' },
+            { type: 'improvement', text: 'The tournament setup now lets you choose between the "Classic (Ban)" and "Pick" formats.' }
+        ]
+    },
     {
         version: '2.0.2',
         date: '2026-02-22',
