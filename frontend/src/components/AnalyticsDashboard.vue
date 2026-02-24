@@ -2,7 +2,7 @@
 import {ref, computed, onMounted, inject, type Ref} from 'vue';
 import { collection, query, getDocs, orderBy, where, doc, setDoc, increment } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import type {GlobalPlayer, Tournament, Season} from '../types';
+import type {GlobalPlayer, Tournament, Season, TournamentFormat} from '../types';
 import {compareTeams, recalculateTournamentScores, migrateRaces, migratePlayers} from "../utils/utils.ts";
 import {POINTS_SYSTEM, TOURNAMENT_FORMATS} from "../utils/constants.ts";
 import {getCached, setCache} from "../utils/cache.ts";
@@ -48,6 +48,9 @@ const minTournaments = ref(3);
 
 const seasons = ref<Season[]>([]);
 const selectedSeasons = ref<string[]>(['season-2']);
+
+const formats = ref<TournamentFormat[]>([]);
+const selectedFormats = ref<string[]>([]);
 
 const expandedPlayerId = ref<string | null>(null);
 const expandedDetailTab = ref<'umas' | 'tournaments'>('tournaments');
@@ -459,11 +462,23 @@ const toggleSeason = (seasonId: string) => {
   }
 };
 
+const toggleFormat = (formatId: string) => {
+  const index = selectedFormats.value.indexOf(formatId);
+  if (index === -1) {
+    selectedFormats.value.push(formatId); // Add
+  } else {
+    selectedFormats.value.splice(index, 1); // Remove
+  }
+};
+
 // --- FILTERED DATA PIPELINES ---
 // These ensure all downstream stats only look at the selected seasons!
 const filteredTournaments = computed(() => {
-  if (selectedSeasons.value.length === 0) return tournaments.value; // Empty = All Time
-  return tournaments.value.filter(t => t.seasonId && selectedSeasons.value.includes(t.seasonId));
+  return tournaments.value.filter(t => {
+    const matchesSeason = selectedSeasons.value.length === 0 || (t.seasonId && selectedSeasons.value.includes(t.seasonId));
+    const matchesFormat = selectedFormats.value.length === 0 || (t.format && selectedFormats.value.includes(t.format.id));
+    return matchesSeason && matchesFormat;
+  });
 });
 
 const validTournamentIds = computed(() => {
@@ -1355,8 +1370,7 @@ const getRankIcon = (index: number) => {
       <div class="flex gap-2 border-b border-slate-700 mb-6">
       </div>
 
-      <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6 flex flex-col lg:flex-row gap-8 lg:items-center">
-
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6 flex flex-col lg:flex-row flex-wrap gap-8 lg:items-center">
         <div class="flex items-center gap-6 flex-1 max-w-xl">
           <div class="flex flex-col min-w-[120px]">
             <label class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
@@ -1409,6 +1423,38 @@ const getRankIcon = (index: number) => {
                 ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
                 : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'">
               {{ season.name }}
+            </button>
+
+          </div>
+        </div>
+
+        <div class="hidden lg:block w-px h-16 bg-slate-700"></div>
+        <div class="lg:hidden w-full h-px bg-slate-700"></div>
+
+        <div class="flex flex-col flex-1 min-w-[200px]">
+          <label class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+            Filter by Format
+          </label>
+          <div class="flex flex-wrap gap-2">
+
+            <button
+                @click="selectedFormats = []"
+                class="px-3 py-1.5 text-xs font-bold rounded-full transition-colors border"
+                :class="selectedFormats.length === 0
+                ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
+                : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'">
+              All Formats
+            </button>
+
+            <button
+                v-for="(format, id) in TOURNAMENT_FORMATS"
+                :key="id"
+                @click="toggleFormat(id as string)"
+                class="px-3 py-1.5 text-xs font-bold rounded-full transition-colors border"
+                :class="selectedFormats.includes(id as string)
+                ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
+                : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'">
+              {{ format.name }}
             </button>
 
           </div>
