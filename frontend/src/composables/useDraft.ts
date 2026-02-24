@@ -1,6 +1,6 @@
 import {computed, ref, type Ref} from 'vue';
 import type {FirestoreUpdate, Player, Team, Tournament} from '../types';
-import {generateDraftStructure} from '../utils/draftUtils';
+import {generateDraftStructure, generateUmaDraftOrder} from '../utils/draftUtils';
 import {getPlayerName} from "../utils/utils.ts";
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
@@ -117,8 +117,22 @@ export function useDraft(
         };
 
         if (nextIdx >= draft.order.length) {
-            updates.status = 'ban';
-            updates.banTimerStart = new Date().toISOString()
+            const format = t.format;
+            if (format?.id === 'uma-draft') {
+                updates.status = 'pick';
+
+                // FIX: Remove the dot-notation update to prevent Firestore conflict
+                delete updates['draft.currentIdx'];
+
+                const umaDraftOrder = generateUmaDraftOrder(t);
+                updates.draft = {
+                    order: umaDraftOrder,
+                    currentIdx: 0
+                };
+            } else {
+                updates.status = 'ban';
+                updates.banTimerStart = new Date().toISOString();
+            }
         }
 
         await secureUpdate(updates);

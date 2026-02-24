@@ -10,15 +10,14 @@ import { claimAndSyncMetadata, claimAndUnsyncMetadata } from '../utils/metadataS
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
 
+const currentView = ref<'groups' | 'finals'>('groups');
+const saving = ref(false);
+
 export function useGameLogic(
     tournament: Ref<Tournament | null>,
     secureUpdate: SecureUpdateFn,
     appId: string = 'default-app'
 ) {
-    // --- STATE ---
-    const initialStage = tournament.value?.stage === 'finals' ? 'finals' : 'groups';
-    const currentView = ref<'groups' | 'finals'>(initialStage);
-    const saving = ref(false);
 
     watch(() => tournament.value?.stage, (newStage) => {
         if (newStage === 'finals' || newStage === 'groups') {
