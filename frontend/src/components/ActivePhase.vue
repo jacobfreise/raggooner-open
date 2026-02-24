@@ -174,42 +174,93 @@ const sortedTeamsForModal = computed(() => {
     </div>
 
 <!--    OVERVIEW AND PLAYER / SETTINGS BUTTONS -->
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-3xl font-bold text-white">
-        Tournament Overview
-      </h2>
+<!--    <div class="flex justify-between items-center mb-6">-->
+<!--      <h2 class="text-3xl font-bold text-white">-->
+<!--        Tournament Overview-->
+<!--      </h2>-->
 
-      <div class="flex gap-2">
+<!--      <div class="flex gap-2">-->
+<!--        <div class="bg-slate-800 p-1 rounded-lg flex text-xs font-bold">-->
+<!--          <button @click="showPlayerOrUmaName = true"-->
+<!--                  class="px-3 py-1 rounded transition-colors"-->
+<!--                  :class="showPlayerOrUmaName ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-slate-300'">Name</button>-->
+<!--          <button @click="showPlayerOrUmaName = false"-->
+<!--                  class="px-3 py-1 rounded transition-colors"-->
+<!--                  :class="!showPlayerOrUmaName ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-slate-300'">Uma</button>-->
+<!--        </div>-->
+
+<!--        <button v-if="isAdminRef" @click="showUmaModal = true" class="text-slate-500 hover:text-indigo-400 px-2 transition-colors">-->
+<!--          <i class="ph-bold ph-gear text-xl"></i>-->
+<!--        </button>-->
+<!--      </div>-->
+<!--    </div>-->
+
+<!--    <div v-if="tournament.teams.length >= 6" class="flex justify-center border-b border-slate-700 mb-8">-->
+<!--      <button @click="currentView = 'groups'"-->
+<!--              class="pb-3 px-6 text-sm font-bold uppercase tracking-widest border-b-2 transition-all"-->
+<!--              :class="currentView === 'groups' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'">-->
+<!--        Group Stage-->
+<!--      </button>-->
+<!--      <button @click="currentView = 'finals'"-->
+<!--              :disabled="!canShowFinals"-->
+<!--              class="pb-3 px-6 text-sm font-bold uppercase tracking-widest border-b-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed"-->
+<!--              :class="currentView === 'finals' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-500 hover:text-slate-300'">-->
+<!--        Grand Finals-->
+<!--      </button>-->
+<!--    </div>-->
+
+<!--    <div v-if="currentView === 'groups' && tournament.teams.length >= 6" class="mb-6 bg-indigo-900/20 border border-indigo-500/20 p-3 rounded-lg flex items-center gap-3 text-sm text-indigo-200">-->
+<!--      <i class="ph-fill ph-info text-indigo-400"></i>-->
+<!--      <span>-->
+<!--        <span v-if="tournament.teams.length === 9">Winners of groups A, B, and C advance automatically.</span>-->
+<!--        <span v-else>Winners of A & B, plus the highest scoring runner-up advance.</span>-->
+<!--      </span>-->
+<!--    </div>-->
+
+    <div class="flex flex-col md:flex-row items-center md:items-end border-b border-slate-700 mb-8 gap-4 md:gap-0">
+
+      <div class="flex-1 pb-3 w-full md:w-auto text-center md:text-left">
+        <h2 class="text-3xl font-bold text-white">
+          Tournament Overview
+        </h2>
+      </div>
+
+      <div v-if="tournament.teams.length >= 6" class="flex gap-2 justify-center">
+        <button @click="currentView = 'groups'"
+                class="pb-3 px-4 md:px-6 text-sm font-bold uppercase tracking-widest border-b-2 transition-all -mb-[1px]"
+                :class="currentView === 'groups' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'">
+          Group Stage
+        </button>
+        <button @click="currentView = 'finals'"
+                :disabled="!canShowFinals"
+                class="pb-3 px-4 md:px-6 text-sm font-bold uppercase tracking-widest border-b-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed -mb-[1px]"
+                :class="currentView === 'finals' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-500 hover:text-slate-300'">
+          Grand Finals
+        </button>
+      </div>
+
+      <div class="flex-1 pb-3 flex justify-center md:justify-end w-full md:w-auto gap-2 shrink-0">
         <div class="bg-slate-800 p-1 rounded-lg flex text-xs font-bold">
           <button @click="showPlayerOrUmaName = true"
                   class="px-3 py-1 rounded transition-colors"
-                  :class="showPlayerOrUmaName ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-slate-300'">Name</button>
+                  :class="showPlayerOrUmaName ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-slate-300'">Name
+          </button>
           <button @click="showPlayerOrUmaName = false"
                   class="px-3 py-1 rounded transition-colors"
-                  :class="!showPlayerOrUmaName ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-slate-300'">Uma</button>
+                  :class="!showPlayerOrUmaName ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-slate-300'">Uma
+          </button>
         </div>
 
-        <button v-if="isAdminRef" @click="showUmaModal = true" class="text-slate-500 hover:text-indigo-400 px-2 transition-colors">
+        <button v-if="isAdminRef" @click="showUmaModal = true"
+                class="text-slate-500 hover:text-indigo-400 px-2 transition-colors">
           <i class="ph-bold ph-gear text-xl"></i>
         </button>
       </div>
+
     </div>
 
-    <div v-if="tournament.teams.length >= 6" class="flex justify-center border-b border-slate-700 mb-8">
-      <button @click="currentView = 'groups'"
-              class="pb-3 px-6 text-sm font-bold uppercase tracking-widest border-b-2 transition-all"
-              :class="currentView === 'groups' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'">
-        Group Stage
-      </button>
-      <button @click="currentView = 'finals'"
-              :disabled="!canShowFinals"
-              class="pb-3 px-6 text-sm font-bold uppercase tracking-widest border-b-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              :class="currentView === 'finals' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-500 hover:text-slate-300'">
-        Grand Finals
-      </button>
-    </div>
-
-    <div v-if="currentView === 'groups' && tournament.teams.length >= 6" class="mb-6 bg-indigo-900/20 border border-indigo-500/20 p-3 rounded-lg flex items-center gap-3 text-sm text-indigo-200">
+    <div v-if="currentView === 'groups' && tournament.teams.length >= 6"
+         class="mb-6 bg-indigo-900/20 border border-indigo-500/20 p-3 rounded-lg flex items-center gap-3 text-sm text-indigo-200">
       <i class="ph-fill ph-info text-indigo-400"></i>
       <span>
         <span v-if="tournament.teams.length === 9">Winners of groups A, B, and C advance automatically.</span>
