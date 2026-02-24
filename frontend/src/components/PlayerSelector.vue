@@ -24,25 +24,40 @@ const isDropdownOpen = ref(false);
 
 const filteredPlayers = computed(() => {
   const query = searchQuery.value.toLowerCase().trim();
-
   if (!query) return [];
 
   return props.players
       .filter(p => !props.excludeIds?.includes(p.id))
+      // First pass: broad filter
       .filter(p => p.name.toLowerCase().includes(query))
       .sort((a, b) => {
-        // Exact match first
-        const aExact = a.name.toLowerCase() === query;
-        const bExact = b.name.toLowerCase() === query;
-        if (aExact && !bExact) return -1;
-        if (!aExact && bExact) return 1;
+        const nameA = a.name.toLowerCase();
+        const nameB = b.name.toLowerCase();
 
-        // Then by most played
-        const aDiff = (b.metadata.totalTournaments || 0) - (a.metadata.totalTournaments || 0);
-        if (aDiff !== 0) return aDiff;
+        // 1. Exact Match
+        if (nameA === query && nameB !== query) return -1;
+        if (nameB === query && nameA !== query) return 1;
 
-        // Finally alphabetically
-        return a.name.localeCompare(b.name);
+        // 2. "Starts With" Priority
+        const startsA = nameA.startsWith(query);
+        const startsB = nameB.startsWith(query);
+        if (startsA && !startsB) return -1;
+        if (!startsA && startsB) return 1;
+
+        // 3. Substring Index (Earlier match is better)
+        const indexA = nameA.indexOf(query);
+        const indexB = nameB.indexOf(query);
+        if (indexA !== indexB) return indexA - indexB;
+
+        // 4. String Length (Shorter/closer match is better)
+        if (nameA.length !== nameB.length) return nameA.length - nameB.length;
+
+        // 5. Fallback: Most Played (Your existing logic)
+        const tourneyDiff = (b.metadata.totalTournaments || 0) - (a.metadata.totalTournaments || 0);
+        if (tourneyDiff !== 0) return tourneyDiff;
+
+        // 6. Final Fallback: Alphabetical
+        return nameA.localeCompare(nameB);
       });
 });
 

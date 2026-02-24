@@ -34,6 +34,7 @@ export interface Team {
     group: 'A' | 'B' | 'C';
     inFinals?: boolean;
     color?: string;
+    umaPool?: string[];
 }
 
 export interface Race {
@@ -44,28 +45,6 @@ export interface Race {
     timestamp: string;
     placements: Record<string, number>; // playerId: position
 }
-
-// export interface Tournament {
-//     id: string;
-//     name: string;
-//     password?: string;
-//     status: 'registration' | 'draft' | 'active' | 'ban' | 'completed';
-//     stage: 'groups' | 'finals';
-//     players: Player[];
-//     wildcards?: Wildcard[];
-//     teams: Team[];
-//     races: Race[];
-//     bans?: string[];
-//     createdAt: string;
-//     draft?: {
-//         order: string[];
-//         currentIdx: number;
-//     };
-//     isSecured?: boolean;
-//     usePlacementTiebreaker?: boolean;
-//     pointsSystem?: Record<number, number>;
-//     banTimerStart?: string;
-// }
 
 export type FirestoreUpdate<T> = {
     [K in keyof T]?: T[K] | FieldValue;
@@ -87,7 +66,7 @@ export interface EggConfig {
 }
 
 export interface FameResult {
-    player: Player | Team;
+    winner: Player | Team;
     value: string | number;
     subtext: string;
 }
@@ -111,21 +90,6 @@ export interface FameCategory {
     // Returns: { player: Player, value: string | number }
     calculate: (tournament: Tournament) => FameResult[];
 }
-
-export interface PlayerStats {
-    player: Player;
-    value: number;
-    subtext: string;
-    metadata?: Record<string, any>; // e.g., { golds: 3, silvers: 2 }
-}
-
-export interface TeamStats {
-    team: Team;
-    value: number;
-    subtext: string;
-    metadata?: Record<string, any>;
-}
-
 
 // -------------------------------------------------------
 // Neue Datenstruktur nach Migration
@@ -160,12 +124,10 @@ export interface GlobalPlayer {
     }
 }
 
-export interface Season {
+export interface TournamentFormat {
     id: string;
     name: string;
-    startDate: string;
-    endDate?: string;
-    tournamentIds: string[];
+    description: string;
 }
 
 
@@ -174,7 +136,8 @@ export interface Tournament {
     name: string;
     seasonId?: string;
     password?: string;
-    status: 'registration' | 'draft' | 'active' | 'ban' | 'completed';
+    format?: TournamentFormat;
+    status: 'registration' | 'draft' | 'active' | 'ban' | 'pick' | 'completed';
     stage: 'groups' | 'finals';
     playerIds: string[];
     players: Record<string, Player>;
