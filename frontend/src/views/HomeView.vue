@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { collection, doc, getDocs, orderBy, query, writeBatch, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import type { Tournament, Season } from '../types';
-import { POINTS_SYSTEM } from "../utils/constants.ts";
+import { POINTS_SYSTEM, TOURNAMENT_FORMATS } from "../utils/constants.ts";
 import { getStatusColor } from "../utils/utils.ts";
 
 const openChangelog = inject<() => void>('openChangelog')!;
@@ -19,6 +19,7 @@ const joinId = ref('');
 const isCreating = ref(false);
 const availableSeasons = ref<Season[]>([]);
 const selectedSeasonId = ref('');
+const selectedFormat = ref('uma-ban');
 const homeListLoading = ref(true);
 const showHistory = ref(false);
 const allTournaments = ref<Tournament[]>([]);
@@ -113,6 +114,7 @@ const createTournament = async () => {
       teams: [],
       races: {},
       playerIds: [],
+      format: TOURNAMENT_FORMATS[selectedFormat.value],
       isSecured: true,
       usePlacementTiebreaker: true,
       pointsSystem: { ...POINTS_SYSTEM },
@@ -250,6 +252,19 @@ onMounted(() => {
                     {{ season.name }}
                   </option>
                 </select>
+
+                <div class="flex gap-2">
+                  <button v-for="(fmt, key) in TOURNAMENT_FORMATS" :key="key"
+                          @click="selectedFormat = key"
+                          :disabled="isCreating"
+                          class="flex-1 p-3 rounded-lg border-2 text-left transition-all"
+                          :class="selectedFormat === key
+                            ? 'border-indigo-500 bg-indigo-900/30'
+                            : 'border-slate-700 bg-slate-900 hover:border-slate-600'">
+                    <div class="text-sm font-bold" :class="selectedFormat === key ? 'text-indigo-300' : 'text-slate-300'">{{ fmt.name }}</div>
+                    <div class="text-[10px] mt-0.5" :class="selectedFormat === key ? 'text-indigo-400/70' : 'text-slate-500'">{{ fmt.description }}</div>
+                  </button>
+                </div>
 
                 <button @click="createTournament"
                         :disabled="!newTournamentName || isCreating"

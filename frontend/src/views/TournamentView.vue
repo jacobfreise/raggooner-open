@@ -13,6 +13,7 @@ import { useEasterEgg } from "../composables/useEasterEgg.ts";
 import RegistrationPhase from "../components/RegistrationPhase.vue";
 import DraftPhase from '../components/DraftPhase.vue';
 import BanPhase from "../components/BanPhase.vue";
+import PickPhase from "../components/PickPhase.vue";
 import ActivePhase from '../components/ActivePhase.vue';
 
 // Inject Changelog functions from App.vue
@@ -201,6 +202,7 @@ const savePointsSystem = async () => {
           <RegistrationPhase v-if="tournament.status === 'registration'" :tournament="tournament" :is-admin="isAdmin" :app-id="appId" :secure-update="secureUpdate" :global-players="globalPlayers" :add-global-player="addGlobalPlayer" :seasons="seasons" />
           <DraftPhase v-else-if="tournament.status === 'draft'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" :global-players="globalPlayers" :seasons="seasons" />
           <BanPhase v-else-if="tournament.status === 'ban'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" />
+          <PickPhase v-else-if="tournament.status === 'pick'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" />
           <ActivePhase v-else-if="tournament.status === 'active' || tournament.status === 'completed'"
                        :tournament-prop="tournament"
                        :is-admin="isAdmin"

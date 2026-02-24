@@ -1,25 +1,16 @@
-// Inside useGameLogic.ts or a new useTournamentFlow.ts
-
 import type {Ref} from "vue";
 import type {FirestoreUpdate, Tournament} from "../types.ts";
-import {ref} from "vue";
+import { generateUmaDraftOrder } from "../utils/draftUtils";
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
 
-export function useGameLogic(
+export function useTournamentFlow(
     tournament: Ref<Tournament | null>,
-    secureUpdate: SecureUpdateFn,
-    appId: string = 'default-app'
+    secureUpdate: SecureUpdateFn
 ) {
-
-    // --- STATE ---
-    const initialStage = tournament.value?.stage === 'finals' ? 'finals' : 'groups';
-    const currentView = ref<'groups' | 'finals'>(initialStage);
 
     const advancePhase = async () => {
         if (!tournament.value) return;
-
-        console.log(appId);
 
         const currentStatus = tournament.value.status;
         const format = tournament.value.format;
@@ -36,7 +27,7 @@ export function useGameLogic(
                 case 'uma-ban':
                     nextStatus = 'ban'
                     break;
-                case 'uma-pick':
+                case 'uma-draft':
                     nextStatus = 'pick';
                     break;
                 default:
@@ -48,19 +39,24 @@ export function useGameLogic(
             nextStage = isSmallTournament ? 'finals' : 'groups';
         }
 
-        // Perform the update
-        await secureUpdate({
+        const updates: Record<string, any> = {
             status: nextStatus,
             stage: nextStage,
-            banTimerStart: null // clean up timers if needed
-        });
+            banTimerStart: null
+        };
 
-        // Update local view
-        currentView.value = nextStage;
+        if (currentStatus === 'draft' && nextStatus === 'pick') {
+            updates.draft = {
+                order: generateUmaDraftOrder(tournament.value),
+                currentIdx: 0
+            };
+        }
+
+        // Perform the update
+        await secureUpdate(updates);
     };
 
     return {
-        advancePhase,
-        currentView
+        advancePhase
     };
 }

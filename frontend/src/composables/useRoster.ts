@@ -40,7 +40,15 @@ export function useRoster(
     const canStartDraft = computed(() => validTeamCount.value && validTotalPlayers.value);
 
     // --- HELPERS ---
-    const getUmaList = () => [...UMAS].sort();
+    const getUmaList = (playerId?: string) => {
+        if (tournament.value?.format?.id === 'uma-draft' && playerId) {
+            const team = tournament.value.teams.find(t =>
+                t.captainId === playerId || t.memberIds.includes(playerId)
+            );
+            return [...(team?.umaPool || [])].sort();
+        }
+        return [...UMAS].sort();
+    };
 
     // --- ACTIONS ---
 

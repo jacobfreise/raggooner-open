@@ -43,3 +43,34 @@ export function generateDraftStructure(tournament: Tournament) {
     for (let i = teams.length - 1; i >= 0; i--) draftOrder.push(teams[i]!.id);
     return {teams, draftOrder};
 }
+
+/**
+ * Generate uma draft order from a completed player draft.
+ * Reverses the forward order from the player draft, then builds a 3-round snake.
+ * Example with 3 teams [A,B,C] player draft → uma draft: [C,B,A, A,B,C, C,B,A]
+ */
+export function generateUmaDraftOrder(tournament: Tournament): string[] {
+    if (!tournament.draft?.order) return [];
+
+    // Extract unique team IDs in forward order from the player draft order
+    const seen = new Set<string>();
+    const forwardOrder: string[] = [];
+    for (const teamId of tournament.draft.order) {
+        if (!seen.has(teamId)) {
+            seen.add(teamId);
+            forwardOrder.push(teamId);
+        }
+    }
+
+    // Reverse for uma draft starting order
+    const reversed = [...forwardOrder].reverse();
+
+    // Build 3-round snake: reverse, forward, reverse
+    const umaDraftOrder: string[] = [
+        ...reversed,
+        ...forwardOrder,
+        ...reversed
+    ];
+
+    return umaDraftOrder;
+}

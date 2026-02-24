@@ -34,6 +34,7 @@ export interface Team {
     group: 'A' | 'B' | 'C';
     inFinals?: boolean;
     color?: string;
+    umaPool?: string[];
 }
 
 export interface Race {

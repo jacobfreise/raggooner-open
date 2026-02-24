@@ -954,17 +954,17 @@ const submitAdjustment = async () => {
                 :key="player.id"
                 class="flex items-center justify-between bg-slate-800 p-3 rounded border border-slate-700"
             >
-          <span class="text-sm font-medium truncate w-32 text-slate-200">
-            {{ player.name }}
-          </span>
+              <span class="text-sm font-medium truncate flex-1 text-slate-200">
+                {{ player.name }}
+              </span>
 
               <select
                   v-model="player.uma"
                   @change="submitUmaForPlayer(player.id, player.uma)"
-                  class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all cursor-pointer"
+                  class="w-46 shrink-0 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all cursor-pointer"
               >
                 <option value="">- Select -</option>
-                <option v-for="uma in getUmaList()" :key="uma" :value="uma">
+                <option v-for="uma in getUmaList(player.id)" :key="uma" :value="uma">
                   {{ uma }}
                 </option>
               </select>
