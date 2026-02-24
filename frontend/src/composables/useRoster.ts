@@ -45,8 +45,24 @@ export function useRoster(
             const team = tournament.value.teams.find(t =>
                 t.captainId === playerId || t.memberIds.includes(playerId)
             );
-            return [...(team?.umaPool || [])].sort();
+
+            // If the player is on a team, restrict them to the team's pool, minus Umas already taken by teammates
+            if (team) {
+                const otherTeammatesIds = [team.captainId, ...team.memberIds].filter(id => id !== playerId);
+                const umasUsedByTeammates = new Set(
+                    otherTeammatesIds.map(id => tournament.value!.players[id]?.uma).filter(uma => !!uma)
+                );
+
+                return (team.umaPool || [])
+                    .filter(uma => !umasUsedByTeammates.has(uma))
+                    .sort();
+            }
+
+            // If the player is NOT on a team (i.e. they are a Wildcard), they skip this block
+            // and fall through to the return statement below, getting the full list of Umas.
         }
+
+        // Return full sorted list of Umas for Classic format AND Wildcard players
         return [...UMAS].sort();
     };
 
