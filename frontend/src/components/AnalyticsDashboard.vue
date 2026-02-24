@@ -49,7 +49,6 @@ const minTournaments = ref(3);
 const seasons = ref<Season[]>([]);
 const selectedSeasons = ref<string[]>(['season-2']);
 
-const formats = ref<TournamentFormat[]>([]);
 const selectedFormats = ref<string[]>([]);
 
 const expandedPlayerId = ref<string | null>(null);
