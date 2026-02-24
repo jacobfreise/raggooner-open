@@ -24,7 +24,18 @@ const homeListLoading = ref(true);
 const showHistory = ref(false);
 const allTournaments = ref<Tournament[]>([]);
 
+const collapsedSeasons = ref<string[]>([]);
+
 const loading = ref(false);
+
+const toggleSeasonGroup = (seasonId: string) => {
+  const index = collapsedSeasons.value.indexOf(seasonId);
+  if (index === -1) {
+    collapsedSeasons.value.push(seasonId); // Collapse it
+  } else {
+    collapsedSeasons.value.splice(index, 1); // Expand it
+  }
+};
 
 const activeTournamentsList = computed(() => allTournaments.value.filter(t => t.status !== 'completed'));
 
@@ -368,14 +379,25 @@ onMounted(() => {
                 No completed tournaments yet.
               </div>
 
-              <div v-for="group in groupedPastTournaments" :key="group.seasonId">
+              <div v-for="group in groupedPastTournaments" :key="group.seasonId" class="mb-6">
 
-                <div class="flex items-center gap-3 mb-4">
-                  <div class="h-5 w-1.5 bg-slate-600 rounded-full"></div>
-                  <h3 class="text-lg font-bold text-slate-300">{{ group.seasonName }}</h3>
+                <div
+                    @click="toggleSeasonGroup(group.seasonId)"
+                    class="flex items-center justify-between cursor-pointer group/season mb-4 px-2 py-1.5 -mx-2 hover:bg-slate-800/50 rounded-lg transition-colors select-none"
+                >
+                  <div class="flex items-center gap-3">
+                    <div class="h-5 w-1.5 bg-slate-600 rounded-full group-hover/season:bg-indigo-500 transition-colors"></div>
+                    <h3 class="text-lg font-bold text-slate-300 group-hover/season:text-white transition-colors">
+                      {{ group.seasonName }}
+                    </h3>
+                    <span class="text-xs text-slate-500 font-mono">({{ group.tournaments.length }})</span>
+                  </div>
+
+                  <i class="ph-bold ph-caret-down text-slate-500 group-hover/season:text-slate-300 transition-transform duration-300"
+                     :class="{ '-rotate-90': collapsedSeasons.includes(group.seasonId) }"></i>
                 </div>
 
-                <div class="grid md:grid-cols-2 gap-3">
+                <div v-show="!collapsedSeasons.includes(group.seasonId)" class="grid md:grid-cols-2 gap-3">
                   <div v-for="t in group.tournaments" :key="t.id"
                        @click="selectTournamentFromHome(t.id)"
                        class="flex items-center justify-between bg-slate-900/50 hover:bg-slate-800 border border-slate-800 hover:border-slate-600 rounded-lg p-4 cursor-pointer transition-colors">
