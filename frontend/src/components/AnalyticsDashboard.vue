@@ -2,7 +2,7 @@
 import {ref, computed, onMounted, inject, type Ref} from 'vue';
 import { collection, query, getDocs, orderBy, where, doc, setDoc, increment } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import type {GlobalPlayer, Tournament, Season, TournamentFormat} from '../types';
+import type {GlobalPlayer, Tournament, Season} from '../types';
 import {compareTeams, recalculateTournamentScores, migrateRaces, migratePlayers} from "../utils/utils.ts";
 import {POINTS_SYSTEM, TOURNAMENT_FORMATS} from "../utils/constants.ts";
 import {getCached, setCache} from "../utils/cache.ts";
