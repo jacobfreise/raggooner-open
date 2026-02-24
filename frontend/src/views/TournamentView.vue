@@ -5,7 +5,7 @@ import { doc, onSnapshot, updateDoc, collection, getDocs } from 'firebase/firest
 import { db } from '../firebase';
 import type { FirestoreUpdate, Tournament, GlobalPlayer, Season } from '../types';
 import { recalculateTournamentScores, migrateRaces, migratePlayers } from "../utils/utils.ts";
-import { POINTS_SYSTEM } from "../utils/constants.ts";
+import { POINTS_SYSTEM, TOURNAMENT_FORMATS } from "../utils/constants.ts";
 import { useAdmin } from '../composables/useAdmin';
 import { useGameLogic } from "../composables/useGameLogic";
 import { useEasterEgg } from "../composables/useEasterEgg.ts";
@@ -87,13 +87,23 @@ const subscribeToTournament = (id: string) => {
     if (isDeleting.value) return;
     if (docSnap.exists()) {
       const data = docSnap.data() as Tournament;
+
+      //BACKWARDS COMPATIBILITY FIXES
+      //old tournaments used password
       if (data.password) delete data.password;
+      //migrate races, players to maps from arrays
       data.races = migrateRaces(data.races);
       data.players = migratePlayers(data.players);
+      //calculates scores on snapshot, instead of write
       const { teams, players, wildcards } = recalculateTournamentScores(data);
       data.teams = teams;
       data.players = players;
       data.wildcards = wildcards;
+      // Migrate legacy tournaments to the default 'uma-ban' format
+      if (!data.format || !data.format.id) {
+        data.format = TOURNAMENT_FORMATS['uma-ban'];
+      }
+
       tournament.value = data;
       if (!localAdminPassword.value) autoLoginIfSuperAdmin();
       if (!hasInitialViewLoaded.value && tournament.value.stage === 'finals') {

@@ -4,7 +4,7 @@ import { collection, query, getDocs, orderBy, where, doc, setDoc, increment } fr
 import { db, auth } from '../firebase';
 import type {GlobalPlayer, Tournament, Season} from '../types';
 import {compareTeams, recalculateTournamentScores, migrateRaces, migratePlayers} from "../utils/utils.ts";
-import {POINTS_SYSTEM} from "../utils/constants.ts";
+import {POINTS_SYSTEM, TOURNAMENT_FORMATS} from "../utils/constants.ts";
 import {getCached, setCache} from "../utils/cache.ts";
 import { getUmaData } from "../utils/umaData.ts";
 
@@ -1235,6 +1235,9 @@ async function loadData() {
           const data = { id: doc.id, ...doc.data() } as Tournament;
           data.races = migrateRaces(data.races);
           data.players = migratePlayers(data.players);
+          if (!data.format || !data.format.id) {
+            data.format = TOURNAMENT_FORMATS['uma-ban'];
+          }
           return data;
         });
       }),
