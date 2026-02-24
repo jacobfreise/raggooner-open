@@ -19,7 +19,8 @@ export const changelogData: ChangeLogEntry[] = [
         changes: [
             { type: 'new', text: 'Added a new tournament format: "Pick Format"' },
             { type: 'new', text: 'Instead of banning umas, teams can now snake-draft their own umas into a team pool.' },
-            { type: 'improvement', text: 'The tournament setup now lets you choose between the "Classic (Ban)" and "Pick" formats.' }
+            { type: 'improvement', text: 'The tournament setup now lets you choose between the "Classic (Ban)" and "Pick" formats.' },
+            { type: 'new', text: 'Hall of Fame titles are now displayed on player cards.' }
         ]
     },
     {
