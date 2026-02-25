@@ -174,22 +174,25 @@ const isBanned = (uma: string) => {
 
               <div v-if="isBanned(uma)" class="absolute inset-0 opacity-10 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8cGF0aCBkPSJNLTEgMUwyIC0xTTEgOUw5IDFNOSA5TDEgMSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+')]"></div>
 
+              <div v-if="umaOwnerMap.has(uma)"
+                   class="absolute top-4 -right-12 w-40 rotate-45 text-[10px] font-bold py-1 px-6 text-center shadow-md z-20 pointer-events-none tracking-wider uppercase"
+                   :style="{ backgroundColor: umaOwnerMap.get(uma)!.teamColor, color: '#ffffff' }">
+                <div class="truncate drop-shadow-md">
+                  {{ umaOwnerMap.get(uma)!.teamName }}
+                </div>
+              </div>
+
               <div class="flex justify-between items-start relative z-10">
-                <span class="font-medium text-sm pr-2"
+                <span class="font-medium text-sm pr-8"
                       :class="[
-                        umaOwnerMap.has(uma) ? 'text-white/70' :
+                        umaOwnerMap.has(uma) ? 'text-white/80' :
                         isBanned(uma) ? 'text-red-300 line-through decoration-red-500/50' :
                         'text-slate-200 group-hover:text-white'
                       ]">
                   {{ uma }}
                 </span>
 
-                <div v-if="umaOwnerMap.has(uma)"
-                     class="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
-                     :style="{ backgroundColor: umaOwnerMap.get(uma)!.teamColor + '30', color: umaOwnerMap.get(uma)!.teamColor }">
-                  {{ umaOwnerMap.get(uma)!.teamName }}
-                </div>
-                <div v-else class="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors"
+                <div v-if="!umaOwnerMap.has(uma)" class="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors"
                      :class="isBanned(uma) ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-500 group-hover:bg-indigo-500 group-hover:text-white'">
                   <i class="ph-bold" :class="isBanned(uma) ? 'ph-x' : 'ph-plus'"></i>
                 </div>
