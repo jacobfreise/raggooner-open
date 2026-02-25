@@ -166,12 +166,12 @@ const formatTournamentStatus = (t: Tournament): string => {
   }
 
   const statusMap: Record<Tournament['status'], string> = {
-    registration: 'Registration',
-    draft: 'Draft Phase',
-    ban: 'Ban Phase',
+    registration: 'Register Players',
+    draft: 'Draft Players',
+    ban: 'Ban Umas',
     completed: 'Tournament Finished',
     active: '', // Handled above
-    pick: 'Pick Phase'
+    pick: 'Draft Umas'
   };
 
   return statusMap[t.status] || t.status;

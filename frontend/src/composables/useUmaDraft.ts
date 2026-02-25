@@ -126,18 +126,10 @@ export function useUmaDraft(
 
         const nextIdx = draft.currentIdx + 1;
 
-        const updates: Record<string, any> = {
+        await secureUpdate({
             teams: updatedTeams,
             'draft.currentIdx': nextIdx
-        };
-
-        if (nextIdx >= draft.order.length) {
-            const isSmallTournament = tournament.value.teams.length < 6;
-            updates.status = 'active';
-            updates.stage = isSmallTournament ? 'finals' : 'groups';
-        }
-
-        await secureUpdate(updates);
+        });
     };
 
     const undoLastPick = async () => {

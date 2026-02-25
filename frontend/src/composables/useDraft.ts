@@ -1,6 +1,6 @@
 import {computed, ref, type Ref} from 'vue';
 import type {FirestoreUpdate, Player, Team, Tournament} from '../types';
-import {generateDraftStructure, generateUmaDraftOrder} from '../utils/draftUtils';
+import {generateDraftStructure} from '../utils/draftUtils';
 import {getPlayerName} from "../utils/utils.ts";
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
@@ -54,6 +54,11 @@ export function useDraft(
     //     const d = tournament.value.draft;
     //     return d.order.slice(d.currentIdx, d.currentIdx + 10);
     // });
+
+    const isDraftComplete = computed(() => {
+        if (!tournament.value?.draft) return false;
+        return tournament.value.draft.currentIdx >= tournament.value.draft.order.length;
+    });
 
     const getRandomWheelGradient = computed(() => {
         const count = randomCandidates.value.length;
@@ -115,25 +120,6 @@ export function useDraft(
             teams: updatedTeams,
             'draft.currentIdx': nextIdx
         };
-
-        if (nextIdx >= draft.order.length) {
-            const format = t.format;
-            if (format?.id === 'uma-draft') {
-                updates.status = 'pick';
-
-                // FIX: Remove the dot-notation update to prevent Firestore conflict
-                delete updates['draft.currentIdx'];
-
-                const umaDraftOrder = generateUmaDraftOrder(t);
-                updates.draft = {
-                    order: umaDraftOrder,
-                    currentIdx: 0
-                };
-            } else {
-                updates.status = 'ban';
-                updates.banTimerStart = new Date().toISOString();
-            }
-        }
 
         await secureUpdate(updates);
     };
@@ -225,7 +211,7 @@ export function useDraft(
         availablePlayers,
         currentDrafter,
         remainingPicks,
-        // draftPreview,
+        isDraftComplete,
         getRandomWheelGradient,
         startDraft,
         draftPlayer,
