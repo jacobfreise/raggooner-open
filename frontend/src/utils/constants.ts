@@ -43,6 +43,7 @@ export const SUPERADMIN_UIDS = [
 ];
 
 export const UMAS = [
+    'Mejiro Ardan',
     'Valentine Mihono Bourbon', 'Valentine Eishin Flash', 'Sakura Chiyono O', 'New Year TM Opera O', 'New Year Haru Urara',
     'Tamamo Cross', 'Fine Motion', 'Christmas Oguri Cap', 'Christmas Biwa Hayahide', 'Mejiro Dober', 'Tosan Jordan',
     'Festival Symboli Rudolf', 'Festival Gold City', 'Manhattan Cafe', 'Kawakami Princess', 'Halloween Rice Shower',
