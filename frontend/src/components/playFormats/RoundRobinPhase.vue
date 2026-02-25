@@ -25,11 +25,10 @@ const roundRobinRaces = computed(() => {
   for (let i = 0; i < n - 2; i++) {
     for (let j = i + 1; j < n - 1; j++) {
       for (let k = j + 1; k < n; k++) {
-        const raceTeams = [teams[i], teams[j], teams[k]];
+        const raceTeams = [teams[i]!, teams[j]!, teams[k]!];
         races.push({
           raceNumber: raceNumber++,
           teams: raceTeams,
-          // Flatten the team rosters to pass to your RaceCard
           activePlayers: raceTeams.flatMap(t => [t.captainId, ...t.memberIds])
         });
       }
@@ -83,8 +82,8 @@ const globalLeaderboard = computed(() => {
 
         <div class="absolute -top-3 left-4 bg-slate-900 border border-slate-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2 shadow-md">
           <span class="text-slate-500">Matchup:</span>
-          <span v-for="(team, idx) in race.teams" :key="team.id" :style="{ color: team.color }">
-            {{ team.name }} <span v-if="idx < 2" class="text-slate-600">vs</span>
+          <span v-for="(team, idx) in race.teams" :key="team!.id" :style="{ color: team!.color }">
+            {{ team!.name }} <span v-if="idx < 2" class="text-slate-600">vs</span>
           </span>
         </div>
 
