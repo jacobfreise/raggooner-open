@@ -19,7 +19,7 @@ export function useTournamentFlow(
 
         try {
             const t = tournament.value;
-            const formatId = t.format?.id || 'uma-ban'; // Fallback to ban format
+            const formatId = t.format || 'uma-ban'; // Fallback to ban format
             const isSmallTournament = t.teams.length < 6;
 
             // ==========================================

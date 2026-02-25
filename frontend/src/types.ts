@@ -136,7 +136,7 @@ export interface Tournament {
     name: string;
     seasonId?: string;
     password?: string;
-    format?: TournamentFormat;
+    format?: string;
     status: 'registration' | 'draft' | 'active' | 'ban' | 'pick' | 'completed';
     stage: 'groups' | 'finals';
     playerIds: string[];

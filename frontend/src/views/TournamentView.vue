@@ -100,8 +100,8 @@ const subscribeToTournament = (id: string) => {
       data.players = players;
       data.wildcards = wildcards;
       // Migrate legacy tournaments to the default 'uma-ban' format
-      if (!data.format || !data.format.id) {
-        data.format = TOURNAMENT_FORMATS['uma-ban'];
+      if (!data.format) {
+        data.format = 'uma-ban';
       }
 
       tournament.value = data;

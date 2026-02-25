@@ -125,7 +125,7 @@ const createTournament = async () => {
       teams: [],
       races: {},
       playerIds: [],
-      format: TOURNAMENT_FORMATS[selectedFormat.value],
+      format: TOURNAMENT_FORMATS[selectedFormat.value]!.id,
       isSecured: true,
       usePlacementTiebreaker: true,
       pointsSystem: { ...POINTS_SYSTEM },
@@ -353,7 +353,7 @@ onMounted(() => {
                     <i class="ph-fill ph-users"></i> {{ Object.keys(t.players || {}).length }} Players
                   </div>
                   <div class="flex items-center gap-2">
-                    <i class="ph-fill ph-cards"></i> {{ t.format?.id ? TOURNAMENT_FORMATS[t.format.id]?.name || 'Blind Pick' : 'Blind Pick' }}
+                    <i class="ph-fill ph-cards"></i> {{ t.format ? TOURNAMENT_FORMATS[t.format]?.name || 'Blind Pick' : 'Blind Pick' }}
                   </div>
                   <div class="flex items-center gap-2">
                     <i class="ph-fill ph-trophy"></i> {{ formatTournamentStatus(t) }}
