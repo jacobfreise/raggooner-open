@@ -34,7 +34,7 @@ export const TOURNAMENT_FORMATS: Record<string, TournamentFormat> = {
         name:
             'Draft Pick',
         description:
-            'Classic Tournament format with an Uma draft picks instead of blind picks.'
+            'Classic Tournament format with Uma draft picks instead of blind picks.'
     }
 }
 
