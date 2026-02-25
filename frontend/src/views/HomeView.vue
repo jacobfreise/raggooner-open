@@ -167,11 +167,11 @@ const formatTournamentStatus = (t: Tournament): string => {
 
   const statusMap: Record<Tournament['status'], string> = {
     registration: 'Register Players',
-    draft: 'Draft Players',
-    ban: 'Ban Umas',
+    draft: 'Draft Players Phase',
+    ban: 'Ban Umas Phase',
     completed: 'Tournament Finished',
     active: '', // Handled above
-    pick: 'Draft Umas'
+    pick: 'Draft Umas Phase'
   };
 
   return statusMap[t.status] || t.status;
@@ -351,6 +351,9 @@ onMounted(() => {
                 <div class="flex flex-col gap-1 text-sm text-slate-400 mt-6 pt-4 border-t border-slate-700/50">
                   <div class="flex items-center gap-2">
                     <i class="ph-fill ph-users"></i> {{ Object.keys(t.players || {}).length }} Players
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <i class="ph-fill ph-cards"></i> {{ t.format?.name || 'Blind Pick' }}
                   </div>
                   <div class="flex items-center gap-2">
                     <i class="ph-fill ph-trophy"></i> {{ formatTournamentStatus(t) }}
