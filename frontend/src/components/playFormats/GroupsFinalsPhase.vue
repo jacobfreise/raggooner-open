@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import {computed, ref, toRef} from 'vue';
-import type { Tournament, FirestoreUpdate, Team } from '../types';
-import { useGameLogic } from '../composables/useGameLogic';
-import { useRoster } from '../composables/useRoster';
+import type { Tournament, FirestoreUpdate, Team } from '../../types.ts';
+import { useGameLogic } from '../../composables/useGameLogic.ts';
+import { useRoster } from '../../composables/useRoster.ts';
 import {
   getRankColor,
-} from '../utils/utils';
-import HallOfFame from "./HallOfFame.vue";
-import DiscordExportPreview from "./DiscordExportPreview.vue";
-import PlayerSelector from "./PlayerSelector.vue";
-import type {GlobalPlayer} from "../types";
-import RaceInputs from "./race/RaceInputs.vue";
-import PlayerStatsBoard from "./PlayerStatsBoard.vue";
+} from '../../utils/utils.ts';
+import HallOfFame from "../HallOfFame.vue";
+import DiscordExportPreview from "../DiscordExportPreview.vue";
+import PlayerSelector from "../PlayerSelector.vue";
+import type {GlobalPlayer} from "../../types.ts";
+import RaceInputs from "../race/RaceInputs.vue";
+import PlayerStatsBoard from "../PlayerStatsBoard.vue";
 
 const props = withDefaults(defineProps<{
   tournamentProp: Tournament;

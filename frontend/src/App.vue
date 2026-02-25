@@ -4,7 +4,7 @@ import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'fi
 import { auth } from './firebase';
 import { APP_VERSION } from './data/changelog';
 import ChangelogModal from './components/ChangelogModal.vue';
-import SuperAdminPanel from "./components/SuperAdminPanel.vue";
+import SuperAdminPanel from "./components/admin/SuperAdminPanel.vue";
 import {SUPERADMIN_UIDS} from "./utils/constants.ts";
 // import SeasonSetup from "./components/SeasonSetup.vue";
 // import Migrate from "./components/Migrate.vue";

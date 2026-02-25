@@ -6,8 +6,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
-import { db } from '../firebase';
-import type { Tournament, GlobalPlayer } from '../types';
+import { db } from '../../firebase.ts';
+import type { Tournament, GlobalPlayer } from '../../types.ts';
 
 const APP_ID = 'default-app'; // TODO: Adjust to your app ID
 

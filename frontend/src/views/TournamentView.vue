@@ -14,7 +14,7 @@ import RegistrationPhase from "../components/RegistrationPhase.vue";
 import DraftPhase from '../components/DraftPhase.vue';
 import BanPhase from "../components/BanPhase.vue";
 import PickPhase from "../components/PickPhase.vue";
-import ActivePhase from '../components/ActivePhase.vue';
+import GroupsFinalsPhase from '../components/playFormats/GroupsFinalsPhase.vue';
 
 // Inject Changelog functions from App.vue
 const openChangelog = inject<() => void>('openChangelog')!;
@@ -213,7 +213,7 @@ const savePointsSystem = async () => {
           <DraftPhase v-else-if="tournament.status === 'draft'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" :global-players="globalPlayers" :seasons="seasons" />
           <BanPhase v-else-if="tournament.status === 'ban'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" />
           <PickPhase v-else-if="tournament.status === 'pick'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" />
-          <ActivePhase v-else-if="tournament.status === 'active' || tournament.status === 'completed'"
+          <GroupsFinalsPhase v-else-if="tournament.status === 'active' || tournament.status === 'completed'"
                        :tournament-prop="tournament"
                        :is-admin="isAdmin"
                        :app-id="appId"

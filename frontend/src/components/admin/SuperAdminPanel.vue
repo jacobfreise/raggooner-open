@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import {onMounted, ref} from 'vue';
-import { db } from '../firebase';
+import { db } from '../../firebase.ts';
 import {collection, doc, getDocs, orderBy, query, setDoc, updateDoc, writeBatch} from 'firebase/firestore';
-import type {Season} from "../types.ts";
+import type {Season} from "../../types.ts";
 
 defineProps<{ isOpen: boolean }>();
 const emit = defineEmits(['close']);
