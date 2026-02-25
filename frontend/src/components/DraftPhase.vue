@@ -106,7 +106,7 @@ const sortedAvailablePlayers = computed(() => {
 
         <!-- Draft Order Preview -->
         <div class="bg-slate-800 p-4 rounded-xl border border-indigo-500/30 flex flex-col md:flex-row items-center gap-4 shadow-lg shadow-indigo-900/10 overflow-hidden">
-          <div class="flex-1 flex items-center gap-3 overflow-x-auto hide-scrollbar">
+          <div class="flex-1 flex items-center gap-3 overflow-x-auto overflow-y-hidden hide-scrollbar">
             <span class="text-slate-400 uppercase text-xs font-bold tracking-wider shrink-0">Lineup:</span>
 
             <div v-for="(pick, idx) in remainingPicks" :key="pick.id"
