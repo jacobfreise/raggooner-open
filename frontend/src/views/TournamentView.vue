@@ -5,7 +5,7 @@ import { doc, onSnapshot, updateDoc, collection, getDocs } from 'firebase/firest
 import { db } from '../firebase';
 import type { FirestoreUpdate, Tournament, GlobalPlayer, Season } from '../types';
 import { recalculateTournamentScores, migrateRaces, migratePlayers } from "../utils/utils.ts";
-import { POINTS_SYSTEM, TOURNAMENT_FORMATS } from "../utils/constants.ts";
+import { POINTS_SYSTEM } from "../utils/constants.ts";
 import { useAdmin } from '../composables/useAdmin';
 import { useGameLogic } from "../composables/useGameLogic";
 import { useEasterEgg } from "../composables/useEasterEgg.ts";

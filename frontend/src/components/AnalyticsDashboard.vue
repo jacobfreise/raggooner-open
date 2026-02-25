@@ -475,7 +475,7 @@ const toggleFormat = (formatId: string) => {
 const filteredTournaments = computed(() => {
   return tournaments.value.filter(t => {
     const matchesSeason = selectedSeasons.value.length === 0 || (t.seasonId && selectedSeasons.value.includes(t.seasonId));
-    const matchesFormat = selectedFormats.value.length === 0 || (t.format && selectedFormats.value.includes(t.format.id));
+    const matchesFormat = selectedFormats.value.length === 0 || (t.format && selectedFormats.value.includes(t.format));
     return matchesSeason && matchesFormat;
   });
 });
@@ -1249,8 +1249,8 @@ async function loadData() {
           const data = { id: doc.id, ...doc.data() } as Tournament;
           data.races = migrateRaces(data.races);
           data.players = migratePlayers(data.players);
-          if (!data.format || !data.format.id) {
-            data.format = TOURNAMENT_FORMATS['uma-ban'];
+          if (!data.format) {
+            data.format = 'uma-ban';
           }
           return data;
         });

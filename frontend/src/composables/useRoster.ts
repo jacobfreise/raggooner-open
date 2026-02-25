@@ -41,7 +41,7 @@ export function useRoster(
 
     // --- HELPERS ---
     const getUmaList = (playerId?: string) => {
-        if (tournament.value?.format?.id === 'uma-draft' && playerId) {
+        if (tournament.value?.format === 'uma-draft' && playerId) {
             const team = tournament.value.teams.find(t =>
                 t.captainId === playerId || t.memberIds.includes(playerId)
             );
