@@ -141,7 +141,7 @@ const resetBanTimer = async () => {
             <i class="ph ph-spinner animate-spin"></i> Advancing...
           </template>
           <template v-else>
-            <span>Start Tournament</span>
+            <span>Continue</span>
             <i class="ph-bold ph-arrow-right"></i>
           </template>
         </button>
