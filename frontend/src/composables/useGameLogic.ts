@@ -6,7 +6,6 @@ import {
     arrayRemove,
     arrayUnion,
 } from 'firebase/firestore';
-import { claimAndSyncMetadata, claimAndUnsyncMetadata } from '../utils/metadataSync';
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
 
@@ -15,8 +14,7 @@ const saving = ref(false);
 
 export function useGameLogic(
     tournament: Ref<Tournament | null>,
-    secureUpdate: SecureUpdateFn,
-    appId: string = 'default-app'
+    secureUpdate: SecureUpdateFn
 ) {
 
     watch(() => tournament.value?.stage, (newStage) => {
@@ -471,35 +469,6 @@ export function useGameLogic(
         tiebreakersNeeded.value = 0;
     };
 
-    const endTournament = async () => {
-        if (!tournament.value) return;
-        const completedAt = new Date().toISOString();
-        await secureUpdate({ status: 'completed', completedAt });
-
-        // Atomically claim and sync global player metadata
-        try {
-            await claimAndSyncMetadata(tournament.value, appId);
-        } catch (e) {
-            console.error('Failed to sync tournament data on completion:', e);
-        }
-    };
-
-    const reopenTournament = async () => {
-        if (!tournament.value) return;
-        saving.value = true;
-        try {
-            await claimAndUnsyncMetadata(tournament.value, appId);
-            await secureUpdate({
-                status: 'active',
-                completedAt: null
-            });
-        } catch (e) {
-            console.error('Failed to reopen tournament:', e);
-            alert("Failed to reverse tournament completion. Check console.");
-        } finally {
-            saving.value = false;
-        }
-    };
 
     //RACE VIEW LOGIC
     const getRaceResults = (race: Race) => {
@@ -581,18 +550,6 @@ export function useGameLogic(
         await secureUpdate({ bans: updateOp });
     };
 
-    const finishBanPhase = async () => {
-        if (!tournament.value) return;
-        const isSmallTournament = tournament.value.teams.length < 6;
-        const nextStage = isSmallTournament ? 'finals' : 'groups';
-        await secureUpdate({
-            status: 'active',
-            stage: nextStage,
-            banTimerStart: null
-        });
-
-        currentView.value = nextStage;
-    };
 
     // --- NEW: HELPERS ---
     const isAdvancing = (teamId: string) => {
@@ -844,8 +801,6 @@ export function useGameLogic(
         // Actions
         advanceToFinals,
         resolveManually,
-        endTournament,
-        reopenTournament,
         getRoundPoints,
         getRaceCount,
         activeStagePlayers,
@@ -855,7 +810,6 @@ export function useGameLogic(
         getRaceResultsForPlayer,
         isBanned,
         isAdvancing,
-        finishBanPhase,
         toggleBan,
         getVisualRankIndex,
         getProgressionStatus,

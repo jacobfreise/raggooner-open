@@ -153,8 +153,7 @@ export function useUmaDraft(
 
         const updates: Record<string, any> = {
             teams: updatedTeams,
-            'draft.currentIdx': prevIdx,
-            status: 'pick'
+            'draft.currentIdx': prevIdx
         };
 
         await secureUpdate(updates);

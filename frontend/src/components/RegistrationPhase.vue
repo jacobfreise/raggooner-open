@@ -2,7 +2,7 @@
 import { ref, toRef, computed } from 'vue';
 import type { Tournament, FirestoreUpdate, GlobalPlayer, Season } from '../types';
 import { useRoster } from '../composables/useRoster';
-import { useDraft } from '../composables/useDraft';
+import { useTournamentFlow } from '../composables/useTournamentFlow';
 import PlayerSelector from './PlayerSelector.vue';
 import { arrayUnion } from 'firebase/firestore';
 
@@ -62,8 +62,8 @@ const {
   canStartDraft
 } = useRoster(tournamentRef, props.secureUpdate, isAdminRef);
 
-// Initialize Draft Logic
-const { startDraft } = useDraft(tournamentRef, props.secureUpdate, isAdminRef);
+// Initialize Tournament Flow (for phase transitions)
+const { advancePhase, isAdvancing } = useTournamentFlow(tournamentRef, props.secureUpdate);
 
 // Get list of already added player IDs
 const addedPlayerIds = () => {
@@ -161,12 +161,17 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
           </ul>
 
           <button
-              @click="startDraft"
-              :disabled="!canStartDraft || !isAdmin"
+              @click="advancePhase"
+              :disabled="!canStartDraft || !isAdmin || isAdvancing"
               class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-20 disabled:cursor-not-allowed text-white py-3 rounded-lg font-bold uppercase tracking-wider transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2"
           >
-            <i class="ph-bold ph-play-circle"></i>
-            Start Draft
+            <template v-if="isAdvancing">
+              <i class="ph ph-spinner animate-spin"></i> Starting...
+            </template>
+            <template v-else>
+              <i class="ph-bold ph-play-circle"></i>
+              Start Draft
+            </template>
           </button>
         </div>
       </div>

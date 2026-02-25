@@ -49,7 +49,7 @@ const {
   isAdmin, loginAsAdmin, copyPassword, updateTournamentName, togglePlacementTiebreaker, deleteTournament, autoLoginIfSuperAdmin
 } = useAdmin(tournament, secureUpdate, async () => { await router.push('/'); }, appId);
 
-const { currentView } = useGameLogic(tournament, secureUpdate, appId);
+const { currentView } = useGameLogic(tournament, secureUpdate);
 const { activeVisualEgg } = useEasterEgg(tournament);
 
 // Global players & seasons (shared across phases)

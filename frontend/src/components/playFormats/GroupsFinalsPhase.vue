@@ -2,6 +2,7 @@
 import {computed, ref, toRef} from 'vue';
 import type { Tournament, FirestoreUpdate, Team } from '../../types.ts';
 import { useGameLogic } from '../../composables/useGameLogic.ts';
+import { useTournamentFlow } from '../../composables/useTournamentFlow.ts';
 import { useRoster } from '../../composables/useRoster.ts';
 import {
   getRankColor,
@@ -52,8 +53,6 @@ const {
   getRaceResults,
   getGroupWildcards,
   advanceToFinals,
-  endTournament,
-  reopenTournament,
   getRoundPoints,
   getRaceCount,
   showTieBreakerModal,
@@ -69,6 +68,13 @@ const {
   confirmTiebreakerSelection,
   cancelTieBreaker
 } = useGameLogic(tournament, props.secureUpdate);
+
+// Initialize Tournament Flow (for phase transitions)
+const {
+  advancePhase: endTournament,
+  reopenTournament,
+  isAdvancing: isEndingTournament
+} = useTournamentFlow(tournament, props.secureUpdate, props.appId);
 
 // Initialize Roster (for visual helpers like colors/names)
 const {
@@ -669,17 +675,26 @@ const sortedTeamsForModal = computed(() => {
 
     <div v-if="canEndTournament" class="flex justify-center mt-8">
       <button @click="endTournament"
-              :disabled="!isAdminRef"
-              class="bg-slate-700 hover:bg-green-600 text-white text-lg font-bold py-3 px-8 rounded-lg transition-colors">
-        Complete Tournament
+              :disabled="!isAdminRef || isEndingTournament"
+              class="bg-slate-700 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-lg font-bold py-3 px-8 rounded-lg transition-colors">
+        <template v-if="isEndingTournament">
+          <i class="ph ph-spinner animate-spin"></i> Completing...
+        </template>
+        <template v-else>Complete Tournament</template>
       </button>
     </div>
 
     <div v-if="tournament.status === 'completed' && isAdminRef" class="flex justify-center mt-8">
       <button @click="reopenTournament"
-              class="bg-rose-900/40 hover:bg-rose-600 border border-rose-500/50 hover:border-rose-500 text-rose-300 hover:text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-all flex items-center gap-2 shadow-lg hover:shadow-rose-900/50">
-        <i class="ph-bold ph-arrow-u-up-left text-lg"></i>
-        Reopen for Corrections
+              :disabled="isEndingTournament"
+              class="bg-rose-900/40 hover:bg-rose-600 border border-rose-500/50 hover:border-rose-500 text-rose-300 hover:text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-all flex items-center gap-2 shadow-lg hover:shadow-rose-900/50 disabled:opacity-50 disabled:cursor-not-allowed">
+        <template v-if="isEndingTournament">
+          <i class="ph ph-spinner animate-spin text-lg"></i> Reopening...
+        </template>
+        <template v-else>
+          <i class="ph-bold ph-arrow-u-up-left text-lg"></i>
+          Reopen for Corrections
+        </template>
       </button>
     </div>
 

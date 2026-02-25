@@ -1,6 +1,5 @@
 import {computed, ref, type Ref} from 'vue';
 import type {FirestoreUpdate, Player, Team, Tournament} from '../types';
-import {generateDraftStructure} from '../utils/draftUtils';
 import {getPlayerName} from "../utils/utils.ts";
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
@@ -74,22 +73,6 @@ export function useDraft(
     });
 
     // --- ACTIONS ---
-
-    const startDraft = async () => {
-        if (!tournament.value) return;
-
-        // FIX 1: Pass the whole tournament object, using ! to assert it exists
-        const { teams, draftOrder } = generateDraftStructure(tournament.value!);
-
-        await secureUpdate({
-            status: 'draft',
-            teams: teams,
-            draft: {
-                order: draftOrder,
-                currentIdx: 0
-            }
-        });
-    };
 
     const draftPlayer = async (player: Player) => {
         // 1. Guard Clause
@@ -213,7 +196,6 @@ export function useDraft(
         remainingPicks,
         isDraftComplete,
         getRandomWheelGradient,
-        startDraft,
         draftPlayer,
         undoLastPick,
         startRandomDraft

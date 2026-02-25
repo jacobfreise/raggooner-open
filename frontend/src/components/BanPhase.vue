@@ -3,6 +3,7 @@ import { toRef, ref, computed, onMounted, onUnmounted } from 'vue';
 import type { Tournament, FirestoreUpdate } from '../types';
 import { useDraft } from '../composables/useDraft';
 import { useGameLogic } from '../composables/useGameLogic';
+import { useTournamentFlow } from '../composables/useTournamentFlow';
 import { UMAS } from '../utils/constants';
 import { getPlayerName } from '../utils/utils';
 
@@ -19,7 +20,10 @@ const isAdminRef = toRef(props, 'isAdmin');
 const { undoLastPick, currentDrafter } = useDraft(tournamentRef, props.secureUpdate, isAdminRef);
 
 // Initialize Game Logic (for Banning)
-const { toggleBan, finishBanPhase, isBanned } = useGameLogic(tournamentRef, props.secureUpdate);
+const { toggleBan, isBanned } = useGameLogic(tournamentRef, props.secureUpdate);
+
+// Initialize Tournament Flow (for phase transitions)
+const { advancePhase, isAdvancing: isAdvancingPhase } = useTournamentFlow(tournamentRef, props.secureUpdate);
 
 // Local State for Search
 const banSearch = ref('');
@@ -130,11 +134,16 @@ const resetBanTimer = async () => {
           <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Banned</div>
         </div>
 
-        <button @click="finishBanPhase"
-                :disabled="!isAdmin"
-                class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg font-bold shadow-lg shadow-indigo-900/20 transition-all flex items-center justify-center gap-2">
-          <span>Start Tournament</span>
-          <i class="ph-bold ph-arrow-right"></i>
+        <button @click="advancePhase"
+                :disabled="!isAdmin || isAdvancingPhase"
+                class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold shadow-lg shadow-indigo-900/20 transition-all flex items-center justify-center gap-2">
+          <template v-if="isAdvancingPhase">
+            <i class="ph ph-spinner animate-spin"></i> Advancing...
+          </template>
+          <template v-else>
+            <span>Start Tournament</span>
+            <i class="ph-bold ph-arrow-right"></i>
+          </template>
         </button>
       </div>
     </div>
