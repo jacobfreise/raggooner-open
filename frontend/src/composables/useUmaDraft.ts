@@ -91,11 +91,10 @@ export function useUmaDraft(
         return map;
     });
 
-    // All umas sorted (excludes banned ones only)
+    // All umas sorted
     const allUmas = computed(() => {
         if (!tournament.value) return [];
-        const bannedUmas = new Set(tournament.value.bans || []);
-        return [...UMAS].sort().filter(uma => !bannedUmas.has(uma));
+        return [...UMAS].sort();
     });
 
     // Only unpicked umas (used for random selection)
