@@ -79,15 +79,28 @@ export function useUmaDraft(
         return team ?? null;
     });
 
-    const availableUmas = computed(() => {
-        if (!tournament.value) return [];
-
-        const pickedUmas = new Set<string>();
+    // Maps each drafted uma to the team that owns it
+    const umaOwnerMap = computed(() => {
+        const map = new Map<string, { teamName: string; teamColor: string }>();
+        if (!tournament.value) return map;
         tournament.value.teams.forEach(t => {
-            t.umaPool?.forEach(uma => pickedUmas.add(uma));
+            t.umaPool?.forEach(uma => {
+                map.set(uma, { teamName: t.name, teamColor: t.color || '#94a3b8' });
+            });
         });
+        return map;
+    });
 
-        return [...UMAS].sort().filter(uma => !pickedUmas.has(uma));
+    // All umas sorted (excludes banned ones only)
+    const allUmas = computed(() => {
+        if (!tournament.value) return [];
+        const bannedUmas = new Set(tournament.value.bans || []);
+        return [...UMAS].sort().filter(uma => !bannedUmas.has(uma));
+    });
+
+    // Only unpicked umas (used for random selection)
+    const availableUmas = computed(() => {
+        return allUmas.value.filter(uma => !umaOwnerMap.value.has(uma));
     });
 
     const remainingPicks = computed(() => {
@@ -161,7 +174,9 @@ export function useUmaDraft(
     return {
         startUmaDraft,
         currentPicker,
+        allUmas,
         availableUmas,
+        umaOwnerMap,
         remainingPicks,
         isDraftComplete,
         pickUma,

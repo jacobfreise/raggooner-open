@@ -4,7 +4,7 @@ import {getPlayerName} from "../utils/utils.ts";
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
 
-export function useDraft(
+export function usePlayerDraft(
     tournament: Ref<Tournament | null>,
     secureUpdate: SecureUpdateFn,
     isAdmin: Ref<boolean>

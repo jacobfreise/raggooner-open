@@ -23,7 +23,7 @@ export function useTournamentFlow(
             const isSmallTournament = t.teams.length < 6;
 
             // ==========================================
-            // FORMAT: UMA DRAFT (Registration -> Draft -> Pick -> Active -> Completed)
+            // FORMAT: DRAFT PICK (Registration -> Player Draft -> Uma Ban -> Uma Draft -> Active -> Completed)
             // ==========================================
             if (formatId === 'uma-draft') {
                 switch (t.status) {
@@ -72,8 +72,8 @@ export function useTournamentFlow(
                 }
             }
 
-                // ==========================================
-                // FORMAT: UMA BAN (Registration -> Draft -> Ban -> Active -> Completed)
+            // ==========================================
+            // FORMAT: BLIND PICK (Registration -> Player Draft -> Uma Ban -> Active -> Completed)
             // ==========================================
             else {
                 switch (t.status) {
@@ -117,80 +117,6 @@ export function useTournamentFlow(
             isAdvancing.value = false;
         }
     };
-
-    // /**
-    //  * Central state machine: advances the tournament to the next phase.
-    //  *
-    //  * registration → draft (creates teams + draft order)
-    //  * draft → ban (uma-ban format) or pick (uma-draft format)
-    //  * ban / pick → active
-    //  * active → completed (syncs player metadata)
-    //  */
-    // const advancePhase = async () => {
-    //     if (!tournament.value || isAdvancing.value) return;
-    //     isAdvancing.value = true;
-    //
-    //     try {
-    //         const t = tournament.value;
-    //         const format = t.format;
-    //         const isSmallTournament = t.teams.length < 6;
-    //
-    //         switch (t.status) {
-    //             case 'registration': {
-    //                 const { teams, draftOrder } = generateDraftStructure(t);
-    //                 await secureUpdate({
-    //                     status: 'draft',
-    //                     teams,
-    //                     draft: { order: draftOrder, currentIdx: 0 }
-    //                 });
-    //                 break;
-    //             }
-    //
-    //             case 'draft': {
-    //                 const updates: Record<string, any> = { banTimerStart: null };
-    //
-    //                 if (format?.id === 'uma-draft') {
-    //                     updates.status = 'pick';
-    //                     updates.draft = {
-    //                         order: generateUmaDraftOrder(t),
-    //                         currentIdx: 0
-    //                     };
-    //                 } else {
-    //                     // Default: uma-ban format
-    //                     updates.status = 'ban';
-    //                 }
-    //
-    //                 await secureUpdate(updates);
-    //                 break;
-    //             }
-    //
-    //             case 'ban':
-    //             case 'pick': {
-    //                 await secureUpdate({
-    //                     status: 'active',
-    //                     stage: isSmallTournament ? 'finals' : 'groups',
-    //                     banTimerStart: null
-    //                 });
-    //                 break;
-    //             }
-    //
-    //             case 'active': {
-    //                 const completedAt = new Date().toISOString();
-    //                 await secureUpdate({ status: 'completed', completedAt });
-    //
-    //                 // Atomically claim and sync global player metadata
-    //                 try {
-    //                     await claimAndSyncMetadata(t, appId);
-    //                 } catch (e) {
-    //                     console.error('Failed to sync tournament metadata on completion:', e);
-    //                 }
-    //                 break;
-    //             }
-    //         }
-    //     } finally {
-    //         isAdvancing.value = false;
-    //     }
-    // };
 
     /**
      * Reopen a completed tournament: unsync metadata first, then revert status.

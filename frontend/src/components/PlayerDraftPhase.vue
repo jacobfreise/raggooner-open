@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, toRef, computed } from 'vue';
 import type { Tournament, FirestoreUpdate, GlobalPlayer, Season } from '../types';
-import { useDraft } from '../composables/useDraft';
+import { usePlayerDraft } from '../composables/usePlayerDraft';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
 import {getPlayerName} from "../utils/utils";
 
@@ -57,7 +57,7 @@ const {
   randomWheelRotation,
   randomCandidates,
   getRandomWheelGradient
-} = useDraft(tournamentRef, props.secureUpdate, isAdminRef);
+} = usePlayerDraft(tournamentRef, props.secureUpdate, isAdminRef);
 
 const { advancePhase, isAdvancing } = useTournamentFlow(tournamentRef, props.secureUpdate);
 
@@ -82,9 +82,9 @@ const sortedAvailablePlayers = computed(() => {
           <div>
             <h2 class="text-3xl font-bold text-white flex items-center gap-3">
               <i class="ph-fill ph-users-three text-indigo-400"></i>
-              Team Draft
+              Player Draft
             </h2>
-            <p class="text-slate-400 text-sm">Captains are picking their team.</p>
+            <p class="text-slate-400 text-sm">Captains draft their team members.</p>
           </div>
 
           <div class="flex items-center gap-4 w-full sm:w-auto">
@@ -206,7 +206,7 @@ const sortedAvailablePlayers = computed(() => {
         <div class="bg-slate-800/50 border border-emerald-500/30 rounded-xl p-6 text-center space-y-4">
           <div class="flex items-center justify-center gap-3">
             <i class="ph-fill ph-check-circle text-emerald-400 text-3xl"></i>
-            <h3 class="text-2xl font-bold text-white">Draft Complete</h3>
+            <h3 class="text-2xl font-bold text-white">Player Draft Complete</h3>
           </div>
           <p class="text-slate-400">All players have been drafted. Review the squads below, then continue.</p>
 
