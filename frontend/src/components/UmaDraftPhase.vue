@@ -264,29 +264,65 @@ const isBanned = (uma: string) => {
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 mt-8">
         <div v-for="team in teamsInDraftOrder" :key="team.id"
-             class="bg-slate-900 border border-slate-800 rounded-lg p-4">
-          <div class="flex justify-between items-center mb-2">
-            <span class="font-bold text-white" :style="{ color: team.color }">{{ team.name }}</span>
-          </div>
-          <div class="space-y-2">
-            <div class="flex items-center gap-2 text-sm text-amber-400">
-              <i class="ph-fill ph-crown"></i> {{ getPlayerName(tournament, team.captainId) }}
+             class="relative bg-slate-800/80 backdrop-blur-sm border-t-4 border-b border-x border-slate-700 rounded-xl p-5 transition-all duration-300 hover:-translate-y-1"
+             :style="{
+               borderTopColor: team.color,
+               boxShadow: `0 10px 25px -5px ${team.color}20`
+             }">
+
+          <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-700/50">
+            <h4 class="text-xl font-black tracking-wide drop-shadow-sm" :style="{ color: team.color }">
+              {{ team.name }}
+            </h4>
+            <div class="text-[10px] font-bold text-slate-400 bg-slate-900/80 px-2 py-1 rounded border border-slate-700 uppercase tracking-wider">
+              {{ team.memberIds.length + 1 }} Players
             </div>
-            <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ">
-              <i class="ph-fill ph-user"></i> {{ getPlayerName(tournament, memberId) }}
+          </div>
+
+          <div class="space-y-2 mb-5">
+            <div class="flex items-center gap-3 bg-gradient-to-r from-amber-500/10 to-transparent border-l-2 border-amber-500 px-3 py-2 rounded-r-lg">
+              <i class="ph-fill ph-crown text-amber-400 text-lg drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]"></i>
+              <span class="text-sm font-bold text-amber-100">{{ getPlayerName(tournament, team.captainId) }}</span>
             </div>
 
-            <div v-if="team.umaPool && team.umaPool.length > 0" class="mt-3 pt-3 border-t border-slate-800">
-              <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-2">Uma Pool</div>
-              <div v-for="uma in team.umaPool" :key="uma" class="flex items-center gap-2 text-sm text-indigo-300 ">
-                <i class="ph-fill ph-horse"></i> {{ uma }}
+            <div v-if="team.memberIds.length > 0" class="grid grid-cols-2 gap-2 mt-2">
+              <div v-for="memberId in team.memberIds" :key="memberId"
+                   class="flex items-center gap-2 bg-slate-900/50 px-3 py-1.5 rounded-lg border border-slate-700/30">
+                <i class="ph-fill ph-user text-slate-500"></i>
+                <span class="text-sm font-medium text-slate-300 truncate">{{ getPlayerName(tournament, memberId) }}</span>
               </div>
             </div>
           </div>
+
+          <div class="bg-slate-900/80 rounded-lg p-4 border border-slate-700/50">
+            <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-3 flex items-center justify-between">
+              <span>Drafted Umas</span>
+              <i class="ph-fill ph-check-circle text-emerald-500/70 text-sm"></i>
+            </div>
+
+            <div v-if="team.umaPool && team.umaPool.length > 0" class="flex flex-wrap gap-2">
+              <div v-for="uma in team.umaPool" :key="uma"
+                   class="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded border shadow-sm"
+                   :style="{
+                     backgroundColor: team.color + '15',
+                     borderColor: team.color + '40',
+                     color: '#ffffff'
+                   }">
+                <i class="ph-fill ph-horse" :style="{ color: team.color }"></i>
+                <span class="drop-shadow-md">{{ uma }}</span>
+              </div>
+            </div>
+
+            <div v-else class="text-xs text-slate-600 italic flex items-center gap-2">
+              <i class="ph ph-warning-circle"></i> No Umas Drafted
+            </div>
+          </div>
+
         </div>
       </div>
+
     </template>
 
     <div v-if="showRandomModal" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md">
