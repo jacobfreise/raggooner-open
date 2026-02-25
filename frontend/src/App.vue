@@ -82,7 +82,7 @@ onMounted(() => {
     <router-view class="flex-grow flex flex-col"></router-view>
 
     <footer class="border-t border-slate-800 bg-slate-900/50 py-8 mt-auto backdrop-blur-sm">
-      <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div class="max-w-[1800px] mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
         <div class="text-xs font-mono text-slate-600 flex items-center gap-2">
           <i class="ph-bold ph-code"></i>
           <span>
