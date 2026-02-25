@@ -78,52 +78,55 @@ const isBanned = (uma: string) => {
     <!-- Draft in progress -->
     <template v-if="!isDraftComplete">
       <!-- Header Bar -->
-      <div class="sticky top-20 z-30 bg-slate-900/90 backdrop-blur-md p-4 rounded-xl border border-slate-700 shadow-xl flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div>
-          <h2 class="text-3xl font-bold text-white flex items-center gap-3">
-            <i class="ph-fill ph-horse text-indigo-400"></i>
-            Uma Draft
-          </h2>
-          <p class="text-slate-400 text-sm">Teams draft their Uma pool in snake order.</p>
-        </div>
+      <div class="sticky top-20 z-30 flex flex-col shadow-xl rounded-xl overflow-hidden border border-slate-700 bg-slate-900/95 backdrop-blur-md transition-all">
 
-        <div class="flex items-center gap-4 w-full sm:w-auto">
-          <button v-if="isAdmin && tournament.draft && tournament.draft.currentIdx > 0"
-                  @click="undoLastPick"
-                  class="text-slate-500 hover:text-white flex items-center gap-2 px-3 py-2 rounded hover:bg-slate-800 transition-colors">
-            <i class="ph-bold ph-arrow-u-up-left"></i>
-            <span class="hidden sm:inline">Undo</span>
-          </button>
+        <div class="p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div>
+            <h2 class="text-3xl font-bold text-white flex items-center gap-3">
+              <i class="ph-fill ph-horse text-indigo-400"></i>
+              Uma Draft
+            </h2>
+            <p class="text-slate-400 text-sm">Teams draft their Uma pool in snake order.</p>
+          </div>
 
-          <div class="text-right hidden sm:block">
-            <div class="text-2xl font-mono font-bold text-indigo-400">
-              {{ remainingPicks.length }}
+          <div class="flex items-center gap-4 w-full sm:w-auto">
+            <button v-if="isAdmin && tournament.draft && tournament.draft.currentIdx > 0"
+                    @click="undoLastPick"
+                    class="text-slate-500 hover:text-white flex items-center gap-2 px-3 py-2 rounded hover:bg-slate-800 transition-colors">
+              <i class="ph-bold ph-arrow-u-up-left"></i>
+              <span class="hidden sm:inline">Undo</span>
+            </button>
+
+            <div class="text-right hidden sm:block">
+              <div class="text-2xl font-mono font-bold text-indigo-400">
+                {{ remainingPicks.length }}
+              </div>
+              <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Remaining</div>
             </div>
-            <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Remaining</div>
           </div>
         </div>
-      </div>
 
-      <!-- Draft Order Preview -->
-      <div class="bg-slate-800 p-4 rounded-xl border border-indigo-500/30 flex flex-col md:flex-row items-center gap-4 shadow-lg shadow-indigo-900/10 overflow-hidden">
-        <div class="flex-1 flex items-center gap-3 overflow-x-auto overflow-y-hidden hide-scrollbar">
-          <span class="text-slate-400 uppercase text-xs font-bold tracking-wider shrink-0">Order:</span>
+        <div class="bg-slate-800/50 px-4 py-3 flex flex-col md:flex-row items-center gap-4 border-t border-slate-700/50 shadow-inner">
+          <div class="flex-1 flex items-center gap-3 overflow-x-auto overflow-y-hidden hide-scrollbar w-full">
+            <span class="text-slate-400 uppercase text-xs font-bold tracking-wider shrink-0">Draft Order:</span>
 
-          <div v-for="(pick, idx) in remainingPicks" :key="pick.id"
-               class="flex items-center shrink-0 transition-all duration-300"
-               :class="pick.isCurrent ? 'scale-110 mx-3 opacity-100' : 'scale-90 opacity-50'">
+            <div v-for="(pick, idx) in remainingPicks" :key="pick.id"
+                 class="flex items-center shrink-0 transition-all duration-300"
+                 :class="pick.isCurrent ? 'scale-110 mx-3 opacity-100' : 'scale-90 opacity-50'">
 
-            <span class="font-bold whitespace-nowrap tracking-wide"
-                  :class="pick.isCurrent ? 'text-xl drop-shadow-md' : 'text-sm'"
-                  :style="{ color: pick.color }">
-              {{ pick.teamName }}
-            </span>
+              <span class="font-bold whitespace-nowrap tracking-wide"
+                    :class="pick.isCurrent ? 'text-xl drop-shadow-md' : 'text-sm'"
+                    :style="{ color: pick.color }">
+                {{ pick.teamName }}
+              </span>
 
-            <i v-if="idx < remainingPicks.length - 1"
-               class="ph-bold ph-caret-right text-slate-600 ml-3"
-               :class="pick.isCurrent ? 'text-lg' : 'text-xs'"></i>
+              <i v-if="idx < remainingPicks.length - 1"
+                 class="ph-bold ph-caret-right text-slate-600 ml-3"
+                 :class="pick.isCurrent ? 'text-lg' : 'text-xs'"></i>
+            </div>
           </div>
         </div>
+
       </div>
 
       <!-- Search -->
