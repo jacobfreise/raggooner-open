@@ -38,6 +38,14 @@ export function useTournamentFlow(
                     }
                     case 'draft': {
                         await secureUpdate({
+                            status: 'ban',
+                            draft: { order: generateUmaDraftOrder(t), currentIdx: 0 },
+                            banTimerStart: new Date().toISOString()
+                        });
+                        break;
+                    }
+                    case 'ban': {
+                        await secureUpdate({
                             status: 'pick',
                             draft: { order: generateUmaDraftOrder(t), currentIdx: 0 },
                             banTimerStart: null
@@ -81,7 +89,7 @@ export function useTournamentFlow(
                     case 'draft': {
                         await secureUpdate({
                             status: 'ban',
-                            banTimerStart: null
+                            banTimerStart: new Date().toISOString()
                         });
                         break;
                     }

@@ -52,7 +52,6 @@ onMounted(async () => {
   }
 });
 
-// Add this under your other computed properties (like filteredUmas)
 const teamsInDraftOrder = computed(() => {
   const draftOrder = props.tournament.draft?.order;
   if (!draftOrder || draftOrder.length === 0) {
@@ -67,6 +66,10 @@ const teamsInDraftOrder = computed(() => {
       .map(id => props.tournament.teams.find(t => t.id === id))
       .filter((t): t is Team => t !== undefined);
 });
+
+const isBanned = (uma: string) => {
+  return props.tournament.bans?.includes(uma) ?? false;
+};
 </script>
 
 <template>
@@ -154,12 +157,21 @@ const teamsInDraftOrder = computed(() => {
 
             <button v-for="uma in filteredUmas" :key="uma"
                     @click="pickUma(uma)"
-                    :disabled="!isAdmin"
-                    class="relative group p-4 rounded-lg border-2 text-left transition-all duration-200 overflow-hidden bg-slate-800 border-slate-700 hover:border-indigo-400 hover:bg-slate-750">
+                    :disabled="!isAdmin || isBanned(uma)"
+                    class="relative group p-4 rounded-lg border-2 text-left transition-all duration-200 overflow-hidden"
+                    :class="isBanned(uma) ? 'bg-red-900/20 border-red-500/50 cursor-not-allowed opacity-80' : 'bg-slate-800 border-slate-700 hover:border-indigo-400 hover:bg-slate-750'">
+
+              <div v-if="isBanned(uma)" class="absolute inset-0 opacity-10 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8cGF0aCBkPSJNLTEgMUwyIC0xTTEgOUw5IDFNOSA5TDEgMSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+')]"></div>
+
               <div class="flex justify-between items-start relative z-10">
-                <span class="font-medium text-sm pr-2 text-slate-200 group-hover:text-white">{{ uma }}</span>
-                <div class="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors bg-slate-700 text-slate-500 group-hover:bg-indigo-500 group-hover:text-white">
-                  <i class="ph-bold ph-plus"></i>
+                <span class="font-medium text-sm pr-2"
+                      :class="isBanned(uma) ? 'text-red-300 line-through decoration-red-500/50' : 'text-slate-200 group-hover:text-white'">
+                  {{ uma }}
+                </span>
+
+                <div class="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors"
+                     :class="isBanned(uma) ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-500 group-hover:bg-indigo-500 group-hover:text-white'">
+                  <i class="ph-bold" :class="isBanned(uma) ? 'ph-x' : 'ph-plus'"></i>
                 </div>
               </div>
             </button>

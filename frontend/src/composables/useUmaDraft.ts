@@ -30,7 +30,8 @@ export function useUmaDraft(
     };
 
     const startRandomUma = () => {
-        const candidates = availableUmas.value;
+        const bannedUmas = new Set(tournament.value!.bans || []);
+        const candidates = availableUmas.value.filter(uma => !bannedUmas.has(uma));
         if (candidates.length === 0 || !isAdmin.value) return;
 
         // 1. Pick the actual winner
@@ -86,9 +87,7 @@ export function useUmaDraft(
             t.umaPool?.forEach(uma => pickedUmas.add(uma));
         });
 
-        const bannedUmas = new Set(tournament.value.bans || []);
-
-        return [...UMAS].sort().filter(uma => !pickedUmas.has(uma) && !bannedUmas.has(uma));
+        return [...UMAS].sort().filter(uma => !pickedUmas.has(uma));
     });
 
     const remainingPicks = computed(() => {
