@@ -170,7 +170,7 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
             </template>
             <template v-else>
               <i class="ph-bold ph-play-circle"></i>
-              Start Draft
+              Start Player Draft
             </template>
           </button>
         </div>

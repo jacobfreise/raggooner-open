@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { toRef, ref, computed, onMounted, onUnmounted } from 'vue';
 import type { Tournament, FirestoreUpdate } from '../types';
-import { useDraft } from '../composables/useDraft';
+import { usePlayerDraft } from '../composables/usePlayerDraft';
 import { useGameLogic } from '../composables/useGameLogic';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
 import { UMAS } from '../utils/constants';
@@ -17,7 +17,7 @@ const tournamentRef = toRef(props, 'tournament');
 const isAdminRef = toRef(props, 'isAdmin');
 
 // Initialize Draft (for Undo)
-const { undoLastPick, currentDrafter } = useDraft(tournamentRef, props.secureUpdate, isAdminRef);
+const { undoLastPick, currentDrafter } = usePlayerDraft(tournamentRef, props.secureUpdate, isAdminRef);
 
 // Initialize Game Logic (for Banning)
 const { toggleBan, isBanned } = useGameLogic(tournamentRef, props.secureUpdate);
@@ -105,7 +105,7 @@ const resetBanTimer = async () => {
       </div>
 
       <div v-else class="text-center p-8 border-2 border-dashed border-slate-800 rounded-xl">
-        <h3 class="text-xl font-bold text-slate-500 animate-pulse">Waiting for Ban Phase...</h3>
+        <h3 class="text-xl font-bold text-slate-500 animate-pulse">Waiting for Uma Ban...</h3>
       </div>
 
     </div>
@@ -114,9 +114,9 @@ const resetBanTimer = async () => {
       <div>
         <h2 class="text-3xl font-bold text-white flex items-center gap-3">
           <i class="ph-fill ph-prohibit text-red-500"></i>
-          Ban Phase
+          Uma Ban
         </h2>
-        <p class="text-slate-400 text-sm">Select characters to exclude from the tournament.</p>
+        <p class="text-slate-400 text-sm">Select Umas to exclude from the tournament.</p>
       </div>
 
       <div class="flex items-center gap-4 w-full sm:w-auto">
@@ -124,7 +124,7 @@ const resetBanTimer = async () => {
                 @click="undoLastPick"
                 class="text-slate-500 hover:text-white flex items-center gap-2 px-3 py-2 rounded hover:bg-slate-800 transition-colors mr-2">
           <i class="ph-bold ph-arrow-u-up-left"></i>
-          <span class="hidden sm:inline">Back to Draft</span>
+          <span class="sm:inline">Back to Player Draft</span>
         </button>
 
         <div class="text-right hidden sm:block">

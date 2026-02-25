@@ -17,7 +17,8 @@ const isAdminRef = toRef(props, 'isAdmin');
 const {
   startUmaDraft,
   currentPicker,
-  availableUmas,
+  allUmas,
+  umaOwnerMap,
   remainingPicks,
   isDraftComplete,
   pickUma,
@@ -34,7 +35,7 @@ const umaSearch = ref('');
 
 const filteredUmas = computed(() => {
   const query = umaSearch.value.toLowerCase();
-  return availableUmas.value.filter(u => u.toLowerCase().includes(query));
+  return allUmas.value.filter(u => u.toLowerCase().includes(query));
 });
 
 onMounted(async () => {
@@ -156,20 +157,39 @@ const isBanned = (uma: string) => {
             </button>
 
             <button v-for="uma in filteredUmas" :key="uma"
-                    @click="pickUma(uma)"
-                    :disabled="!isAdmin || isBanned(uma)"
+                    @click="!umaOwnerMap.has(uma) && !isBanned(uma) && pickUma(uma)"
+                    :disabled="!isAdmin || umaOwnerMap.has(uma) || isBanned(uma)"
                     class="relative group p-4 rounded-lg border-2 text-left transition-all duration-200 overflow-hidden"
-                    :class="isBanned(uma) ? 'bg-red-900/20 border-red-500/50 cursor-not-allowed opacity-80' : 'bg-slate-800 border-slate-700 hover:border-indigo-400 hover:bg-slate-750'">
+                    :class="[
+                      umaOwnerMap.has(uma)
+                        ? 'cursor-default opacity-90'
+                        : isBanned(uma)
+                          ? 'bg-red-900/20 border-red-500/50 cursor-not-allowed opacity-80'
+                          : 'bg-slate-800 border-slate-700 hover:border-indigo-400 hover:bg-slate-750'
+                    ]"
+                    :style="umaOwnerMap.has(uma) ? {
+                      borderColor: umaOwnerMap.get(uma)!.teamColor,
+                      backgroundColor: umaOwnerMap.get(uma)!.teamColor + '15'
+                    } : {}">
 
               <div v-if="isBanned(uma)" class="absolute inset-0 opacity-10 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8cGF0aCBkPSJNLTEgMUwyIC0xTTEgOUw5IDFNOSA5TDEgMSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+')]"></div>
 
               <div class="flex justify-between items-start relative z-10">
                 <span class="font-medium text-sm pr-2"
-                      :class="isBanned(uma) ? 'text-red-300 line-through decoration-red-500/50' : 'text-slate-200 group-hover:text-white'">
+                      :class="[
+                        umaOwnerMap.has(uma) ? 'text-white/70' :
+                        isBanned(uma) ? 'text-red-300 line-through decoration-red-500/50' :
+                        'text-slate-200 group-hover:text-white'
+                      ]">
                   {{ uma }}
                 </span>
 
-                <div class="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors"
+                <div v-if="umaOwnerMap.has(uma)"
+                     class="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
+                     :style="{ backgroundColor: umaOwnerMap.get(uma)!.teamColor + '30', color: umaOwnerMap.get(uma)!.teamColor }">
+                  {{ umaOwnerMap.get(uma)!.teamName }}
+                </div>
+                <div v-else class="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors"
                      :class="isBanned(uma) ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-500 group-hover:bg-indigo-500 group-hover:text-white'">
                   <i class="ph-bold" :class="isBanned(uma) ? 'ph-x' : 'ph-plus'"></i>
                 </div>

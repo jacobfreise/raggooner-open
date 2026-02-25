@@ -11,9 +11,9 @@ import { useGameLogic } from "../composables/useGameLogic";
 import { useEasterEgg } from "../composables/useEasterEgg.ts";
 
 import RegistrationPhase from "../components/RegistrationPhase.vue";
-import DraftPhase from '../components/DraftPhase.vue';
-import BanPhase from "../components/BanPhase.vue";
-import PickPhase from "../components/PickPhase.vue";
+import PlayerDraftPhase from '../components/PlayerDraftPhase.vue';
+import UmaBanPhase from "../components/UmaBanPhase.vue";
+import UmaDraftPhase from "../components/UmaDraftPhase.vue";
 import GroupsFinalsPhase from '../components/playFormats/GroupsFinalsPhase.vue';
 
 // Inject Changelog functions from App.vue
@@ -210,9 +210,9 @@ const savePointsSystem = async () => {
           <h1 class="text-3xl font-black text-white text-center md:hidden mb-4">{{ tData.name }}</h1>
 
           <RegistrationPhase v-if="tournament.status === 'registration'" :tournament="tournament" :is-admin="isAdmin" :app-id="appId" :secure-update="secureUpdate" :global-players="globalPlayers" :add-global-player="addGlobalPlayer" :seasons="seasons" />
-          <DraftPhase v-else-if="tournament.status === 'draft'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" :global-players="globalPlayers" :seasons="seasons" />
-          <BanPhase v-else-if="tournament.status === 'ban'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" />
-          <PickPhase v-else-if="tournament.status === 'pick'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" />
+          <PlayerDraftPhase v-else-if="tournament.status === 'draft'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" :global-players="globalPlayers" :seasons="seasons" />
+          <UmaBanPhase v-else-if="tournament.status === 'ban'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" />
+          <UmaDraftPhase v-else-if="tournament.status === 'pick'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" />
           <GroupsFinalsPhase v-else-if="tournament.status === 'active' || tournament.status === 'completed'"
                        :tournament-prop="tournament"
                        :is-admin="isAdmin"
