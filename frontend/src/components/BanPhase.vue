@@ -149,7 +149,10 @@ const resetBanTimer = async () => {
 
     <div class="grid md:grid-cols-12 gap-6">
       <div class="md:col-span-8">
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div v-if="filteredUmas.length === 0" class="text-center py-12 text-slate-500">
+          No Umas found matching "{{ banSearch }}"
+        </div>
+        <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           <button v-for="uma in filteredUmas" :key="uma"
                   @click="toggleBan(uma)"
                   :disabled="!isAdmin"
@@ -190,8 +193,5 @@ const resetBanTimer = async () => {
       </div>
     </div>
 
-    <div v-if="filteredUmas.length === 0" class="text-center py-12 text-slate-500">
-      No Umas found matching "{{ banSearch }}"
-    </div>
   </div>
 </template>

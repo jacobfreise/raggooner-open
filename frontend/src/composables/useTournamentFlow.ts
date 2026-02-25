@@ -1,4 +1,4 @@
-import type {Ref} from "vue";
+import {ref, type Ref} from "vue";
 import type {FirestoreUpdate, Tournament} from "../types.ts";
 import { generateUmaDraftOrder } from "../utils/draftUtils";
 
@@ -9,54 +9,64 @@ export function useTournamentFlow(
     secureUpdate: SecureUpdateFn
 ) {
 
+    const isAdvancing = ref(false);
+
     const advancePhase = async () => {
-        if (!tournament.value) return;
+        if (!tournament.value || isAdvancing.value) return;
+        isAdvancing.value = true;
 
-        const currentStatus = tournament.value.status;
-        const format = tournament.value.format;
-        const isSmallTournament = tournament.value.teams.length < 6;
+        try {
+            const currentStatus = tournament.value.status;
+            const format = tournament.value.format;
+            const isSmallTournament = tournament.value.teams.length < 6;
 
-        let nextStatus = currentStatus;
-        let nextStage = tournament.value.stage;
+            let nextStatus = currentStatus;
+            let nextStage = tournament.value.stage;
 
-        // State Machine Logic
-        if (currentStatus === 'registration') {
-            nextStatus = 'draft';
-        } else if (currentStatus === 'draft') {
-            switch (format?.id) {
-                case 'uma-ban':
-                    nextStatus = 'ban'
-                    break;
-                case 'uma-draft':
-                    nextStatus = 'pick';
-                    break;
-                default:
-                    nextStatus = 'ban'
-                    break;
+            // State Machine Logic
+            if (currentStatus === 'registration') {
+                nextStatus = 'draft';
+            } else if (currentStatus === 'draft') {
+                switch (format?.id) {
+                    case 'uma-ban':
+                        nextStatus = 'ban'
+                        break;
+                    case 'uma-draft':
+                        nextStatus = 'pick';
+                        break;
+                    default:
+                        nextStatus = 'ban'
+                        break;
+                }
+            } else if (currentStatus === 'ban' || currentStatus === 'pick') {
+                nextStatus = 'active';
+                nextStage = isSmallTournament ? 'finals' : 'groups';
             }
-        } else if (currentStatus === 'ban' || currentStatus === 'pick') {
-            nextStatus = 'active';
-            nextStage = isSmallTournament ? 'finals' : 'groups';
-        }
 
-        const updates: Record<string, any> = {
-            status: nextStatus,
-            stage: nextStage,
-            banTimerStart: null
-        };
+            // No-op if status wouldn't actually change
+            if (nextStatus === currentStatus && nextStage === tournament.value.stage) return;
 
-        if (currentStatus === 'draft' && nextStatus === 'pick') {
-            updates.draft = {
-                order: generateUmaDraftOrder(tournament.value),
-                currentIdx: 0
+            const updates: Record<string, any> = {
+                status: nextStatus,
+                stage: nextStage,
+                banTimerStart: null
             };
-        }
 
-        // Perform the update
-        await secureUpdate(updates);
+            if (currentStatus === 'draft' && nextStatus === 'pick') {
+                updates.draft = {
+                    order: generateUmaDraftOrder(tournament.value),
+                    currentIdx: 0
+                };
+            }
+
+            await secureUpdate(updates);
+        } finally {
+            isAdvancing.value = false;
+        }
     };
 
     return {
-        advancePhase
+        advancePhase,
+        isAdvancing
     };
 }
