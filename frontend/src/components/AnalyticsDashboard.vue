@@ -1460,7 +1460,7 @@ const getRankIcon = (index: number) => {
         </div>
       </div>
 
-      <div class="flex justify-center gap-2 border-b border-slate-700">
+      <div class="flex justify-center gap-2 border-b border-slate-700 overflow-x-auto hide-scrollbar">
         <button
             v-for="tab in [
             { id: 'overview', label: 'Overview', icon: 'ph-chart-line' },
@@ -1471,7 +1471,7 @@ const getRankIcon = (index: number) => {
           ]"
             :key="tab.id"
             @click="activeTab = tab.id as any"
-            class="px-4 py-3 font-bold transition-all relative"
+            class="px-4 py-3 font-bold transition-all relative whitespace-nowrap shrink-0"
             :class="activeTab === tab.id
             ? 'text-indigo-400 border-b-2 border-indigo-400'
             : 'text-slate-400 hover:text-white'"
@@ -2286,3 +2286,13 @@ const getRankIcon = (index: number) => {
 
   </div>
 </template>
+
+<style scoped>
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+</style>
