@@ -180,19 +180,18 @@ const teamsInDraftOrder = computed(() => {
               <div class="flex items-center gap-2 text-sm text-amber-400">
                 <i class="ph-fill ph-crown"></i> {{ getPlayerName(tournament, team.captainId) }}
               </div>
-              <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ml-2">
+              <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ">
                 <i class="ph-fill ph-user"></i> {{ getPlayerName(tournament, memberId) }}
               </div>
 
-              <div v-if="team.umaPool && team.umaPool.length > 0" class="mt-3 pt-3 border-t border-slate-800">
+              <div class="mt-3 pt-3 border-t border-slate-800">
                 <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-2">Uma Pool</div>
-                <div v-for="uma in team.umaPool" :key="uma" class="flex items-center gap-2 text-sm text-indigo-300 ml-2">
+                <div v-for="uma in team.umaPool" :key="uma" class="flex items-center gap-2 text-sm text-indigo-300 ">
                   <i class="ph-fill ph-horse"></i> {{ uma }}
                 </div>
-              </div>
-              <div v-else class="mt-3 pt-3 border-t border-slate-800">
-                <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-1">Uma Pool</div>
-                <div class="text-xs text-slate-700 italic">No umas drafted yet</div>
+                <div v-for="n in (3 - (team.umaPool?.length || 0))" :key="n" class="flex items-center gap-2 text-sm text-slate-700  border-dashed border border-slate-800 p-1 rounded">
+                  <span class="text-xs">Empty Slot</span>
+                </div>
               </div>
             </div>
           </div>
@@ -240,13 +239,13 @@ const teamsInDraftOrder = computed(() => {
             <div class="flex items-center gap-2 text-sm text-amber-400">
               <i class="ph-fill ph-crown"></i> {{ getPlayerName(tournament, team.captainId) }}
             </div>
-            <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ml-2">
+            <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ">
               <i class="ph-fill ph-user"></i> {{ getPlayerName(tournament, memberId) }}
             </div>
 
             <div v-if="team.umaPool && team.umaPool.length > 0" class="mt-3 pt-3 border-t border-slate-800">
               <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-2">Uma Pool</div>
-              <div v-for="uma in team.umaPool" :key="uma" class="flex items-center gap-2 text-sm text-indigo-300 ml-2">
+              <div v-for="uma in team.umaPool" :key="uma" class="flex items-center gap-2 text-sm text-indigo-300 ">
                 <i class="ph-fill ph-horse"></i> {{ uma }}
               </div>
             </div>

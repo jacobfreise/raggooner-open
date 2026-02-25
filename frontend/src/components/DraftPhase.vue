@@ -180,19 +180,19 @@ const sortedAvailablePlayers = computed(() => {
             <h3 class="text-lg font-bold mb-3 text-slate-300">Squads</h3>
             <div v-for="team in tournament.teams" :key="team.id"
                  class="bg-slate-900 border rounded-lg p-4 transition-colors"
-                 :class="currentDrafter?.id === team.captainId ? 'border-amber-500 ring-1 ring-amber-500/50' : 'border-slate-800'">
+                 :class="currentDrafter?.id === team.id ? 'border-indigo-500 ring-1 ring-indigo-500/50' : 'border-slate-800'">
               <div class="flex justify-between items-center mb-2">
                 <span class="font-bold text-white" :style="{ color: team.color }">{{ team.name }}</span>
-                <i v-if="currentDrafter?.id === team.captainId" class="ph-fill ph-pencil-simple text-amber-500 animate-pulse"></i>
+                <i v-if="currentDrafter?.id === team.id" class="ph-fill ph-crosshair text-indigo-400 animate-pulse"></i>
               </div>
               <div class="space-y-2">
                 <div class="flex items-center gap-2 text-sm text-amber-400">
                   <i class="ph-fill ph-crown"></i> {{ getPlayerName(tournament, team.captainId) }}
                 </div>
-                <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ml-2">
+                <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ">
                   <i class="ph-fill ph-user"></i> {{ getPlayerName(tournament, memberId) }}
                 </div>
-                <div v-for="n in (2 - team.memberIds.length)" :key="n" class="flex items-center gap-2 text-sm text-slate-700 ml-2 border-dashed border border-slate-800 p-1 rounded">
+                <div v-for="n in (2 - team.memberIds.length)" :key="n" class="flex items-center gap-2 text-sm text-slate-700  border-dashed border border-slate-800 p-1 rounded">
                   <span class="text-xs">Empty Slot</span>
                 </div>
               </div>
@@ -240,7 +240,7 @@ const sortedAvailablePlayers = computed(() => {
               <div class="flex items-center gap-2 text-sm text-amber-400">
                 <i class="ph-fill ph-crown"></i> {{ getPlayerName(tournament, team.captainId) }}
               </div>
-              <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ml-2">
+              <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ">
                 <i class="ph-fill ph-user"></i> {{ getPlayerName(tournament, memberId) }}
               </div>
             </div>
