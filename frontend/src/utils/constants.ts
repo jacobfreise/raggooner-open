@@ -27,7 +27,7 @@ export const TOURNAMENT_FORMATS: Record<string, TournamentFormat> = {
         name:
             'Blind Pick',
         description:
-            'Classic Tournament format with 1 Uma ban per team and Uma blind picks.'
+            'Classic Tournament format with Uma bans and blind picks.'
     },
     'uma-draft': {
         id: 'uma-draft',
