@@ -79,7 +79,7 @@ const visibleStages = computed(() => {
         :current-view="currentView"
         :is-admin="isAdminRef"
         :active-players="activeStagePlayers(stage.id)"
-        :saving="saving && stage.id === 'A'"
+        :saving="saving && (stage.id === 'A' || stage.id ==='Finals')"
         :editing-race-key="editingRaceKey"
         :entry-map="entryMap"
         :get-player-color="getPlayerColor"
