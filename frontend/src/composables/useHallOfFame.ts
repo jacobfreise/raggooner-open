@@ -62,7 +62,7 @@ const categories: FameCategory[] = [
                 }
 
                 // 5. Must have played at least 1 race and been flawless
-                if (isFlawless && raceCount > 0) {
+                if (isFlawless && raceCount > 2) {
                     // If multiple teams are flawless (impossible?), tie-break by race count
                     if (raceCount > maxRaces) {
                         maxRaces = raceCount;
