@@ -37,9 +37,11 @@ export function useTournamentFlow(
                         break;
                     }
                     case 'draft': {
+                        // Don't overwrite draft.order — ban phase doesn't need it,
+                        // and the original player draft order is needed to generate
+                        // the reversed uma draft order in the next transition.
                         await secureUpdate({
                             status: 'ban',
-                            draft: { order: generateUmaDraftOrder(t), currentIdx: 0 },
                             banTimerStart: new Date().toISOString()
                         });
                         break;
