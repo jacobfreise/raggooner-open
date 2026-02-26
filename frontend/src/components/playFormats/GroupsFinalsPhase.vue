@@ -722,7 +722,7 @@ const sortedTeamsForModal = computed(() => {
 
         <div v-show="showUmaPools" class="border-t border-indigo-500/10 bg-indigo-950/10 p-4">
           <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-            <div v-for="team in tournament.teams" :key="team.id"
+            <div v-for="team in sortedTeamsForModal" :key="team.id"
                  class="relative bg-slate-800/80 backdrop-blur-sm border-t-4 border-b border-x border-slate-700 rounded-xl p-5"
                  :style="{
                    borderTopColor: team.color,

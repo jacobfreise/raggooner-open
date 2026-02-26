@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {onMounted, ref, provide, computed} from 'vue';
+import type { Tournament } from './types';
 import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { auth } from './firebase';
 import { APP_VERSION } from './data/changelog';
@@ -47,6 +48,10 @@ const closeChangelog = () => {
 // Share these with ALL router views (so any header can open the changelog)
 provide('openChangelog', openChangelog);
 provide('hasNewUpdates', hasNewUpdates);
+
+// Shared tournament ref — set by TournamentView, cleared by HomeView
+const activeTournament = ref<Tournament | null>(null);
+provide('activeTournament', activeTournament);
 
 onMounted(() => {
   init();

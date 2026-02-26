@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import {onMounted, ref} from 'vue';
+import {onMounted, ref, computed, inject, type Ref} from 'vue';
 import { db } from '../../firebase.ts';
 import {collection, doc, getDocs, orderBy, query, setDoc, updateDoc, writeBatch} from 'firebase/firestore';
-import type {Season} from "../../types.ts";
+import type {Season, Tournament, Race} from "../../types.ts";
+import { claimAndSyncMetadata, claimAndUnsyncMetadata } from '../../utils/metadataSync.ts';
 
 defineProps<{ isOpen: boolean }>();
 const emit = defineEmits(['close']);
+
+// Inject tournament context from TournamentView (null on HomeView)
+const activeTournament = inject<Ref<Tournament | null>>('activeTournament', ref(null));
 
 const isCreatingSeason = ref(false);
 
@@ -220,6 +224,158 @@ const selectForMerge = (player: any, type: 'keeper' | 'duplicate') => {
   if (type === 'keeper') keeper.value = player;
   else duplicate.value = player;
   playerSearchQuery.value = '';
+};
+
+// --- Swap Player State (Tournament-Specific) ---
+const showSwapTool = ref(false);
+const swapOldPlayer = ref<any | null>(null);
+const swapNewPlayer = ref<any | null>(null);
+const swapOldSearchQuery = ref('');
+const swapNewSearchQuery = ref('');
+const isSwapping = ref(false);
+
+const tournamentPlayers = computed(() => {
+  const t = activeTournament.value;
+  if (!t) return [];
+  return Object.values(t.players).map(p => ({ id: p.id, name: p.name }));
+});
+
+const selectSwapOld = (player: any) => {
+  swapOldPlayer.value = player;
+  swapOldSearchQuery.value = '';
+};
+
+const selectSwapNew = (player: any) => {
+  swapNewPlayer.value = player;
+  swapNewSearchQuery.value = '';
+};
+
+const executeSwap = async () => {
+  const t = activeTournament.value;
+  if (!t || !swapOldPlayer.value || !swapNewPlayer.value) return;
+
+  const oldId = swapOldPlayer.value.id;
+  const newId = swapNewPlayer.value.id;
+  const newName = swapNewPlayer.value.name;
+
+  if (oldId === newId) {
+    alert("Old and new player are the same.");
+    return;
+  }
+
+  if (t.players[newId]) {
+    alert(`"${newName}" is already in this tournament.`);
+    return;
+  }
+
+  const oldName = t.players[oldId]?.name || swapOldPlayer.value.name;
+  const confirmMsg = `Swap "${oldName}" → "${newName}" in this tournament?\n\nThis will update all player references (teams, races, wildcards). This cannot be undone.`;
+  if (!confirm(confirmMsg)) return;
+
+  isSwapping.value = true;
+  const appId = 'default-app';
+
+  try {
+    const wasSynced = !!t.metadataSynced;
+
+    // 1. If metadata was synced, unsync first (decrements old player stats)
+    if (wasSynced) {
+      await claimAndUnsyncMetadata(t, appId);
+    }
+
+    // 2. Build the update payload
+    const updates: Record<string, any> = {};
+
+    // Update players map: copy old player data with new id/name, delete old
+    const oldPlayer = t.players[oldId]!;
+    const players: Record<string, typeof oldPlayer> = { ...t.players };
+    players[newId] = { ...oldPlayer, id: newId, name: newName };
+    delete players[oldId];
+    updates.players = players;
+
+    // Update playerIds array
+    const playerIds = t.playerIds.map(id => id === oldId ? newId : id);
+    updates.playerIds = playerIds;
+
+    // Update teams
+    const teams = t.teams.map(team => {
+      let changed = false;
+      let captainId = team.captainId;
+      let memberIds = [...team.memberIds];
+      let teamName = team.name;
+
+      if (captainId === oldId) {
+        captainId = newId;
+        changed = true;
+        // Update team name if it follows "Team OldName" pattern
+        if (teamName === `Team ${oldName}`) {
+          teamName = `Team ${newName}`;
+        }
+      }
+      if (memberIds.includes(oldId)) {
+        memberIds = memberIds.map(id => id === oldId ? newId : id);
+        changed = true;
+      }
+
+      return changed ? { ...team, captainId, memberIds, name: teamName } : team;
+    });
+    updates.teams = teams;
+
+    // Update races
+    const races: Record<string, Race> = { ...t.races };
+    let racesChanged = false;
+    for (const rKey of Object.keys(races)) {
+      const race = races[rKey]!;
+      if (race.placements && oldId in race.placements) {
+        const placements = { ...race.placements };
+        placements[newId] = placements[oldId]!;
+        delete placements[oldId];
+        races[rKey] = { ...race, placements };
+        racesChanged = true;
+      }
+    }
+    if (racesChanged) {
+      updates.races = races;
+    }
+
+    // Update wildcards
+    if (t.wildcards?.some(w => w.playerId === oldId)) {
+      updates.wildcards = t.wildcards.map(w =>
+        w.playerId === oldId ? { ...w, playerId: newId } : w
+      );
+    }
+
+    // 3. Write to Firestore
+    const tournamentRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', t.id);
+    await updateDoc(tournamentRef, updates);
+
+    // 4. If was synced, resync with post-swap tournament data (increments new player stats)
+    if (wasSynced) {
+      // Build a post-swap tournament object for the resync function
+      const swappedTournament: Tournament = {
+        ...t,
+        players: players,
+        playerIds: playerIds,
+        teams: teams,
+        races: racesChanged ? races : t.races,
+        wildcards: updates.wildcards || t.wildcards,
+        metadataSynced: false, // unsync set this to false
+      };
+      await claimAndSyncMetadata(swappedTournament, appId);
+    }
+
+    alert(`Swap Complete!\n"${oldName}" → "${newName}"`);
+
+    // Reset state
+    swapOldPlayer.value = null;
+    swapNewPlayer.value = null;
+    showSwapTool.value = false;
+  } catch (e: any) {
+    console.error(e);
+    alert("Swap Failed: " + e.message);
+  } finally {
+    isSwapping.value = false;
+  }
 };
 
 const executeMerge = async () => {
@@ -460,6 +616,19 @@ const executeMerge = async () => {
             </button>
           </div>
         </section>
+
+        <section v-if="activeTournament" class="space-y-3">
+          <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Tournament</h3>
+          <div class="grid gap-2">
+            <button
+                @click="showSwapTool = true; fetchPlayers()"
+                class="flex items-center gap-3 w-full p-3 bg-slate-800 hover:bg-amber-600/20 border border-slate-700 hover:border-amber-500/50 rounded-xl text-white transition-all group"
+            >
+              <i class="ph-bold ph-swap text-xl text-amber-400 group-hover:scale-110 transition-transform"></i>
+              <span class="text-sm font-bold">Swap Player</span>
+            </button>
+          </div>
+        </section>
       </div>
       <section v-else-if="showEditList" class="space-y-3">
         <div class="flex items-center justify-between px-2">
@@ -569,6 +738,91 @@ const executeMerge = async () => {
               {{ isRenaming ? 'Renaming...' : 'Confirm Rename' }}
             </button>
           </div>
+        </div>
+      </section>
+
+      <section v-if="showSwapTool" class="space-y-4 animate-in slide-in-from-right-4 duration-200">
+        <div class="flex items-center justify-between px-2">
+          <h3 class="text-xs font-bold text-amber-400 uppercase tracking-widest">Swap Player</h3>
+          <button @click="showSwapTool = false; swapOldPlayer = null; swapNewPlayer = null" class="text-[10px] text-slate-500 font-bold uppercase hover:text-white">Cancel</button>
+        </div>
+
+        <div class="bg-slate-800/30 p-4 rounded-xl border border-slate-800 space-y-4">
+          <!-- Old Player (from tournament) -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Old Player (in tournament)</label>
+            <div v-if="!swapOldPlayer">
+              <input
+                  v-model="swapOldSearchQuery"
+                  type="text"
+                  placeholder="Search tournament players..."
+                  class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
+              />
+              <div v-if="swapOldSearchQuery" class="max-h-40 overflow-y-auto bg-slate-900 border border-slate-700 rounded-lg shadow-xl mt-1">
+                <button
+                    v-for="p in tournamentPlayers.filter(p => p.name.toLowerCase().includes(swapOldSearchQuery.toLowerCase()))"
+                    :key="p.id"
+                    @click="selectSwapOld(p)"
+                    class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-amber-600 hover:text-white border-b border-slate-800 last:border-0"
+                >
+                  {{ p.name }} <span class="text-[9px] opacity-50 font-mono">({{ p.id }})</span>
+                </button>
+              </div>
+            </div>
+            <div v-else class="p-3 bg-slate-900 rounded-lg border border-slate-700">
+              <div class="text-[9px] font-black text-amber-400 uppercase mb-1">Removing</div>
+              <div class="text-xs font-bold text-white">{{ swapOldPlayer.name }}</div>
+              <div class="text-[9px] text-slate-500 font-mono">{{ swapOldPlayer.id }}</div>
+              <button @click="swapOldPlayer = null" class="text-[9px] text-rose-400 mt-1 hover:underline">Change</button>
+            </div>
+          </div>
+
+          <!-- Arrow -->
+          <div class="flex justify-center text-slate-600">
+            <i class="ph-bold ph-arrow-down text-lg"></i>
+          </div>
+
+          <!-- New Player (from global list) -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">New Player (replacement)</label>
+            <div v-if="!swapNewPlayer">
+              <input
+                  v-model="swapNewSearchQuery"
+                  type="text"
+                  placeholder="Search all players..."
+                  class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
+              />
+              <div v-if="swapNewSearchQuery" class="max-h-40 overflow-y-auto bg-slate-900 border border-slate-700 rounded-lg shadow-xl mt-1">
+                <button
+                    v-for="p in allPlayers.filter(p => p.name.toLowerCase().includes(swapNewSearchQuery.toLowerCase()))"
+                    :key="p.id"
+                    @click="selectSwapNew(p)"
+                    class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-amber-600 hover:text-white border-b border-slate-800 last:border-0"
+                >
+                  {{ p.name }} <span class="text-[9px] opacity-50 font-mono">({{ p.id }})</span>
+                </button>
+              </div>
+            </div>
+            <div v-else class="p-3 bg-slate-900 rounded-lg border border-slate-700">
+              <div class="text-[9px] font-black text-emerald-400 uppercase mb-1">Replacing with</div>
+              <div class="text-xs font-bold text-white">{{ swapNewPlayer.name }}</div>
+              <div class="text-[9px] text-slate-500 font-mono">{{ swapNewPlayer.id }}</div>
+              <button @click="swapNewPlayer = null" class="text-[9px] text-rose-400 mt-1 hover:underline">Change</button>
+            </div>
+          </div>
+
+          <p v-if="activeTournament?.metadataSynced" class="text-[10px] text-amber-500 flex items-center gap-1">
+            <i class="ph-bold ph-warning"></i> This tournament's metadata is synced. The swap will unsync/resync global player stats automatically.
+          </p>
+
+          <button
+              @click="executeSwap"
+              :disabled="!swapOldPlayer || !swapNewPlayer || isSwapping"
+              class="w-full py-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-30 disabled:grayscale text-white rounded-xl font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2"
+          >
+            <i v-if="isSwapping" class="ph-bold ph-circle-notch animate-spin"></i>
+            {{ isSwapping ? 'Swapping...' : 'Confirm Swap' }}
+          </button>
         </div>
       </section>
 

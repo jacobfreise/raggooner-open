@@ -25,6 +25,12 @@ const router = useRouter();
 const appId = 'default-app';
 
 const tournament = ref<Tournament | null>(null);
+const activeTournament = inject<Ref<Tournament | null>>('activeTournament')!;
+
+// Keep the shared activeTournament ref in sync with the local tournament
+watch(tournament, (t) => { activeTournament.value = t; }, { immediate: true });
+onUnmounted(() => { activeTournament.value = null; });
+
 const loading = ref(true);
 const hasInitialViewLoaded = ref(false);
 let currentUnsubscribe: (() => void) | null = null;
