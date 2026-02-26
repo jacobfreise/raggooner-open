@@ -87,7 +87,7 @@ export interface FameCategory {
     gradient?: string;
     tieHandling: TieHandling;
     // The magic: Function returns the player(s) who won this category
-    // Returns: { player: Player, value: string | number }
+    // Returns: { player: Player | Team, value: string | number }
     calculate: (tournament: Tournament) => FameResult[];
 }
 
@@ -100,7 +100,7 @@ export interface Season {
     name: string;                   // z.B. "Season 1", "Winter 2024"
     startDate: string;              // ISO timestamp
     endDate?: string;               // ISO timestamp
-    tournamentIds: string[];        // Referenzen zu Turnieren
+    tournamentIds: string[];
     description?: string;
 }
 

@@ -353,7 +353,7 @@ onMounted(() => {
                     <i class="ph-fill ph-users"></i> {{ Object.keys(t.players || {}).length }} Players
                   </div>
                   <div class="flex items-center gap-2">
-                    <i class="ph-fill ph-cards"></i> {{ t.format ? TOURNAMENT_FORMATS[t.format]?.name || 'Blind Pick' : 'Blind Pick' }}
+                    <i class="ph-fill ph-tree-structure"></i> {{ t.format ? TOURNAMENT_FORMATS[t.format]?.name || 'Blind Pick' : 'Blind Pick' }}
                   </div>
                   <div class="flex items-center gap-2">
                     <i class="ph-fill ph-trophy"></i> {{ formatTournamentStatus(t) }}
