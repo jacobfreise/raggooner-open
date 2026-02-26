@@ -6,6 +6,7 @@ import { useTournamentFlow } from '../../composables/useTournamentFlow.ts';
 import { useRoster } from '../../composables/useRoster.ts';
 import {
   getRankColor,
+  getPlayerName,
 } from '../../utils/utils.ts';
 import HallOfFame from "../HallOfFame.vue";
 import DiscordExportPreview from "../DiscordExportPreview.vue";
@@ -101,6 +102,7 @@ const tournamentPlayerIds = computed(() => {
 });
 
 const showBans = ref(false);
+const showUmaPools = ref(false);
 const showPlayerOrUmaName = ref(true);
 
 // Helper for 'shouldShowGroup' since it relies on local 'currentView'
@@ -696,6 +698,89 @@ const sortedTeamsForModal = computed(() => {
           Reopen for Corrections
         </template>
       </button>
+    </div>
+
+<!--    UMA POOLS (uma-draft format only) -->
+    <div v-if="tournament.format === 'uma-draft' && tournament.teams.some(t => t.umaPool && t.umaPool.length > 0)" class="mb-8">
+      <div class="bg-indigo-900/10 border border-indigo-500/20 rounded-xl overflow-hidden transition-all duration-300"
+           :class="showUmaPools ? 'shadow-lg shadow-indigo-900/10' : ''">
+
+        <button @click="showUmaPools = !showUmaPools"
+                class="w-full px-4 py-3 flex items-center justify-between hover:bg-indigo-500/5 transition-colors group">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-colors">
+              <i class="ph-fill ph-horse text-lg"></i>
+            </div>
+            <div class="text-left">
+              <span class="block text-indigo-200 font-bold uppercase tracking-wider text-sm">Uma Pools</span>
+              <span class="text-xs text-indigo-400/70">Drafted umas per team</span>
+            </div>
+          </div>
+          <i class="ph-bold ph-caret-down text-indigo-400 transition-transform duration-300"
+             :class="showUmaPools ? 'rotate-180' : ''"></i>
+        </button>
+
+        <div v-show="showUmaPools" class="border-t border-indigo-500/10 bg-indigo-950/10 p-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div v-for="team in tournament.teams" :key="team.id"
+                 class="relative bg-slate-800/80 backdrop-blur-sm border-t-4 border-b border-x border-slate-700 rounded-xl p-5"
+                 :style="{
+                   borderTopColor: team.color,
+                   boxShadow: `0 10px 25px -5px ${team.color}20`
+                 }">
+
+              <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-700/50">
+                <h4 class="text-xl font-black tracking-wide drop-shadow-sm" :style="{ color: team.color }">
+                  {{ team.name }}
+                </h4>
+                <div class="text-[10px] font-bold text-slate-400 bg-slate-900/80 px-2 py-1 rounded border border-slate-700 uppercase tracking-wider">
+                  {{ team.memberIds.length + 1 }} Players
+                </div>
+              </div>
+
+              <div class="space-y-2 mb-5">
+                <div class="flex items-center gap-3 bg-gradient-to-r from-amber-500/10 to-transparent border-l-2 border-amber-500 px-3 py-2 rounded-r-lg">
+                  <i class="ph-fill ph-crown text-amber-400 text-lg drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]"></i>
+                  <span class="text-sm font-bold text-amber-100">{{ getPlayerName(tournament, team.captainId) }}</span>
+                </div>
+
+                <div v-if="team.memberIds.length > 0" class="grid grid-cols-2 gap-2 mt-2">
+                  <div v-for="memberId in team.memberIds" :key="memberId"
+                       class="flex items-center gap-2 bg-slate-900/50 px-3 py-1.5 rounded-lg border border-slate-700/30">
+                    <i class="ph-fill ph-user text-slate-500"></i>
+                    <span class="text-sm font-medium text-slate-300 truncate">{{ getPlayerName(tournament, memberId) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-slate-900/80 rounded-lg p-4 border border-slate-700/50">
+                <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-3 flex items-center justify-between">
+                  <span>Drafted Umas</span>
+                  <i class="ph-fill ph-check-circle text-emerald-500/70 text-sm"></i>
+                </div>
+
+                <div v-if="team.umaPool && team.umaPool.length > 0" class="flex flex-wrap gap-2">
+                  <div v-for="uma in team.umaPool" :key="uma"
+                       class="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded border shadow-sm"
+                       :style="{
+                         backgroundColor: team.color + '15',
+                         borderColor: team.color + '40',
+                         color: '#ffffff'
+                       }">
+                    <i class="ph-fill ph-horse" :style="{ color: team.color }"></i>
+                    <span class="drop-shadow-md">{{ uma }}</span>
+                  </div>
+                </div>
+
+                <div v-else class="text-xs text-slate-600 italic flex items-center gap-2">
+                  <i class="ph ph-warning-circle"></i> No Umas Drafted
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
 <!--    RACE RESULT INPUTS-->
