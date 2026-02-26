@@ -39,7 +39,7 @@ export const TOURNAMENT_FORMATS: Record<string, TournamentFormat> = {
 }
 
 export const SUPERADMIN_UIDS = [
-    'mehTFP5BuqdrT6mw4xqnaNrHSMk1', 'j7kIBg1mIXO5m824GeBQmXYfb6q2', 'LCwXSR9TZUPqdpv8qM7qD3y7m0uh'
+    'mehTFP5BuqdrT6mw4xqnaNrHSMk1', 'j7kIBg1mIXO5m824GeBQmXYfb6q2', 'LCwXSR9TZUPqdpv8qM7qD3y7m0uh', 'JXs2aov8XqTfnB9XLOVHVNzw3psv'
 ];
 
 export const UMAS = [
