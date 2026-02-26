@@ -63,10 +63,19 @@ export function usePlayerDraft(
         const count = randomCandidates.value.length;
         if (count === 0) return '';
         const slice = 100 / count;
-        const colors = ['#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
+        const palette = ['#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
 
-        const stops = randomCandidates.value.map((_, i) => {
-            const color = colors[i % colors.length];
+        // Assign colors so no two adjacent slices (including wrap-around) share a color
+        const colors: string[] = [];
+        for (let i = 0; i < count; i++) {
+            const used = new Set<string>();
+            if (i > 0) used.add(colors[i - 1]!);
+            if (i === count - 1 && count > 2) used.add(colors[0]!);
+            const available = palette.filter(c => !used.has(c));
+            colors.push(available[i % available.length]!);
+        }
+
+        const stops = colors.map((color, i) => {
             return `${color} ${i * slice}% ${(i + 1) * slice}%`;
         });
         return `conic-gradient(from 0deg, ${stops.join(', ')})`;
