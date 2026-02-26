@@ -74,13 +74,20 @@ const saveSeasonUpdate = async () => {
 onMounted(fetchSeasons);
 
 const createNewSeason = async () => {
+  const idInput = prompt("Enter Season ID slug (e.g. season-1):");
+  if (!idInput) return;
+  if (seasons.value.map(s => s.id).includes(idInput)) {
+    alert("ID already exists!")
+    return;
+  }
+
   const name = prompt("Enter Season Name (e.g. Season 3):");
   if (!name) return;
 
   const description = prompt("Enter Season Description (e.g. Third Season):");
   if (!description) return;
 
-  const id = name.toLowerCase().replace(/\s+/g, '-');
+  const id = idInput.toLowerCase().replace(/\s+/g, '-');
   const startDate = prompt("Enter Start Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
   if (!startDate) return;
 
