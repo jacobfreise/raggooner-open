@@ -47,10 +47,13 @@ export function useTournamentFlow(
                         break;
                     }
                     case 'ban': {
+                        const now = new Date().toISOString();
                         await secureUpdate({
                             status: 'pick',
                             draft: { order: generateUmaDraftOrder(t), currentIdx: 0 },
-                            banTimerStart: null
+                            banTimerStart: null,
+                            draftPhaseTimerStart: now,
+                            draftLastPickTime: now
                         });
                         break;
                     }

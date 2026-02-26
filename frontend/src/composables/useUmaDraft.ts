@@ -139,7 +139,8 @@ export function useUmaDraft(
 
         await secureUpdate({
             teams: updatedTeams,
-            'draft.currentIdx': nextIdx
+            'draft.currentIdx': nextIdx,
+            draftLastPickTime: new Date().toISOString()
         });
     };
 
@@ -164,7 +165,8 @@ export function useUmaDraft(
 
         const updates: Record<string, any> = {
             teams: updatedTeams,
-            'draft.currentIdx': prevIdx
+            'draft.currentIdx': prevIdx,
+            draftLastPickTime: new Date().toISOString()
         };
 
         await secureUpdate(updates);

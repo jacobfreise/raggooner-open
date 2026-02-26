@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { toRef, ref, computed, onMounted } from 'vue';
+import { toRef, ref, computed, onMounted, onUnmounted } from 'vue';
 import type {Tournament, FirestoreUpdate, Team} from '../types';
 import { useUmaDraft } from '../composables/useUmaDraft';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
@@ -71,6 +71,37 @@ const teamsInDraftOrder = computed(() => {
 const isBanned = (uma: string) => {
   return props.tournament.bans?.includes(uma) ?? false;
 };
+
+// --- DRAFT TIMERS ---
+const now = ref(Date.now());
+let timerInterval: number | null = null;
+
+onMounted(() => {
+  timerInterval = window.setInterval(() => {
+    now.value = Date.now();
+  }, 1000);
+});
+
+onUnmounted(() => {
+  if (timerInterval) clearInterval(timerInterval);
+});
+
+const formatTimer = (seconds: number) => {
+  if (seconds < 0) seconds = 0;
+  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const s = (seconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+};
+
+const phaseElapsed = computed(() => {
+  if (!props.tournament.draftPhaseTimerStart) return 0;
+  return Math.floor((now.value - new Date(props.tournament.draftPhaseTimerStart).getTime()) / 1000);
+});
+
+const sinceLastPick = computed(() => {
+  if (!props.tournament.draftLastPickTime) return 0;
+  return Math.floor((now.value - new Date(props.tournament.draftLastPickTime).getTime()) / 1000);
+});
 </script>
 
 <template>
@@ -96,6 +127,24 @@ const isBanned = (uma: string) => {
               <i class="ph-bold ph-arrow-u-up-left"></i>
               <span class="hidden sm:inline">Undo</span>
             </button>
+
+            <div v-if="tournament.draftPhaseTimerStart" class="hidden sm:flex items-center gap-4">
+              <div class="text-right">
+                <div class="text-2xl font-mono font-bold text-slate-400 tabular-nums">
+                  {{ formatTimer(phaseElapsed) }}
+                </div>
+                <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Phase</div>
+              </div>
+              <div class="w-px h-8 bg-slate-700"></div>
+              <div class="text-right">
+                <div class="text-2xl font-mono font-bold tabular-nums"
+                     :class="sinceLastPick >= 120 ? 'text-red-400' : sinceLastPick >= 60 ? 'text-amber-400' : 'text-slate-400'">
+                  {{ formatTimer(sinceLastPick) }}
+                </div>
+                <div class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Since Pick</div>
+              </div>
+              <div class="w-px h-8 bg-slate-700"></div>
+            </div>
 
             <div class="text-right hidden sm:block">
               <div class="text-2xl font-mono font-bold text-indigo-400">
