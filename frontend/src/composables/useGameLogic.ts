@@ -748,6 +748,8 @@ export function useGameLogic(
         if (!tournament.value) return;
         if (saving.value) return;
         saving.value = true;
+
+        const backupEntryMap = { ...entryMap.value };
         const stage = currentView.value;
         const key = raceKey(stage, group, raceNumber);
 
@@ -765,16 +767,22 @@ export function useGameLogic(
             placements
         };
 
+        editingRaceKey.value = null;
+
         try {
             await secureUpdate({
                 [`races.${key}`]: raceData,
             });
+
+            entryMap.value = {};
         } catch (e) {
             console.error(e);
+            editingRaceKey.value = key;
+            entryMap.value = backupEntryMap;
+
+            alert("An error occurred while saving. Results were not saved!");
         } finally {
             saving.value = false;
-            editingRaceKey.value = null;
-            entryMap.value = {};
         }
     };
 
