@@ -746,6 +746,7 @@ export function useGameLogic(
     // --- TAP-TO-RANK RACE INPUT (new method) ---
     const saveTapResults = async (group: string, raceNumber: number) => {
         if (!tournament.value) return;
+        if (saving.value) return;
         saving.value = true;
         const stage = currentView.value;
         const key = raceKey(stage, group, raceNumber);
