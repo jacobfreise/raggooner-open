@@ -58,12 +58,17 @@ export function useTournamentFlow(
                         await secureUpdate({
                             status: 'active',
                             stage: isSmallTournament ? 'finals' : 'groups',
-                            banTimerStart: null
+                            banTimerStart: null,
+                            activeTimerStart: new Date().toISOString(),
+                            activeTimerStopped: false
                         });
                         break;
                     }
                     case 'active': {
-                        await secureUpdate({ status: 'completed', completedAt: new Date().toISOString() });
+                        await secureUpdate({
+                            status: 'completed',
+                            completedAt: new Date().toISOString()
+                        });
                         try {
                             await claimAndSyncMetadata(t, appId);
                         } catch (e) {
@@ -99,7 +104,9 @@ export function useTournamentFlow(
                         await secureUpdate({
                             status: 'active',
                             stage: isSmallTournament ? 'finals' : 'groups',
-                            banTimerStart: null
+                            banTimerStart: null,
+                            activeTimerStart: new Date().toISOString(),
+                            activeTimerStopped: false
                         });
                         break;
                     }
@@ -136,7 +143,9 @@ export function useTournamentFlow(
 
             await secureUpdate({
                 status: 'active',
-                completedAt: null
+                completedAt: null,
+                activeTimerStart: new Date().toISOString(),
+                activeTimerStopped: false
             });
         } catch (e) {
             console.error('Failed to reopen tournament:', e);
