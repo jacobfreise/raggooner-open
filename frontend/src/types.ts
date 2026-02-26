@@ -156,6 +156,9 @@ export interface Tournament {
     usePlacementTiebreaker?: boolean;
     pointsSystem?: Record<number, number>;
     banTimerStart?: string;
+    activeTimerStart?: string;
+    activeTimerStopped?: boolean;
+    activeTimerElapsed?: number;
 }
 
 

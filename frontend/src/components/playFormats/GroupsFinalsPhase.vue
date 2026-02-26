@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, ref, toRef} from 'vue';
+import {computed, ref, toRef, onMounted, onUnmounted} from 'vue';
 import type { Tournament, FirestoreUpdate, Team } from '../../types.ts';
 import { useGameLogic } from '../../composables/useGameLogic.ts';
 import { useTournamentFlow } from '../../composables/useTournamentFlow.ts';
@@ -105,6 +105,67 @@ const showBans = ref(false);
 const showUmaPools = ref(false);
 const showPlayerOrUmaName = ref(true);
 
+// --- ACTIVE PHASE TIMER ---
+const now = ref(Date.now());
+let timerInterval: number | null = null;
+const timerCollapsed = ref(!!props.tournamentProp.activeTimerStopped);
+
+onMounted(async () => {
+  // Tick every second for UI updates
+  timerInterval = window.setInterval(() => {
+    now.value = Date.now();
+  }, 1000);
+
+  // Fallback: auto-start timer for tournaments that entered active phase
+  // before this feature existed (no activeTimerStart field yet)
+  if (!props.tournamentProp.activeTimerStart && props.tournamentProp.status === 'active' && props.isAdmin) {
+    await props.secureUpdate({ activeTimerStart: new Date().toISOString(), activeTimerStopped: false });
+  }
+});
+
+onUnmounted(() => {
+  if (timerInterval) clearInterval(timerInterval);
+});
+
+const activeElapsedSeconds = computed(() => {
+  const t = props.tournamentProp;
+  if (!t.activeTimerStart) return 0;
+  // When stopped, show the frozen elapsed value
+  if (t.activeTimerStopped && t.activeTimerElapsed != null) {
+    return t.activeTimerElapsed;
+  }
+  const start = new Date(t.activeTimerStart).getTime();
+  const elapsed = Math.floor((now.value - start) / 1000);
+  return elapsed < 0 ? 0 : elapsed;
+});
+
+const activeFormattedTime = computed(() => {
+  const total = activeElapsedSeconds.value;
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60).toString().padStart(2, '0');
+  const s = (total % 60).toString().padStart(2, '0');
+  return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+});
+
+const stopActiveTimer = async () => {
+  const elapsed = activeElapsedSeconds.value;
+  timerCollapsed.value = true;
+  await props.secureUpdate({ activeTimerStopped: true, activeTimerElapsed: elapsed });
+};
+
+const resumeActiveTimer = async () => {
+  // Set a new start time adjusted back by the elapsed seconds so the timer continues seamlessly
+  const elapsed = props.tournamentProp.activeTimerElapsed || 0;
+  const newStart = new Date(Date.now() - elapsed * 1000).toISOString();
+  timerCollapsed.value = false;
+  await props.secureUpdate({ activeTimerStopped: false, activeTimerStart: newStart, activeTimerElapsed: null });
+};
+
+const resetActiveTimer = async () => {
+  timerCollapsed.value = false;
+  await props.secureUpdate({ activeTimerStart: new Date().toISOString(), activeTimerStopped: false, activeTimerElapsed: null });
+};
+
 // Helper for 'shouldShowGroup' since it relies on local 'currentView'
 const shouldShowGroup = (group: string) => {
   if(currentView.value === 'finals') return false;
@@ -181,50 +242,42 @@ const sortedTeamsForModal = computed(() => {
       </div>
     </div>
 
+<!--    ACTIVE PHASE TIMER -->
+    <div v-if="tournament.activeTimerStart && tournament.status === 'active'">
+      <!-- Collapsed state: minimal pill -->
+      <div v-if="timerCollapsed" class="flex justify-center mb-4">
+        <button @click="resumeActiveTimer"
+                class="flex items-center gap-2 px-4 py-1.5 bg-slate-800/60 border border-slate-700/50 rounded-full text-slate-400 hover:text-white hover:border-slate-500 transition-all group">
+          <i class="ph-bold ph-timer text-sm"></i>
+          <span class="font-mono text-sm tabular-nums">{{ activeFormattedTime }}</span>
+          <i class="ph-bold ph-arrow-square-out text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
+        </button>
+      </div>
+
+      <!-- Expanded state: full timer display -->
+      <div v-else class="text-center relative group mb-8">
+        <div class="text-xs font-bold uppercase tracking-[0.3em] text-slate-600 mb-2">Career Timer</div>
+        <div class="text-7xl md:text-8xl font-black font-mono tracking-widest tabular-nums leading-none transition-colors duration-500 text-slate-500">
+          {{ activeFormattedTime }}
+        </div>
+
+        <!-- Admin controls -->
+        <div v-if="isAdminRef" class="flex justify-center gap-2 mt-2 transition-all opacity-0 group-hover:opacity-100">
+          <button @click="stopActiveTimer"
+                  title="Stop & collapse timer"
+                  class="p-2 text-slate-600 hover:text-amber-400 hover:scale-110 transition-all">
+            <i class="ph-bold ph-stop-circle text-2xl"></i>
+          </button>
+          <button @click="resetActiveTimer"
+                  title="Reset timer"
+                  class="p-2 text-slate-600 hover:text-red-400 hover:scale-110 transition-all">
+            <i class="ph-bold ph-arrow-counter-clockwise text-2xl"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
 <!--    OVERVIEW AND PLAYER / SETTINGS BUTTONS -->
-<!--    <div class="flex justify-between items-center mb-6">-->
-<!--      <h2 class="text-3xl font-bold text-white">-->
-<!--        Tournament Overview-->
-<!--      </h2>-->
-
-<!--      <div class="flex gap-2">-->
-<!--        <div class="bg-slate-800 p-1 rounded-lg flex text-xs font-bold">-->
-<!--          <button @click="showPlayerOrUmaName = true"-->
-<!--                  class="px-3 py-1 rounded transition-colors"-->
-<!--                  :class="showPlayerOrUmaName ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-slate-300'">Name</button>-->
-<!--          <button @click="showPlayerOrUmaName = false"-->
-<!--                  class="px-3 py-1 rounded transition-colors"-->
-<!--                  :class="!showPlayerOrUmaName ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-slate-300'">Uma</button>-->
-<!--        </div>-->
-
-<!--        <button v-if="isAdminRef" @click="showUmaModal = true" class="text-slate-500 hover:text-indigo-400 px-2 transition-colors">-->
-<!--          <i class="ph-bold ph-gear text-xl"></i>-->
-<!--        </button>-->
-<!--      </div>-->
-<!--    </div>-->
-
-<!--    <div v-if="tournament.teams.length >= 6" class="flex justify-center border-b border-slate-700 mb-8">-->
-<!--      <button @click="currentView = 'groups'"-->
-<!--              class="pb-3 px-6 text-sm font-bold uppercase tracking-widest border-b-2 transition-all"-->
-<!--              :class="currentView === 'groups' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'">-->
-<!--        Group Stage-->
-<!--      </button>-->
-<!--      <button @click="currentView = 'finals'"-->
-<!--              :disabled="!canShowFinals"-->
-<!--              class="pb-3 px-6 text-sm font-bold uppercase tracking-widest border-b-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed"-->
-<!--              :class="currentView === 'finals' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-500 hover:text-slate-300'">-->
-<!--        Grand Finals-->
-<!--      </button>-->
-<!--    </div>-->
-
-<!--    <div v-if="currentView === 'groups' && tournament.teams.length >= 6" class="mb-6 bg-indigo-900/20 border border-indigo-500/20 p-3 rounded-lg flex items-center gap-3 text-sm text-indigo-200">-->
-<!--      <i class="ph-fill ph-info text-indigo-400"></i>-->
-<!--      <span>-->
-<!--        <span v-if="tournament.teams.length === 9">Winners of groups A, B, and C advance automatically.</span>-->
-<!--        <span v-else>Winners of A & B, plus the highest scoring runner-up advance.</span>-->
-<!--      </span>-->
-<!--    </div>-->
-
     <div class="flex flex-col md:flex-row items-center md:items-end border-b border-slate-700 mb-8 gap-4 md:gap-0">
 
       <div class="flex-1 pb-3 w-full md:w-auto text-center md:text-left">
