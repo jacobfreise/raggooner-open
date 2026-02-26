@@ -1,7 +1,7 @@
 import {computed, ref, type Ref} from 'vue';
 import type {FirestoreUpdate, Tournament} from '../types';
 import {generateUmaDraftOrder} from '../utils/draftUtils';
-import {UMAS} from '../utils/constants';
+import {UMA_DICT} from '../utils/umaData';
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
 
@@ -94,7 +94,7 @@ export function useUmaDraft(
     // All umas sorted
     const allUmas = computed(() => {
         if (!tournament.value) return [];
-        return [...UMAS].sort();
+        return Object.keys(UMA_DICT).sort();
     });
 
     // Only unpicked umas (used for random selection)
