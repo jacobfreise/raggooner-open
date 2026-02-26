@@ -35,12 +35,6 @@ const { advancePhase, isAdvancing } = useTournamentFlow(tournamentRef, props.sec
 const umaSearch = ref('');
 const selectedAptitude = ref('');
 
-const APTITUDE_LABELS: Record<string, string> = {
-  turf: 'Turf', dirt: 'Dirt',
-  sprint: 'Sprint', mile: 'Mile', medium: 'Medium', long: 'Long',
-  frontRunner: 'Front Runner', paceChaser: 'Pace Chaser', lateSurger: 'Late Surger', endCloser: 'End Closer'
-};
-
 const GRADE_ORDER = ['S', 'A', 'B', 'C', 'D', 'E', 'F', 'G'] as const;
 
 function getAptitudeGrade(umaName: string, aptKey: string): string {
