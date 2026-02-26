@@ -4,6 +4,7 @@ import type {Tournament, FirestoreUpdate, Team} from '../types';
 import { useUmaDraft } from '../composables/useUmaDraft';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
 import { getPlayerName } from '../utils/utils';
+import { UMA_DICT } from '../utils/umaData';
 
 const props = defineProps<{
   tournament: Tournament;
@@ -32,10 +33,50 @@ const {
 const { advancePhase, isAdvancing } = useTournamentFlow(tournamentRef, props.secureUpdate);
 
 const umaSearch = ref('');
+const selectedAptitude = ref('');
+
+const APTITUDE_LABELS: Record<string, string> = {
+  turf: 'Turf', dirt: 'Dirt',
+  sprint: 'Sprint', mile: 'Mile', medium: 'Medium', long: 'Long',
+  frontRunner: 'Front Runner', paceChaser: 'Pace Chaser', lateSurger: 'Late Surger', endCloser: 'End Closer'
+};
+
+const GRADE_ORDER = ['S', 'A', 'B', 'C', 'D', 'E', 'F', 'G'] as const;
+
+function getAptitudeGrade(umaName: string, aptKey: string): string {
+  const data = UMA_DICT[umaName];
+  if (!data) return '?';
+  const { surface, distance, style } = data.aptitudes;
+  if (aptKey in surface) return surface[aptKey as keyof typeof surface];
+  if (aptKey in distance) return distance[aptKey as keyof typeof distance];
+  if (aptKey in style) return style[aptKey as keyof typeof style];
+  return '?';
+}
+
+function gradeColor(grade: string): string {
+  if (grade === 'S' || grade === 'A') return 'bg-emerald-500/80 text-white';
+  if (grade === 'B' || grade === 'C') return 'bg-blue-500/80 text-white';
+  if (grade === 'D' || grade === 'E') return 'bg-amber-500/80 text-white';
+  return 'bg-red-500/80 text-white';
+}
 
 const filteredUmas = computed(() => {
   const query = umaSearch.value.toLowerCase();
-  return allUmas.value.filter(u => u.toLowerCase().includes(query));
+  let list = allUmas.value.filter(u => u.toLowerCase().includes(query));
+
+  if (selectedAptitude.value) {
+    const key = selectedAptitude.value;
+    list = [...list].sort((a, b) => {
+      const gA = GRADE_ORDER.indexOf(getAptitudeGrade(a, key) as any);
+      const gB = GRADE_ORDER.indexOf(getAptitudeGrade(b, key) as any);
+      const idxA = gA === -1 ? GRADE_ORDER.length : gA;
+      const idxB = gB === -1 ? GRADE_ORDER.length : gB;
+      if (idxA !== idxB) return idxA - idxB;
+      return a.localeCompare(b);
+    });
+  }
+
+  return list;
 });
 
 onMounted(async () => {
@@ -178,13 +219,35 @@ const sinceLastPick = computed(() => {
 
       </div>
 
-      <!-- Search -->
-      <div class="relative">
-        <i class="ph-bold ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-xl"></i>
-        <input v-model="umaSearch"
-               type="text"
-               placeholder="Search Umas..."
-               class="w-full bg-slate-800 border border-slate-700 rounded-xl py-4 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-sm">
+      <!-- Search + Aptitude Filter -->
+      <div class="flex gap-3">
+        <div class="relative flex-1">
+          <i class="ph-bold ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-xl"></i>
+          <input v-model="umaSearch"
+                 type="text"
+                 placeholder="Search Umas..."
+                 class="w-full bg-slate-800 border border-slate-700 rounded-xl py-4 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-sm">
+        </div>
+        <select v-model="selectedAptitude"
+                class="bg-slate-800 border border-slate-700 rounded-xl py-4 px-4 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-sm cursor-pointer">
+          <option value="">No Sort</option>
+          <optgroup label="Surface">
+            <option value="turf">Turf</option>
+            <option value="dirt">Dirt</option>
+          </optgroup>
+          <optgroup label="Distance">
+            <option value="sprint">Sprint</option>
+            <option value="mile">Mile</option>
+            <option value="medium">Medium</option>
+            <option value="long">Long</option>
+          </optgroup>
+          <optgroup label="Style">
+            <option value="frontRunner">Front Runner</option>
+            <option value="paceChaser">Pace Chaser</option>
+            <option value="lateSurger">Late Surger</option>
+            <option value="endCloser">End Closer</option>
+          </optgroup>
+        </select>
       </div>
 
       <!-- Main Grid -->
@@ -235,14 +298,21 @@ const sinceLastPick = computed(() => {
               </div>
 
               <div class="flex justify-between items-start relative z-10">
-                <span class="font-medium text-sm pr-8"
-                      :class="[
-                        umaOwnerMap.has(uma) ? 'text-white/80' :
-                        isBanned(uma) ? 'text-red-300 line-through decoration-red-500/50' :
-                        'text-slate-200 group-hover:text-white'
-                      ]">
-                  {{ uma }}
-                </span>
+                <div class="flex items-center gap-2 min-w-0 pr-8">
+                  <span class="font-medium text-sm"
+                        :class="[
+                          umaOwnerMap.has(uma) ? 'text-white/80' :
+                          isBanned(uma) ? 'text-red-300 line-through decoration-red-500/50' :
+                          'text-slate-200 group-hover:text-white'
+                        ]">
+                    {{ uma }}
+                  </span>
+                  <span v-if="selectedAptitude"
+                        class="shrink-0 text-[10px] font-black w-5 h-5 rounded flex items-center justify-center leading-none"
+                        :class="gradeColor(getAptitudeGrade(uma, selectedAptitude))">
+                    {{ getAptitudeGrade(uma, selectedAptitude) }}
+                  </span>
+                </div>
 
                 <div v-if="!umaOwnerMap.has(uma)" class="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors"
                      :class="isBanned(uma) ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-500 group-hover:bg-indigo-500 group-hover:text-white'">
