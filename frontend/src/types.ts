@@ -159,6 +159,8 @@ export interface Tournament {
     activeTimerStart?: string;
     activeTimerStopped?: boolean;
     activeTimerElapsed?: number;
+    draftPhaseTimerStart?: string;
+    draftLastPickTime?: string;
 }
 
 
