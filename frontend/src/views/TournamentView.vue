@@ -396,7 +396,7 @@ const savePointsSystem = async () => {
       <button
           @click="isTrackPanelOpen = !isTrackPanelOpen"
           class="bg-indigo-600 w-0.5 hover:bg-indigo-500 text-white p-2 rounded-l-lg shadow-lg border-y border-l border-indigo-400 flex items-center justify-center">
-        <i class="ph-bold ph-caret-left transition-transform duration-300" :class="isTrackPanelOpen ? 'rotate-180' : ''"></i>
+        <i class="ph-bold ph-map-trifold transition-transform duration-300" :class="isTrackPanelOpen ? 'rotate-180' : ''"></i>
       </button>
     </div>
 
