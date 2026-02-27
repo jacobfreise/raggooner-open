@@ -37,6 +37,9 @@
 // e.g. "Silence Suzuka" -> "suzuka_scream.gif"
 const SPECIAL_CASE_MAP: Record<string, string> = {
     // 'Gold Ship': '/gifs/golshi_peace.gif', // Custom override example
+    'Sakura Chiyono O': '/gifs/chiyo-armpit.gif',
+    // 'Vodka': '/gifs/chiyo-armpit.gif',
+    'Sakura Bakushin O': '/gifs/bakushin-armpit.gif',
 };
 // src/utils/umaGifs.ts
 
