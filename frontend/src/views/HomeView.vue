@@ -119,7 +119,7 @@ const createTournament = async () => {
       id,
       name: newTournamentName.value,
       seasonId: selectedSeasonId.value || undefined,
-      status: 'registration',
+      status: 'track-selection',
       stage: 'groups',
       players: {},
       teams: [],
@@ -166,6 +166,7 @@ const formatTournamentStatus = (t: Tournament): string => {
   }
 
   const statusMap: Record<Tournament['status'], string> = {
+    'track-selection': 'Track Selection',
     registration: 'Registration',
     draft: 'Player Draft',
     ban: 'Uma Ban',

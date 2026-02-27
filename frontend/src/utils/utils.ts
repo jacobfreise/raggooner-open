@@ -171,6 +171,8 @@ export const recalculateTournamentScores = (t: Tournament): { teams: Team[], pla
 
 export const getStatusColor = (status: string) => {
     switch (status) {
+        case 'track-selection':
+            return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50';
         case 'registration':
             return 'bg-green-500/20 text-green-300 border-green-500/50';
         case 'active':

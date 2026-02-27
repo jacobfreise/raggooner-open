@@ -27,6 +27,10 @@ export function useTournamentFlow(
             // ==========================================
             if (formatId === 'uma-draft') {
                 switch (t.status) {
+                    case 'track-selection': {
+                        await secureUpdate({ status: 'registration' });
+                        break;
+                    }
                     case 'registration': {
                         const { teams, draftOrder } = generateDraftStructure(t);
                         await secureUpdate({
@@ -87,6 +91,10 @@ export function useTournamentFlow(
             // ==========================================
             else {
                 switch (t.status) {
+                    case 'track-selection': {
+                        await secureUpdate({ status: 'registration' });
+                        break;
+                    }
                     case 'registration': {
                         const { teams, draftOrder } = generateDraftStructure(t);
                         await secureUpdate({

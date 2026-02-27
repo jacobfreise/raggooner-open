@@ -137,7 +137,9 @@ export interface Tournament {
     seasonId?: string;
     password?: string;
     format?: string;
-    status: 'registration' | 'draft' | 'active' | 'ban' | 'pick' | 'completed';
+    status: 'track-selection' | 'registration' | 'draft' | 'active' | 'ban' | 'pick' | 'completed';
+    selectedTrack?: string;
+    selectedCondition?: Condition;
     stage: 'groups' | 'finals';
     playerIds: string[];
     players: Record<string, Player>;
@@ -197,4 +199,24 @@ export interface UmaData {
     };
     stars: number;
     // Future fields can go here (e.g., rarity, iconUrl, growthRates)
+}
+
+
+// TRACK TYPES
+export interface Track {
+    id: string;
+    location: 'Sapporo' | 'Tokyo' | 'Kyoto' | 'Niigata' | 'Hakodate' | 'Fukushima' | 'Nakayama' | 'Chukyo' | 'Hanshin'
+    | 'Kokura' | 'Oi' | 'Kawasaki' | 'Funabashi' | 'Morioka';
+    surface: 'Turf' | 'Dirt';
+    distance: number;
+    distanceType: 'Sprint' | 'Mile' | 'Medium' | 'Long'
+    direction: 'left' | 'right' | 'straight'
+    lane?: 'inner' | 'outer' | 'inout'
+}
+
+export interface Condition {
+    id: string;
+    ground: 'Firm' | 'Good' | 'Soft' | 'Heavy';
+    weather: 'Sunny' | 'Cloudy' | 'Rainy' | 'Snowy';
+    season: 'Spring' | 'Summer' | 'Fall' | 'Winter';
 }

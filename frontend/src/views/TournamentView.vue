@@ -10,6 +10,8 @@ import { useAdmin } from '../composables/useAdmin';
 import { useGameLogic } from "../composables/useGameLogic";
 import { useEasterEgg } from "../composables/useEasterEgg.ts";
 
+import TrackSelectionPhase from "../components/TrackSelectionPhase.vue";
+import TrackViewerPanel from "../components/TrackViewerPanel.vue";
 import RegistrationPhase from "../components/RegistrationPhase.vue";
 import PlayerDraftPhase from '../components/PlayerDraftPhase.vue';
 import UmaBanPhase from "../components/UmaBanPhase.vue";
@@ -32,6 +34,7 @@ watch(tournament, (t) => { activeTournament.value = t; }, { immediate: true });
 onUnmounted(() => { activeTournament.value = null; });
 
 const loading = ref(true);
+const isTrackPanelOpen = ref(false);
 const hasInitialViewLoaded = ref(false);
 let currentUnsubscribe: (() => void) | null = null;
 
@@ -215,7 +218,8 @@ const savePointsSystem = async () => {
         <div v-else-if="tournament" class="space-y-6 animate-fade-in">
           <h1 class="text-3xl font-black text-white text-center md:hidden mb-4">{{ tData.name }}</h1>
 
-          <RegistrationPhase v-if="tournament.status === 'registration'" :tournament="tournament" :is-admin="isAdmin" :app-id="appId" :secure-update="secureUpdate" :global-players="globalPlayers" :add-global-player="addGlobalPlayer" :seasons="seasons" />
+          <TrackSelectionPhase v-if="tournament.status === 'track-selection'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" />
+          <RegistrationPhase v-else-if="tournament.status === 'registration'" :tournament="tournament" :is-admin="isAdmin" :app-id="appId" :secure-update="secureUpdate" :global-players="globalPlayers" :add-global-player="addGlobalPlayer" :seasons="seasons" />
           <PlayerDraftPhase v-else-if="tournament.status === 'draft'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" :global-players="globalPlayers" :seasons="seasons" />
           <UmaBanPhase v-else-if="tournament.status === 'ban'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" />
           <UmaDraftPhase v-else-if="tournament.status === 'pick'" :tournament="tournament" :is-admin="isAdmin" :secure-update="secureUpdate" />
@@ -384,6 +388,24 @@ const savePointsSystem = async () => {
       </div>
 
     </div>
+
+    <!-- Track Viewer slide-out toggle (right side) -->
+    <div v-if="tournament?.selectedTrack"
+         class="fixed top-1/2 -translate-y-1/2 z-[100] transition-all duration-300"
+         :class="isTrackPanelOpen ? 'right-full md:right-2/3' : 'right-0'">
+      <button
+          @click="isTrackPanelOpen = !isTrackPanelOpen"
+          class="bg-indigo-600 w-0.5 hover:bg-indigo-500 text-white p-2 rounded-l-lg shadow-lg border-y border-l border-indigo-400 flex items-center justify-center">
+        <i class="ph-bold ph-caret-left transition-transform duration-300" :class="isTrackPanelOpen ? 'rotate-180' : ''"></i>
+      </button>
+    </div>
+
+    <TrackViewerPanel
+        v-if="tournament"
+        :is-open="isTrackPanelOpen"
+        :tournament="tournament"
+        @close="isTrackPanelOpen = false"
+    />
 
     <!-- Easter egg overlay: rendered OUTSIDE the root div so CSS transforms (shake) don't break fixed positioning -->
     <Teleport to="body">

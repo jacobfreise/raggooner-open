@@ -7,6 +7,10 @@ import {compareTeams, recalculateTournamentScores, migrateRaces, migratePlayers}
 import {POINTS_SYSTEM, TOURNAMENT_FORMATS} from "../utils/constants.ts";
 import {getCached, setCache} from "../utils/cache.ts";
 import { getUmaData } from "../utils/umaData.ts";
+import { TRACK_DICT } from '../utils/trackData';
+
+const findTrackById = (trackId: string) =>
+  Object.values(TRACK_DICT).find(t => t.id === trackId);
 
 // Derived types reconstructed from tournaments (no separate Firestore collections)
 interface DerivedParticipation {
@@ -50,6 +54,14 @@ const seasons = ref<Season[]>([]);
 const selectedSeasons = ref<string[]>(['season-2']);
 
 const selectedFormats = ref<string[]>([]);
+
+const selectedSurfaces = ref<string[]>([]);
+const selectedDistanceTypes = ref<string[]>([]);
+const selectedLocations = ref<string[]>([]);
+
+const allTrackLocations = computed(() =>
+  [...new Set(Object.values(TRACK_DICT).map(t => t.location))].sort()
+);
 
 const expandedPlayerId = ref<string | null>(null);
 const expandedDetailTab = ref<'umas' | 'tournaments'>('tournaments');
@@ -470,13 +482,44 @@ const toggleFormat = (formatId: string) => {
   }
 };
 
+const toggleSurface = (v: string) => {
+  const index = selectedSurfaces.value.indexOf(v);
+  if (index === -1) {
+    selectedSurfaces.value.push(v);
+  } else {
+    selectedSurfaces.value.splice(index, 1);
+  }
+};
+
+const toggleDistanceType = (v: string) => {
+  const index = selectedDistanceTypes.value.indexOf(v);
+  if (index === -1) {
+    selectedDistanceTypes.value.push(v);
+  } else {
+    selectedDistanceTypes.value.splice(index, 1);
+  }
+};
+
+const toggleLocation = (v: string) => {
+  const index = selectedLocations.value.indexOf(v);
+  if (index === -1) {
+    selectedLocations.value.push(v);
+  } else {
+    selectedLocations.value.splice(index, 1);
+  }
+};
+
 // --- FILTERED DATA PIPELINES ---
 // These ensure all downstream stats only look at the selected seasons!
 const filteredTournaments = computed(() => {
   return tournaments.value.filter(t => {
     const matchesSeason = selectedSeasons.value.length === 0 || (t.seasonId && selectedSeasons.value.includes(t.seasonId));
     const matchesFormat = selectedFormats.value.length === 0 || (t.format && selectedFormats.value.includes(t.format));
-    return matchesSeason && matchesFormat;
+    const track = t.selectedTrack ? findTrackById(t.selectedTrack) : null;
+    const matchesSurface = selectedSurfaces.value.length === 0 || (track && selectedSurfaces.value.includes(track.surface));
+    const matchesDistanceType = selectedDistanceTypes.value.length === 0 || (track && selectedDistanceTypes.value.includes(track.distanceType));
+    const matchesLocation = selectedLocations.value.length === 0 || (track && selectedLocations.value.includes(track.location));
+    return matchesSeason && matchesFormat && matchesSurface && matchesDistanceType && matchesLocation;
   });
 });
 
@@ -1456,6 +1499,93 @@ const getRankIcon = (index: number) => {
               {{ format.name }}
             </button>
 
+          </div>
+        </div>
+
+        <div class="hidden lg:block w-px h-16 bg-slate-700"></div>
+        <div class="lg:hidden w-full h-px bg-slate-700"></div>
+
+        <div class="flex flex-col flex-1 min-w-[200px]">
+          <label class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+            Surface
+          </label>
+          <div class="flex flex-wrap gap-2">
+            <button
+                @click="selectedSurfaces = []"
+                class="px-3 py-1.5 text-xs font-bold rounded-full transition-colors border"
+                :class="selectedSurfaces.length === 0
+                ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
+                : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'">
+              All
+            </button>
+            <button
+                v-for="s in ['Turf', 'Dirt']"
+                :key="s"
+                @click="toggleSurface(s)"
+                class="px-3 py-1.5 text-xs font-bold rounded-full transition-colors border"
+                :class="selectedSurfaces.includes(s)
+                ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
+                : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'">
+              {{ s }}
+            </button>
+          </div>
+        </div>
+
+        <div class="hidden lg:block w-px h-16 bg-slate-700"></div>
+        <div class="lg:hidden w-full h-px bg-slate-700"></div>
+
+        <div class="flex flex-col flex-1 min-w-[200px]">
+          <label class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+            Distance
+          </label>
+          <div class="flex flex-wrap gap-2">
+            <button
+                @click="selectedDistanceTypes = []"
+                class="px-3 py-1.5 text-xs font-bold rounded-full transition-colors border"
+                :class="selectedDistanceTypes.length === 0
+                ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
+                : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'">
+              All
+            </button>
+            <button
+                v-for="d in ['Sprint', 'Mile', 'Medium', 'Long']"
+                :key="d"
+                @click="toggleDistanceType(d)"
+                class="px-3 py-1.5 text-xs font-bold rounded-full transition-colors border"
+                :class="selectedDistanceTypes.includes(d)
+                ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
+                : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'">
+              {{ d }}
+            </button>
+          </div>
+        </div>
+
+        <div class="hidden lg:block w-px h-16 bg-slate-700"></div>
+        <div class="lg:hidden w-full h-px bg-slate-700"></div>
+
+        <div class="flex flex-col flex-1 min-w-[200px]">
+          <label class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+            Location
+          </label>
+          <div class="flex flex-wrap gap-2">
+            <button
+                @click="selectedLocations = []"
+                class="px-3 py-1.5 text-xs font-bold rounded-full transition-colors border"
+                :class="selectedLocations.length === 0
+                ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
+                : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'">
+              All
+            </button>
+            <button
+                v-for="loc in allTrackLocations"
+                :key="loc"
+                @click="toggleLocation(loc)"
+                class="px-3 py-1.5 text-xs font-bold rounded-full transition-colors border"
+                :class="selectedLocations.includes(loc)
+                ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
+                : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'">
+              {{ loc }}
+            </button>
           </div>
         </div>
       </div>
