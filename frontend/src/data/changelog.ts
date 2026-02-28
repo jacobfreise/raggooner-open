@@ -9,9 +9,19 @@ export interface ChangeLogEntry {
     }[];
 }
 
-export const APP_VERSION = '2.1.0'; // Update this manually when you deploy
+export const APP_VERSION = '2.2.0'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '2.2.0',
+        date: '2026-02-28',
+        title: 'Track and Condition data',
+        changes: [
+            { type: 'new', text: 'Add track and tonditions to tournaments."' },
+            { type: 'new', text: 'New Side Panel to look at the track and the tonditions during a tournament."' },
+            { type: 'new', text: 'Filter by track data in analytics."' },
+        ]
+    },
     {
         version: '2.1.0',
         date: '2026-02-24',
