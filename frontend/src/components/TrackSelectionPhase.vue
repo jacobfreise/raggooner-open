@@ -241,7 +241,7 @@ const selectTrackManual = async (trackId: string) => {
 };
 
 // ── View mode ──
-const trackSelectionMode = ref<'roller' | 'browse'>('roller');
+const trackSelectionMode = ref<'browse' | 'roller'>('browse');
 
 const getSurfaceBadgeClass = (surface: string) =>
     surface === 'Turf'
