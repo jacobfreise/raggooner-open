@@ -17,7 +17,7 @@ export const changelogData: ChangeLogEntry[] = [
         date: '2026-02-28',
         title: 'Track and Condition data',
         changes: [
-            { type: 'new', text: 'Add track and tonditions to tournaments."' },
+            { type: 'new', text: 'Pick a track and conditions or roll randomly and add them to tournaments."' },
             { type: 'new', text: 'New Side Panel to look at the track and the tonditions during a tournament."' },
             { type: 'new', text: 'Filter by track data in analytics."' },
         ]
