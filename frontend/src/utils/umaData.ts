@@ -90,8 +90,8 @@ export const UMA_DICT: Record<string, UmaData> = {
             style: { frontRunner: 'C', paceChaser: 'B', lateSurger: 'A', endCloser: 'G' }
         }
     },
-    'Tosan Jordan': {
-        id: 'tosan-jordan', name: 'Tosan Jordan', stars: 3, releaseDate: '2025-12-28T22:00:00.000Z',
+    'Tosen Jordan': {
+        id: 'tosen-jordan', name: 'Tosen Jordan', stars: 3, releaseDate: '2025-12-28T22:00:00.000Z',
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'G', mile: 'F', medium: 'A', long: 'B' },
@@ -544,6 +544,37 @@ export const UMA_DICT: Record<string, UmaData> = {
 export const getUmaData = (name: string | undefined): UmaData | null => {
     if (!name) return null;
     return UMA_DICT[name] || null;
+};
+
+const VARIANT_PREFIXES = [
+    'Valentine',
+    'Ballroom',
+    'Onsen',
+    'Cheerleader',
+    'Camping',
+    'New Year',
+    'Christmas',
+    'Festival',
+    'Halloween',
+    'Full Armor',
+    'Summer',
+    'Fantasy',
+    'Wedding',
+    'Anime'];
+
+export const getUmaImagePath = (name: string): string => {
+    let baseName = name;
+    for (const prefix of VARIANT_PREFIXES) {
+        if (baseName.startsWith(prefix + ' ')) {
+            baseName = baseName.slice(prefix.length + 1);
+            break;
+        }
+    }
+    const baseData = UMA_DICT[baseName];
+    const slug = baseData
+        ? baseData.id.replace(/-/g, '_')
+        : baseName.toLowerCase().replace(/\s+/g, '_');
+    return `/assets/uma/${slug}.png`;
 };
 
 // Helpful array export for your <select> loops (e.g., v-for="uma in UMA_LIST")

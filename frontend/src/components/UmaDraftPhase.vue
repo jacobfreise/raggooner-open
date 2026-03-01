@@ -4,7 +4,7 @@ import type {Tournament, FirestoreUpdate, Team} from '../types';
 import { useUmaDraft } from '../composables/useUmaDraft';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
 import { getPlayerName } from '../utils/utils';
-import { UMA_DICT } from '../utils/umaData';
+import { UMA_DICT, getUmaImagePath } from '../utils/umaData';
 
 const props = defineProps<{
   tournament: Tournament;
@@ -291,8 +291,9 @@ const sinceLastPick = computed(() => {
                 </div>
               </div>
 
-              <div class="flex justify-between items-start relative z-10">
+              <div class="flex justify-between items-center relative z-10">
                 <div class="flex items-center gap-2 min-w-0 pr-8">
+                  <img :src="getUmaImagePath(uma)" :alt="uma" class="w-8 h-8 rounded-full object-cover shrink-0 bg-slate-700" />
                   <span class="font-medium text-sm"
                         :class="[
                           umaOwnerMap.has(uma) ? 'text-white/80' :
