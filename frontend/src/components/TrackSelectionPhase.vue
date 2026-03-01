@@ -56,7 +56,7 @@ const SEASON_WEATHER_MAP: Record<string, string[]> = {
 const surfaceFilters = ref<Set<string>>(new Set(['Turf', 'Dirt']));
 const distanceFilters = ref<Set<string>>(new Set(['Sprint', 'Mile', 'Medium', 'Long']));
 const directionFilters = ref<Set<string>>(new Set(['left', 'right', 'straight']));
-const maxPlayersFilter = ref<number | null>(null);
+const maxPlayersFilters = ref<Set<number>>(new Set());
 const groundFilters = ref<Set<string>>(new Set(GROUNDS));
 const weatherFilters = ref<Set<string>>(new Set(WEATHERS));
 const seasonFilters = ref<Set<string>>(new Set(SEASONS));
@@ -80,13 +80,15 @@ const allMaxPlayers = computed(() =>
     [...new Set(allTracks.value.map(t => t.maxPlayers))].sort((a, b) => a - b)
 );
 
+if (allMaxPlayers.value.length) maxPlayersFilters.value = new Set(allMaxPlayers.value);
+
 const filteredTracks = computed(() =>
     allTracks.value.filter(t =>
         surfaceFilters.value.has(t.surface) &&
         distanceFilters.value.has(t.distanceType) &&
         directionFilters.value.has(t.direction) &&
         locationFilters.value.has(t.location) &&
-        (maxPlayersFilter.value === null || t.maxPlayers >= maxPlayersFilter.value)
+        maxPlayersFilters.value.has(t.maxPlayers)
     )
 );
 
@@ -393,22 +395,15 @@ const getSeasonIcon = (s: string) => {
             <div>
               <div class="flex items-center justify-between mb-1.5">
                 <label class="text-xs text-slate-500 uppercase font-bold tracking-wider">Max Players</label>
-                <button v-if="maxPlayersFilter !== null" @click="maxPlayersFilter = null" class="text-[10px] text-slate-500 hover:text-indigo-400 transition-colors">
-                  Clear
+                <button @click="maxPlayersFilters.size === allMaxPlayers.length ? maxPlayersFilters.clear() : allMaxPlayers.forEach(n => maxPlayersFilters.add(n))" class="text-[10px] text-slate-500 hover:text-indigo-400 transition-colors">
+                  {{ maxPlayersFilters.size === allMaxPlayers.length ? 'None' : 'All' }}
                 </button>
               </div>
               <div class="flex flex-wrap gap-1.5">
-                <button @click="maxPlayersFilter = null"
-                        class="px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors"
-                        :class="maxPlayersFilter === null
-                          ? 'bg-indigo-600/30 border-indigo-500/50 text-indigo-300'
-                          : 'bg-slate-900 border-slate-700 text-slate-500 hover:border-slate-600'">
-                  Any
-                </button>
                 <button v-for="n in allMaxPlayers" :key="n"
-                        @click="maxPlayersFilter = maxPlayersFilter === n ? null : n"
+                        @click="maxPlayersFilters.has(n) ? maxPlayersFilters.delete(n) : maxPlayersFilters.add(n)"
                         class="px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors"
-                        :class="maxPlayersFilter === n
+                        :class="maxPlayersFilters.has(n)
                           ? 'bg-indigo-600/30 border-indigo-500/50 text-indigo-300'
                           : 'bg-slate-900 border-slate-700 text-slate-500 hover:border-slate-600'">
                   {{ n }}
