@@ -108,7 +108,7 @@ const showPlayerOrUmaName = ref(true);
 // --- ACTIVE PHASE TIMER ---
 const now = ref(Date.now());
 let timerInterval: number | null = null;
-const timerCollapsed = ref(!!props.tournamentProp.activeTimerStopped);
+const timerCollapsed = computed(() => !!props.tournamentProp.activeTimerStopped);
 
 onMounted(async () => {
   // Tick every second for UI updates
@@ -149,20 +149,16 @@ const activeFormattedTime = computed(() => {
 
 const stopActiveTimer = async () => {
   const elapsed = activeElapsedSeconds.value;
-  timerCollapsed.value = true;
   await props.secureUpdate({ activeTimerStopped: true, activeTimerElapsed: elapsed });
 };
 
 const resumeActiveTimer = async () => {
-  // Set a new start time adjusted back by the elapsed seconds so the timer continues seamlessly
   const elapsed = props.tournamentProp.activeTimerElapsed || 0;
   const newStart = new Date(Date.now() - elapsed * 1000).toISOString();
-  timerCollapsed.value = false;
   await props.secureUpdate({ activeTimerStopped: false, activeTimerStart: newStart, activeTimerElapsed: null });
 };
 
 const resetActiveTimer = async () => {
-  timerCollapsed.value = false;
   await props.secureUpdate({ activeTimerStart: new Date().toISOString(), activeTimerStopped: false, activeTimerElapsed: null });
 };
 
@@ -246,11 +242,15 @@ const sortedTeamsForModal = computed(() => {
     <div v-if="tournament.activeTimerStart && tournament.status === 'active'">
       <!-- Collapsed state: minimal pill -->
       <div v-if="timerCollapsed" class="flex justify-center mb-4">
-        <button @click="resumeActiveTimer"
-                class="flex items-center gap-2 px-4 py-1.5 bg-slate-800/60 border border-slate-700/50 rounded-full text-slate-400 hover:text-white hover:border-slate-500 transition-all group">
+        <button @click="isAdminRef && resumeActiveTimer()"
+                class="flex items-center gap-2 px-4 py-1.5 bg-slate-800/60 border border-slate-700/50 rounded-full transition-all group"
+                :class="isAdminRef
+                  ? 'text-slate-400 hover:text-white hover:border-slate-500 cursor-pointer'
+                  : 'text-slate-500 cursor-default'"
+                :disabled="!isAdminRef">
           <i class="ph-bold ph-timer text-sm"></i>
           <span class="font-mono text-sm tabular-nums">{{ activeFormattedTime }}</span>
-          <i class="ph-bold ph-arrow-square-out text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
+          <i v-if="isAdminRef" class="ph-bold ph-arrow-square-out text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
         </button>
       </div>
 

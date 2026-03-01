@@ -212,6 +212,7 @@ export interface Track {
     distanceType: 'Sprint' | 'Mile' | 'Medium' | 'Long'
     direction: 'left' | 'right' | 'straight'
     lane?: 'inner' | 'outer' | 'inout'
+    maxPlayers: number;
 }
 
 export interface Condition {
