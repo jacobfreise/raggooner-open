@@ -504,20 +504,7 @@ const getSeasonIcon = (s: string) => {
                   <div class="flex items-center justify-between">
                     <div>
                       <span class="text-white font-bold text-lg">{{ rollerTrack.location }}</span>
-                      <span class="text-slate-400 text-sm ml-2">{{ rollerTrack.distance }}m {{ rollerTrack.surface }}</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <span class="text-xs font-bold px-2 py-1 rounded border" :class="getSurfaceBadgeClass(rollerTrack.surface)">
-                        {{ rollerTrack.surface }}
-                      </span>
-                      <span class="text-xs font-bold px-2 py-1 rounded border bg-indigo-500/20 text-indigo-300 border-indigo-500/50">
-                        {{ rollerTrack.distanceType }}
-                      </span>
-                      <span class="text-xs font-bold px-2 py-1 rounded border bg-slate-700/50 text-slate-300 border-slate-600/50 flex items-center gap-1">
-                        <i class="ph-bold ph-users"></i>
-                        {{ rollerTrack.maxPlayers }}
-                      </span>
-                      <i class="ph-bold text-slate-400 text-lg" :class="getDirectionIcon(rollerTrack.direction)"></i>
+                      <span class="text-slate-400 text-sm ml-2">{{ rollerTrack.distance }}m</span>
                     </div>
                   </div>
                 </div>
@@ -543,6 +530,14 @@ const getSeasonIcon = (s: string) => {
               </span>
               <span class="text-xs font-bold px-2.5 py-1 rounded-lg border bg-indigo-500/20 text-indigo-300 border-indigo-500/50">
                 {{ rollerTrack.distanceType }}
+              </span>
+              <span class="text-xs font-bold px-2.5 py-1 rounded-lg border bg-slate-800 text-slate-300 border-slate-600 flex items-center gap-1">
+                <i class="ph-bold" :class="getDirectionIcon(rollerTrack.direction)"></i>
+                {{ rollerTrack.direction === 'left' ? 'Left' : (rollerTrack.direction === 'straight' ? 'Straight' : 'Right') }}
+              </span>
+              <span class="text-xs font-bold px-2.5 py-1 rounded-lg border bg-slate-800 text-slate-300 border-slate-600 flex items-center gap-1">
+                <i class="ph-bold ph-users"></i>
+                {{ rollerTrack.maxPlayers }}
               </span>
               <template v-if="rollerCondition">
                 <span class="text-xs font-bold px-2.5 py-1 rounded-lg border bg-orange-500/20 text-orange-300 border-orange-500/50">
