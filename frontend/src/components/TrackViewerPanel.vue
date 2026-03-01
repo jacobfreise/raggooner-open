@@ -77,6 +77,9 @@ const getSeasonIcon = (s: string) => {
             <span class="text-xs font-bold px-2 py-0.5 rounded border bg-slate-800 text-slate-300 border-slate-600">
               {{ track.distance }}m
             </span>
+            <span class="text-xs font-bold px-2 py-0.5 rounded border bg-slate-800 text-slate-300 border-slate-600 flex items-center gap-1">
+              {{ track.distanceType }}
+            </span>
             <span class="text-xs font-bold px-2 py-0.5 rounded border" :class="getSurfaceBadgeClass(track.surface)">
               {{ track.surface }}
             </span>
