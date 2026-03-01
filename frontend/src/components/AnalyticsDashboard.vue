@@ -6,7 +6,7 @@ import type {GlobalPlayer, Tournament, Season} from '../types';
 import {compareTeams, recalculateTournamentScores, migrateRaces, migratePlayers} from "../utils/utils.ts";
 import {POINTS_SYSTEM, TOURNAMENT_FORMATS} from "../utils/constants.ts";
 import {getCached, setCache} from "../utils/cache.ts";
-import { getUmaData } from "../utils/umaData.ts";
+import { getUmaData, getUmaImagePath } from "../utils/umaData.ts";
 import { TRACK_DICT } from '../utils/trackData';
 
 const findTrackById = (trackId: string) =>
@@ -1710,6 +1710,8 @@ const getRankIcon = (index: number) => {
                   {{ idx + 1 }}
                 </div>
 
+                <img :src="getUmaImagePath(uma.name)" :alt="uma.name" class="w-10 h-10 rounded-full object-cover shrink-0 bg-slate-700" />
+
                 <div class="flex-1 min-w-0">
                   <div class="font-bold text-white truncate">{{ uma.name }}</div>
                   <div class="text-xs text-slate-400">
@@ -1943,9 +1945,9 @@ const getRankIcon = (index: number) => {
                                   ]"
                                   :key="col.key"
                                   @click="togglePlayerTournamentSort(col.key)"
-                                  class="px-3 py-2 text-right text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors group select-none whitespace-nowrap"
+                                  class="px-3 py-2 text-left text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors group select-none whitespace-nowrap"
                               >
-                                <div class="flex items-center justify-end gap-1">
+                                <div class="flex items-center justify-start gap-1">
                                   {{ col.label }}
                                   <i v-if="playerTournamentSortKey === col.key" class="ph-bold text-indigo-400" :class="playerTournamentSortDesc ? 'ph-caret-down' : 'ph-caret-up'"></i>
                                   <i v-else class="ph-bold ph-caret-down opacity-0 group-hover:opacity-50"></i>
@@ -1961,7 +1963,12 @@ const getRankIcon = (index: number) => {
                                 {{ t.tournamentName }}
                                 <span v-if="t.status === 'active'" class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold uppercase">Live</span>
                               </td>
-                              <td class="px-3 py-2 text-sm text-right text-slate-300">{{ t.uma }}</td>
+                              <td class="px-3 py-2 text-sm text-left text-slate-300">
+                                <div class="flex items-center justify-start gap-1.5">
+                                  <img :src="getUmaImagePath(t.uma)" :alt="t.uma" class="w-5 h-5 rounded-full object-cover shrink-0 bg-slate-700" />
+                                  {{ t.uma }}
+                                </div>
+                              </td>
                               <td class="px-3 py-2 text-sm text-right">
                                 <div class="flex items-center justify-end gap-1 flex-wrap">
                                   <span v-if="t.isWildcard" class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-bold uppercase">WC {{ t.wildcardGroup }}</span>
@@ -2026,7 +2033,12 @@ const getRankIcon = (index: number) => {
                             <tbody class="divide-y divide-slate-700">
                             <tr v-for="(uma, uIdx) in expandedPlayerUmas" :key="uma.name" class="hover:bg-slate-700/50 transition-colors">
                               <td class="px-3 py-2 text-xs text-slate-500">{{ uIdx + 1 }}</td>
-                              <td class="px-3 py-2 text-sm font-bold text-white">{{ uma.name }}</td>
+                              <td class="px-3 py-2 text-sm font-bold text-white">
+                                <div class="flex items-center gap-1.5">
+                                  <img :src="getUmaImagePath(uma.name)" :alt="uma.name" class="w-5 h-5 rounded-full object-cover shrink-0 bg-slate-700" />
+                                  {{ uma.name }}
+                                </div>
+                              </td>
                               <td class="px-3 py-2 text-sm text-right text-slate-300">{{ uma.picks }}</td>
                               <td class="px-3 py-2 text-sm text-right text-slate-400">{{ uma.racesPlayed }}</td>
                               <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ uma.wins }}</td>
@@ -2112,10 +2124,13 @@ const getRankIcon = (index: number) => {
                     :class="{'bg-slate-800/80': expandedUmaName === uma.name}"
                 >
                   <td class="px-4 py-3 text-sm text-slate-400">{{ idx + 1 }}</td>
-                  <td class="px-4 py-3 text-sm font-bold text-white flex items-center gap-2">
-                    <i class="ph-bold text-slate-500 group-hover:text-indigo-400 transition-transform duration-200"
-                       :class="expandedUmaName === uma.name ? 'ph-caret-down text-indigo-400' : 'ph-caret-right'"></i>
-                    {{ uma.name }}
+                  <td class="px-4 py-3 text-sm font-bold text-white">
+                    <div class="flex items-center gap-2">
+                      <i class="ph-bold text-slate-500 group-hover:text-indigo-400 transition-transform duration-200"
+                         :class="expandedUmaName === uma.name ? 'ph-caret-down text-indigo-400' : 'ph-caret-right'"></i>
+                      <img :src="getUmaImagePath(uma.name)" :alt="uma.name" class="w-6 h-6 rounded-full object-cover shrink-0 bg-slate-700" />
+                      {{ uma.name }}
+                    </div>
                   </td>
 
                   <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.tournamentsPicked }}/{{ uma.availableTournaments }}</td>
@@ -2354,6 +2369,7 @@ const getRankIcon = (index: number) => {
                         :key="u.name"
                         class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 flex items-center gap-2 hover:border-slate-500 transition-colors"
                     >
+                      <img :src="getUmaImagePath(u.name)" :alt="u.name" class="w-6 h-6 rounded-full object-cover shrink-0 bg-slate-700" />
                       <span class="font-bold text-white text-sm">{{ u.name }}</span>
                       <span class="text-xs px-1.5 py-0.5 rounded font-bold" :class="tier.text + ' bg-slate-900'">{{ getStatValue(u) }}{{ TIER_CRITERIA[tierCriterion].suffix }}</span>
                     </div>
