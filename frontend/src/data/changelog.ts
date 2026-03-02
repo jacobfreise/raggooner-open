@@ -9,9 +9,20 @@ export interface ChangeLogEntry {
     }[];
 }
 
-export const APP_VERSION = '2.2.0'; // Update this manually when you deploy
+export const APP_VERSION = '2.3.0'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '2.3.0',
+        date: '2026-03-02',
+        title: 'Analytics Diagrams',
+        changes: [
+            { type: 'new', text: 'New Diagrams tab in Analytics: visualize player and uma stats as line charts over time.' },
+            { type: 'new', text: 'Switch between Dominance (%) and Avg Points metrics.' },
+            { type: 'new', text: 'Switch between Per Tournament and Cumulative modes.' },
+            { type: 'new', text: 'Select up to 8 players or umas to compare on the same chart.' },
+        ]
+    },
     {
         version: '2.2.0',
         date: '2026-02-28',
