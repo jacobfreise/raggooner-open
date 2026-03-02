@@ -5,7 +5,8 @@ service cloud.firestore {
     function isSuperAdmin() {
       // Note: "|| true" makes EVERYONE a super admin for testing. Remove it for production!
       return request.auth != null && (request.auth.uid in [
-      'mehTFP5BuqdrT6mw4xqnaNrHSMk1', 'j7kIBg1mIXO5m824GeBQmXYfb6q2', 'LCwXSR9TZUPqdpv8qM7qD3y7m0uh', 'JXs2aov8XqTfnB9XLOVHVNzw3psv'
+      'mehTFP5BuqdrT6mw4xqnaNrHSMk1', 'j7kIBg1mIXO5m824GeBQmXYfb6q2', 'LCwXSR9TZUPqdpv8qM7qD3y7m0uh', 'JXs2aov8XqTfnB9XLOVHVNzw3psv',
+      'JrBubSUpmlNqYV4Gi7TsYY7yRqzO'
       ]);
     }
 
