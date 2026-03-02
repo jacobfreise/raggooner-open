@@ -3,6 +3,7 @@ import { toRef, ref, computed, onMounted, onUnmounted } from 'vue';
 import type {Tournament, FirestoreUpdate, Team} from '../types';
 import { useUmaDraft } from '../composables/useUmaDraft';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
+import { voicelineVolume, playLocalSfx } from '../composables/useVoicelines';
 import { getPlayerName } from '../utils/utils';
 import { UMA_DICT, getUmaImagePath } from '../utils/umaData';
 
@@ -163,6 +164,13 @@ const sinceLastPick = computed(() => {
               <span class="hidden sm:inline">Undo</span>
             </button>
 
+            <div class="flex items-center gap-1.5 text-slate-500">
+              <i class="ph-bold text-lg shrink-0"
+                 :class="voicelineVolume === 0 ? 'ph-speaker-x' : voicelineVolume < 0.5 ? 'ph-speaker-low' : 'ph-speaker-high'"></i>
+              <input type="range" min="0" max="1" step="0.05" v-model.number="voicelineVolume"
+                     class="w-20 accent-indigo-500 cursor-pointer" />
+            </div>
+
             <div v-if="tournament.draftPhaseTimerStart" class="hidden sm:flex items-center gap-4">
               <div class="text-right">
                 <div class="text-2xl font-mono font-bold text-slate-400 tabular-nums">
@@ -253,6 +261,7 @@ const sinceLastPick = computed(() => {
           </div>
           <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             <button @click="startRandomUma"
+                    @mouseenter="isAdmin && playLocalSfx('/assets/sound-effects/sfx-lockin-button-hover.ogg')"
                     :disabled="!isAdmin"
                     class="col-span-2 sm:col-span-1 bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 p-4 rounded-lg shadow-lg border-2 border-indigo-400 flex items-center justify-between group relative overflow-hidden transition-all transform hover:scale-[1.02]">
               <div class="relative z-10 text-left">
@@ -267,6 +276,7 @@ const sinceLastPick = computed(() => {
 
             <button v-for="uma in filteredUmas" :key="uma"
                     @click="!umaOwnerMap.has(uma) && !isBanned(uma) && pickUma(uma)"
+                    @mouseenter="isAdmin && !umaOwnerMap.has(uma) && !isBanned(uma) && playLocalSfx('/assets/sound-effects/sfx-lockin-button-hover.ogg')"
                     :disabled="!isAdmin || umaOwnerMap.has(uma) || isBanned(uma)"
                     class="relative group p-4 rounded-lg border-2 text-left transition-all duration-200 overflow-hidden"
                     :class="[

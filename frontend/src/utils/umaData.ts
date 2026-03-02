@@ -3,7 +3,7 @@ import type { UmaData } from '../types';
 
 export const UMA_DICT: Record<string, UmaData> = {
     'Mejiro Ardan': {
-        id: 'mejiro-ardan', name: 'Mejiro Ardan', stars: 3, releaseDate: '2026-02-25T22:00:00.000Z',
+        id: 'mejiro-ardan', name: 'Mejiro Ardan', stars: 3, releaseDate: '2026-02-25T22:00:00.000Z', characterId: 107101,
         aptitudes: {
             surface: { turf: 'A', dirt: 'F' },
             distance: { sprint: 'E', mile: 'B', medium: 'A', long: 'D' },
@@ -11,7 +11,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Valentine Mihono Bourbon': {
-        id: 'valentine-mihono-bourbon', name: 'Valentine Mihono Bourbon', stars: 3, releaseDate: '2026-02-18T22:00:00.000Z',
+        id: 'valentine-mihono-bourbon', name: 'Valentine Mihono Bourbon', stars: 3, releaseDate: '2026-02-18T22:00:00.000Z', characterId: 102602,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'C', mile: 'B', medium: 'A', long: 'B' },
@@ -19,7 +19,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Valentine Eishin Flash': {
-        id: 'valentine-eishin-flash', name: 'Valentine Eishin Flash', stars: 3, releaseDate: '2026-02-18T22:00:00.000Z',
+        id: 'valentine-eishin-flash', name: 'Valentine Eishin Flash', stars: 3, releaseDate: '2026-02-18T22:00:00.000Z', characterId: 103702,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'G', mile: 'F', medium: 'A', long: 'A' },
@@ -27,7 +27,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Sakura Chiyono O': {
-        id: 'sakura-chiyono-o', name: 'Sakura Chiyono O', stars: 3, releaseDate: '2026-02-11T22:00:00.000Z',
+        id: 'sakura-chiyono-o', name: 'Sakura Chiyono O', stars: 3, releaseDate: '2026-02-11T22:00:00.000Z', characterId: 106901,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'E', mile: 'A', medium: 'A', long: 'E' },
@@ -35,7 +35,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'New Year TM Opera O': {
-        id: 'new-year-tm-opera-o', name: 'New Year TM Opera O', stars: 3, releaseDate: '2026-01-29T22:00:00.000Z',
+        id: 'new-year-tm-opera-o', name: 'New Year TM Opera O', stars: 3, releaseDate: '2026-01-29T22:00:00.000Z', characterId: 101502,
         aptitudes: {
             surface: { turf: 'A', dirt: 'E' },
             distance: { sprint: 'G', mile: 'E', medium: 'A', long: 'A' },
@@ -43,7 +43,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'New Year Haru Urara': {
-        id: 'new-year-haru-urara', name: 'New Year Haru Urara', stars: 3, releaseDate: '2026-01-29T22:00:00.000Z',
+        id: 'new-year-haru-urara', name: 'New Year Haru Urara', stars: 3, releaseDate: '2026-01-29T22:00:00.000Z', characterId: 105202,
         aptitudes: {
             surface: { turf: 'G', dirt: 'A' },
             distance: { sprint: 'A', mile: 'A', medium: 'G', long: 'G' },
@@ -51,7 +51,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Tamamo Cross': {
-        id: 'tamamo-cross', name: 'Tamamo Cross', stars: 3, releaseDate: '2026-01-22T22:00:00.000Z',
+        id: 'tamamo-cross', name: 'Tamamo Cross', stars: 3, releaseDate: '2026-01-22T22:00:00.000Z', characterId: 102101,
         aptitudes: {
             surface: { turf: 'A', dirt: 'F' },
             distance: { sprint: 'G', mile: 'E', medium: 'A', long: 'A' },
@@ -59,7 +59,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Fine Motion': {
-        id: 'fine-motion', name: 'Fine Motion', stars: 3, releaseDate: '2026-01-15T22:00:00.000Z',
+        id: 'fine-motion', name: 'Fine Motion', stars: 3, releaseDate: '2026-01-15T22:00:00.000Z', characterId: 102201,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'F', mile: 'A', medium: 'A', long: 'C' },
@@ -67,7 +67,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Christmas Oguri Cap': {
-        id: 'christmas-oguri-cap', name: 'Christmas Oguri Cap', stars: 3, releaseDate: '2026-01-05T22:00:00.000Z',
+        id: 'christmas-oguri-cap', name: 'Christmas Oguri Cap', stars: 3, releaseDate: '2026-01-05T22:00:00.000Z', characterId: 100602,
         aptitudes: {
             surface: { turf: 'A', dirt: 'B' },
             distance: { sprint: 'E', mile: 'A', medium: 'A', long: 'B' },
@@ -75,7 +75,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Christmas Biwa Hayahide': {
-        id: 'christmas-biwa-hayahide', name: 'Christmas Biwa Hayahide', stars: 3, releaseDate: '2026-01-05T22:00:00.000Z',
+        id: 'christmas-biwa-hayahide', name: 'Christmas Biwa Hayahide', stars: 3, releaseDate: '2026-01-05T22:00:00.000Z', characterId: 102302,
         aptitudes: {
             surface: { turf: 'A', dirt: 'F' },
             distance: { sprint: 'F', mile: 'C', medium: 'A', long: 'A' },
@@ -83,7 +83,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Mejiro Dober': {
-        id: 'mejiro-dober', name: 'Mejiro Dober', stars: 3, releaseDate: '2025-12-28T22:00:00.000Z',
+        id: 'mejiro-dober', name: 'Mejiro Dober', stars: 3, releaseDate: '2025-12-28T22:00:00.000Z', characterId: 105901,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'E', mile: 'A', medium: 'A', long: 'F' },
@@ -91,7 +91,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Tosen Jordan': {
-        id: 'tosen-jordan', name: 'Tosen Jordan', stars: 3, releaseDate: '2025-12-28T22:00:00.000Z',
+        id: 'tosen-jordan', name: 'Tosen Jordan', stars: 3, releaseDate: '2025-12-28T22:00:00.000Z', characterId: 104801,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'G', mile: 'F', medium: 'A', long: 'B' },
@@ -99,7 +99,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Festival Symboli Rudolf': {
-        id: 'festival-symboli-rudolf', name: 'Festival Symboli Rudolf', stars: 3, releaseDate: '2025-12-14T22:00:00.000Z',
+        id: 'festival-symboli-rudolf', name: 'Festival Symboli Rudolf', stars: 3, releaseDate: '2025-12-14T22:00:00.000Z', characterId: 101702,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'E', mile: 'C', medium: 'A', long: 'A' },
@@ -107,7 +107,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Festival Gold City': {
-        id: 'festival-gold-city', name: 'Festival Gold City', stars: 3, releaseDate: '2025-12-14T22:00:00.000Z',
+        id: 'festival-gold-city', name: 'Festival Gold City', stars: 3, releaseDate: '2025-12-14T22:00:00.000Z', characterId: 104002,
         aptitudes: {
             surface: { turf: 'A', dirt: 'D' },
             distance: { sprint: 'F', mile: 'A', medium: 'B', long: 'B' },
@@ -115,7 +115,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Manhattan Cafe': {
-        id: 'manhattan-cafe', name: 'Manhattan Cafe', stars: 3, releaseDate: '2025-12-08T22:00:00.000Z',
+        id: 'manhattan-cafe', name: 'Manhattan Cafe', stars: 3, releaseDate: '2025-12-08T22:00:00.000Z', characterId: 102501,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'G', mile: 'F', medium: 'B', long: 'A' },
@@ -123,7 +123,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Kawakami Princess': {
-        id: 'kawakami-princess', name: 'Kawakami Princess', stars: 3, releaseDate: '2025-12-01T22:00:00.000Z',
+        id: 'kawakami-princess', name: 'Kawakami Princess', stars: 3, releaseDate: '2025-12-01T22:00:00.000Z', characterId: 103901,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'D', mile: 'B', medium: 'A', long: 'F' },
@@ -131,7 +131,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Halloween Rice Shower': {
-        id: 'halloween-rice-shower', name: 'Halloween Rice Shower', stars: 3, releaseDate: '2025-11-24T22:00:00.000Z',
+        id: 'halloween-rice-shower', name: 'Halloween Rice Shower', stars: 3, releaseDate: '2025-11-24T22:00:00.000Z', characterId: 103002,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'E', mile: 'C', medium: 'A', long: 'A' },
@@ -139,7 +139,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Halloween Super Creek': {
-        id: 'halloween-super-creek', name: 'Halloween Super Creek', stars: 3, releaseDate: '2025-11-24T22:00:00.000Z',
+        id: 'halloween-super-creek', name: 'Halloween Super Creek', stars: 3, releaseDate: '2025-11-24T22:00:00.000Z', characterId: 104502,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'G', mile: 'G', medium: 'A', long: 'A' },
@@ -147,7 +147,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Agnes Digital': {
-        id: 'agnes-digital', name: 'Agnes Digital', stars: 3, releaseDate: '2025-11-19T22:00:00.000Z',
+        id: 'agnes-digital', name: 'Agnes Digital', stars: 3, releaseDate: '2025-11-19T22:00:00.000Z', characterId: 101901,
         aptitudes: {
             surface: { turf: 'A', dirt: 'A' },
             distance: { sprint: 'F', mile: 'A', medium: 'A', long: 'G' },
@@ -155,7 +155,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Hishi Akebono': {
-        id: 'hishi-akebono', name: 'Hishi Akebono', stars: 3, releaseDate: '2025-11-11T22:00:00.000Z',
+        id: 'hishi-akebono', name: 'Hishi Akebono', stars: 3, releaseDate: '2025-11-11T22:00:00.000Z', characterId: 102801,
         aptitudes: {
             surface: { turf: 'A', dirt: 'F' },
             distance: { sprint: 'A', mile: 'B', medium: 'F', long: 'G' },
@@ -163,7 +163,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Full Armor Matikanefukukitaru': {
-        id: 'full-armor-matikanefukukitaru', name: 'Full Armor Matikanefukukitaru', stars: 3, releaseDate: '2025-11-06T22:00:00.000Z',
+        id: 'full-armor-matikanefukukitaru', name: 'Full Armor Matikanefukukitaru', stars: 3, releaseDate: '2025-11-06T22:00:00.000Z', characterId: 105602,
         aptitudes: {
             surface: { turf: 'A', dirt: 'F' },
             distance: { sprint: 'F', mile: 'C', medium: 'A', long: 'A' },
@@ -171,7 +171,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Eishin Flash': {
-        id: 'eishin-flash', name: 'Eishin Flash', stars: 3, releaseDate: '2025-10-30T22:00:00.000Z',
+        id: 'eishin-flash', name: 'Eishin Flash', stars: 3, releaseDate: '2025-10-30T22:00:00.000Z', characterId: 103701,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'G', mile: 'F', medium: 'A', long: 'A' },
@@ -179,7 +179,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Meisho Doto': {
-        id: 'meisho-doto', name: 'Meisho Doto', stars: 3, releaseDate: '2025-10-21T22:00:00.000Z',
+        id: 'meisho-doto', name: 'Meisho Doto', stars: 3, releaseDate: '2025-10-21T22:00:00.000Z', characterId: 105801,
         aptitudes: {
             surface: { turf: 'A', dirt: 'E' },
             distance: { sprint: 'G', mile: 'F', medium: 'A', long: 'A' },
@@ -187,7 +187,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Summer Special Week': {
-        id: 'summer-special-week', name: 'Summer Special Week', stars: 3, releaseDate: '2025-10-14T22:00:00.000Z',
+        id: 'summer-special-week', name: 'Summer Special Week', stars: 3, releaseDate: '2025-10-14T22:00:00.000Z', characterId: 100102,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'F', mile: 'C', medium: 'A', long: 'A' },
@@ -195,7 +195,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Summer Maruzensky': {
-        id: 'summer-maruzensky', name: 'Summer Maruzensky', stars: 3, releaseDate: '2025-10-14T22:00:00.000Z',
+        id: 'summer-maruzensky', name: 'Summer Maruzensky', stars: 3, releaseDate: '2025-10-14T22:00:00.000Z', characterId: 100402,
         aptitudes: {
             surface: { turf: 'A', dirt: 'D' },
             distance: { sprint: 'B', mile: 'B', medium: 'A', long: 'C' },
@@ -203,7 +203,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Gold City': {
-        id: 'gold-city', name: 'Gold City', stars: 3, releaseDate: '2025-10-07T22:00:00.000Z',
+        id: 'gold-city', name: 'Gold City', stars: 3, releaseDate: '2025-10-07T22:00:00.000Z', characterId: 104001,
         aptitudes: {
             surface: { turf: 'A', dirt: 'D' },
             distance: { sprint: 'F', mile: 'A', medium: 'B', long: 'B' },
@@ -211,7 +211,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Fuji Kiseki': {
-        id: 'fuji-kiseki', name: 'Fuji Kiseki', stars: 3, releaseDate: '2025-10-02T22:00:00.000Z',
+        id: 'fuji-kiseki', name: 'Fuji Kiseki', stars: 3, releaseDate: '2025-10-02T22:00:00.000Z', characterId: 100501,
         aptitudes: {
             surface: { turf: 'A', dirt: 'F' },
             distance: { sprint: 'B', mile: 'A', medium: 'B', long: 'E' },
@@ -219,7 +219,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Fantasy Grass Wonder': {
-        id: 'fantasy-grass-wonder', name: 'Fantasy Grass Wonder', stars: 3, releaseDate: '2025-09-21T22:00:00.000Z',
+        id: 'fantasy-grass-wonder', name: 'Fantasy Grass Wonder', stars: 3, releaseDate: '2025-09-21T22:00:00.000Z', characterId: 101102,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'G', mile: 'A', medium: 'B', long: 'A' },
@@ -227,7 +227,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Fantasy El Condor Pasa': {
-        id: 'fantasy-el-condor-pasa', name: 'Fantasy El Condor Pasa', stars: 3, releaseDate: '2025-09-21T22:00:00.000Z',
+        id: 'fantasy-el-condor-pasa', name: 'Fantasy El Condor Pasa', stars: 3, releaseDate: '2025-09-21T22:00:00.000Z', characterId: 101402,
         aptitudes: {
             surface: { turf: 'A', dirt: 'B' },
             distance: { sprint: 'F', mile: 'A', medium: 'A', long: 'B' },
@@ -235,7 +235,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Hishi Amazon': {
-        id: 'hishi-amazon', name: 'Hishi Amazon', stars: 3, releaseDate: '2025-09-17T22:00:00.000Z',
+        id: 'hishi-amazon', name: 'Hishi Amazon', stars: 3, releaseDate: '2025-09-17T22:00:00.000Z', characterId: 101201,
         aptitudes: {
             surface: { turf: 'A', dirt: 'E' },
             distance: { sprint: 'D', mile: 'A', medium: 'A', long: 'B' },
@@ -243,7 +243,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Seiun Sky': {
-        id: 'seiun-sky', name: 'Seiun Sky', stars: 3, releaseDate: '2025-09-07T22:00:00.000Z',
+        id: 'seiun-sky', name: 'Seiun Sky', stars: 3, releaseDate: '2025-09-07T22:00:00.000Z', characterId: 102001,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'G', mile: 'C', medium: 'A', long: 'A' },
@@ -251,7 +251,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Wedding Air Groove': {
-        id: 'wedding-air-groove', name: 'Wedding Air Groove', stars: 3, releaseDate: '2025-08-28T22:00:00.000Z',
+        id: 'wedding-air-groove', name: 'Wedding Air Groove', stars: 3, releaseDate: '2025-08-28T22:00:00.000Z', characterId: 101802,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'C', mile: 'B', medium: 'A', long: 'E' },
@@ -259,7 +259,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Wedding Mayano Top Gun': {
-        id: 'wedding-mayano-top-gun', name: 'Wedding Mayano Top Gun', stars: 3, releaseDate: '2025-08-28T22:00:00.000Z',
+        id: 'wedding-mayano-top-gun', name: 'Wedding Mayano Top Gun', stars: 3, releaseDate: '2025-08-28T22:00:00.000Z', characterId: 102402,
         aptitudes: {
             surface: { turf: 'A', dirt: 'E' },
             distance: { sprint: 'D', mile: 'D', medium: 'A', long: 'A' },
@@ -267,7 +267,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Narita Brian': {
-        id: 'narita-brian', name: 'Narita Brian', stars: 3, releaseDate: '2025-08-20T22:00:00.000Z',
+        id: 'narita-brian', name: 'Narita Brian', stars: 3, releaseDate: '2025-08-20T22:00:00.000Z', characterId: 101601,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'F', mile: 'B', medium: 'A', long: 'A' },
@@ -275,7 +275,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Smart Falcon': {
-        id: 'smart-falcon', name: 'Smart Falcon', stars: 3, releaseDate: '2025-08-11T22:00:00.000Z',
+        id: 'smart-falcon', name: 'Smart Falcon', stars: 3, releaseDate: '2025-08-11T22:00:00.000Z', characterId: 104601,
         aptitudes: {
             surface: { turf: 'E', dirt: 'A' },
             distance: { sprint: 'B', mile: 'A', medium: 'A', long: 'E' },
@@ -283,7 +283,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Narita Taishin': {
-        id: 'narita-taishin', name: 'Narita Taishin', stars: 3, releaseDate: '2025-08-03T22:00:00.000Z',
+        id: 'narita-taishin', name: 'Narita Taishin', stars: 3, releaseDate: '2025-08-03T22:00:00.000Z', characterId: 105001,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'F', mile: 'D', medium: 'A', long: 'A' },
@@ -291,7 +291,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Curren Chan': {
-        id: 'curren-chan', name: 'Curren Chan', stars: 3, releaseDate: '2025-07-27T22:00:00.000Z',
+        id: 'curren-chan', name: 'Curren Chan', stars: 3, releaseDate: '2025-07-27T22:00:00.000Z', characterId: 103801,
         aptitudes: {
             surface: { turf: 'A', dirt: 'F' },
             distance: { sprint: 'A', mile: 'D', medium: 'G', long: 'G' },
@@ -299,7 +299,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Anime Tokai Teio': {
-        id: 'anime-tokai-teio', name: 'Anime Tokai Teio', stars: 3, releaseDate: '2025-07-16T22:00:00.000Z',
+        id: 'anime-tokai-teio', name: 'Anime Tokai Teio', stars: 3, releaseDate: '2025-07-16T22:00:00.000Z', characterId: 100302,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'F', mile: 'E', medium: 'A', long: 'B' },
@@ -307,7 +307,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Anime Mejiro McQueen': {
-        id: 'anime-mejiro-mcqueen', name: 'Anime Mejiro McQueen', stars: 3, releaseDate: '2025-07-16T22:00:00.000Z',
+        id: 'anime-mejiro-mcqueen', name: 'Anime Mejiro McQueen', stars: 3, releaseDate: '2025-07-16T22:00:00.000Z', characterId: 101302,
         aptitudes: {
             surface: { turf: 'A', dirt: 'E' },
             distance: { sprint: 'G', mile: 'F', medium: 'A', long: 'A' },
@@ -315,7 +315,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Biwa Hayahide': {
-        id: 'biwa-hayahide', name: 'Biwa Hayahide', stars: 3, releaseDate: '2025-07-10T22:00:00.000Z',
+        id: 'biwa-hayahide', name: 'Biwa Hayahide', stars: 3, releaseDate: '2025-07-10T22:00:00.000Z', characterId: 102301,
         aptitudes: {
             surface: { turf: 'A', dirt: 'F' },
             distance: { sprint: 'F', mile: 'C', medium: 'A', long: 'A' },
@@ -323,7 +323,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Mihono Bourbon': {
-        id: 'mihono-bourbon', name: 'Mihono Bourbon', stars: 3, releaseDate: '2025-07-02T22:00:00.000Z',
+        id: 'mihono-bourbon', name: 'Mihono Bourbon', stars: 3, releaseDate: '2025-07-02T22:00:00.000Z', characterId: 102601,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'C', mile: 'B', medium: 'A', long: 'B' },
@@ -331,7 +331,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'TM Opera O': {
-        id: 'tm-opera-o', name: 'TM Opera O', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'tm-opera-o', name: 'TM Opera O', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 101501,
         aptitudes: {
             surface: { turf: 'A', dirt: 'E' },
             distance: { sprint: 'G', mile: 'E', medium: 'A', long: 'A' },
@@ -339,7 +339,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Special Week': {
-        id: 'special-week', name: 'Special Week', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'special-week', name: 'Special Week', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 100101,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'F', mile: 'C', medium: 'A', long: 'A' },
@@ -347,7 +347,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Silence Suzuka': {
-        id: 'silence-suzuka', name: 'Silence Suzuka', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'silence-suzuka', name: 'Silence Suzuka', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 100201,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'D', mile: 'A', medium: 'A', long: 'E' },
@@ -355,7 +355,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Tokai Teio': {
-        id: 'tokai-teio', name: 'Tokai Teio', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'tokai-teio', name: 'Tokai Teio', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 100301,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'F', mile: 'E', medium: 'A', long: 'B' },
@@ -363,7 +363,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Maruzensky': {
-        id: 'maruzensky', name: 'Maruzensky', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'maruzensky', name: 'Maruzensky', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 100401,
         aptitudes: {
             surface: { turf: 'A', dirt: 'D' },
             distance: { sprint: 'B', mile: 'A', medium: 'B', long: 'C' },
@@ -371,7 +371,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Oguri Cap': {
-        id: 'oguri-cap', name: 'Oguri Cap', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'oguri-cap', name: 'Oguri Cap', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 100601,
         aptitudes: {
             surface: { turf: 'A', dirt: 'B' },
             distance: { sprint: 'E', mile: 'A', medium: 'A', long: 'B' },
@@ -379,7 +379,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Gold Ship': {
-        id: 'gold-ship', name: 'Gold Ship', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'gold-ship', name: 'Gold Ship', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 100701,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'G', mile: 'C', medium: 'A', long: 'A' },
@@ -387,7 +387,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Vodka': {
-        id: 'vodka', name: 'Vodka', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'vodka', name: 'Vodka', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 100801,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'F', mile: 'A', medium: 'A', long: 'F' },
@@ -395,7 +395,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Daiwa Scarlet': {
-        id: 'daiwa-scarlet', name: 'Daiwa Scarlet', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'daiwa-scarlet', name: 'Daiwa Scarlet', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 100901,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'F', mile: 'A', medium: 'A', long: 'B' },
@@ -403,7 +403,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Taiki Shuttle': {
-        id: 'taiki-shuttle', name: 'Taiki Shuttle', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'taiki-shuttle', name: 'Taiki Shuttle', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 101001,
         aptitudes: {
             surface: { turf: 'A', dirt: 'B' },
             distance: { sprint: 'A', mile: 'A', medium: 'E', long: 'G' },
@@ -411,7 +411,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Grass Wonder': {
-        id: 'grass-wonder', name: 'Grass Wonder', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'grass-wonder', name: 'Grass Wonder', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 101101,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'G', mile: 'A', medium: 'B', long: 'A' },
@@ -419,7 +419,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Mejiro McQueen': {
-        id: 'mejiro-mcqueen', name: 'Mejiro McQueen', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'mejiro-mcqueen', name: 'Mejiro McQueen', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 101301,
         aptitudes: {
             surface: { turf: 'A', dirt: 'E' },
             distance: { sprint: 'G', mile: 'F', medium: 'A', long: 'A' },
@@ -427,7 +427,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'El Condor Pasa': {
-        id: 'el-condor-pasa', name: 'El Condor Pasa', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'el-condor-pasa', name: 'El Condor Pasa', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 101401,
         aptitudes: {
             surface: { turf: 'A', dirt: 'B' },
             distance: { sprint: 'F', mile: 'A', medium: 'A', long: 'B' },
@@ -435,7 +435,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Symboli Rudolf': {
-        id: 'symboli-rudolf', name: 'Symboli Rudolf', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'symboli-rudolf', name: 'Symboli Rudolf', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 101701,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'E', mile: 'C', medium: 'A', long: 'A' },
@@ -443,7 +443,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Air Groove': {
-        id: 'air-groove', name: 'Air Groove', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'air-groove', name: 'Air Groove', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 101801,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'C', mile: 'B', medium: 'A', long: 'E' },
@@ -451,7 +451,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Mayano Top Gun': {
-        id: 'mayano-top-gun', name: 'Mayano Top Gun', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'mayano-top-gun', name: 'Mayano Top Gun', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 102401,
         aptitudes: {
             surface: { turf: 'A', dirt: 'E' },
             distance: { sprint: 'D', mile: 'D', medium: 'A', long: 'A' },
@@ -459,7 +459,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Mejiro Ryan': {
-        id: 'mejiro-ryan', name: 'Mejiro Ryan', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'mejiro-ryan', name: 'Mejiro Ryan', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 102701,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'E', mile: 'C', medium: 'A', long: 'B' },
@@ -467,7 +467,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Rice Shower': {
-        id: 'rice-shower', name: 'Rice Shower', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'rice-shower', name: 'Rice Shower', stars: 3, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 103001,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'E', mile: 'C', medium: 'A', long: 'A' },
@@ -475,7 +475,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Agnes Tachyon': {
-        id: 'agnes-tachyon', name: 'Agnes Tachyon', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'agnes-tachyon', name: 'Agnes Tachyon', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 103201,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'G', mile: 'D', medium: 'A', long: 'B' },
@@ -483,7 +483,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Winning Ticket': {
-        id: 'winning-ticket', name: 'Winning Ticket', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'winning-ticket', name: 'Winning Ticket', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 103501,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'G', mile: 'F', medium: 'A', long: 'B' },
@@ -491,7 +491,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Sakura Bakushin O': {
-        id: 'sakura-bakushin-o', name: 'Sakura Bakushin O', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'sakura-bakushin-o', name: 'Sakura Bakushin O', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 104101,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'A', mile: 'B', medium: 'G', long: 'G' },
@@ -499,7 +499,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Super Creek': {
-        id: 'super-creek', name: 'Super Creek', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'super-creek', name: 'Super Creek', stars: 2, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 104501,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'G', mile: 'G', medium: 'A', long: 'A' },
@@ -507,7 +507,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Haru Urara': {
-        id: 'haru-urara', name: 'Haru Urara', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'haru-urara', name: 'Haru Urara', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 105201,
         aptitudes: {
             surface: { turf: 'G', dirt: 'A' },
             distance: { sprint: 'A', mile: 'B', medium: 'G', long: 'G' },
@@ -515,7 +515,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Matikanefukukitaru': {
-        id: 'matikanefukukitaru', name: 'Matikanefukukitaru', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'matikanefukukitaru', name: 'Matikanefukukitaru', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 105601,
         aptitudes: {
             surface: { turf: 'A', dirt: 'F' },
             distance: { sprint: 'F', mile: 'C', medium: 'A', long: 'A' },
@@ -523,7 +523,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'Nice Nature': {
-        id: 'nice-nature', name: 'Nice Nature', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'nice-nature', name: 'Nice Nature', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 106001,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'G', mile: 'C', medium: 'A', long: 'B' },
@@ -531,7 +531,7 @@ export const UMA_DICT: Record<string, UmaData> = {
         }
     },
     'King Halo': {
-        id: 'king-halo', name: 'King Halo', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z',
+        id: 'king-halo', name: 'King Halo', stars: 1, releaseDate: '2025-06-26T22:00:00.000Z', characterId: 106101,
         aptitudes: {
             surface: { turf: 'A', dirt: 'G' },
             distance: { sprint: 'A', mile: 'B', medium: 'B', long: 'C' },
