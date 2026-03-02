@@ -222,27 +222,28 @@ const playerFameMap = computed(() => {
           <div v-for="player in section.players" :key="player.id" class="relative overflow-hidden bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-indigo-500/50 transition-all flex flex-col group hover:shadow-xl hover:-translate-y-1">
             <div class="absolute inset-0 transition-opacity duration-500 opacity-0 group-hover:opacity-100 pointer-events-none" :style="{ background: `linear-gradient(to bottom right, ${getPlayerColor(player.id)}33, transparent)` }"></div>
 
-            <div class="relative z-10 flex justify-between items-start pb-2 border-slate-700/50">
-              <div class="flex-1 flex items-start gap-3 min-w-0">
-                <img v-if="player.uma" :src="getUmaImagePath(player.uma)" :alt="player.uma"
-                     class="w-10 h-10 rounded-full object-cover shrink-0 bg-slate-700 mt-0.5" />
-                <div class="flex flex-col min-w-0">
-                  <div class="text-2xl font-bold leading-none group-hover:text-indigo-300 transition-colors" :style="{ color: getPlayerColor(player.id) }">{{ player.name }}</div>
-                  <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 mt-1 h-3.5" v-if="player.uma">{{ player.uma }}</div>
-                  <div v-else class="h-3.5 mt-1"></div>
-
-                  <div v-if="playerFameMap[player.id]?.length" class="flex flex-wrap gap-1 mt-2 pr-2">
-                    <div v-for="fame in playerFameMap[player.id]" :key="fame.title"
-                         class="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded border border-slate-700 bg-slate-900/80 flex items-center gap-1 shadow-sm">
-                      <i :class="[fame.icon, fame.color]" class="ph-fill text-[10px]"></i>
-                      <span class="text-slate-400">{{ fame.title }}</span>
-                    </div>
+            <div class="relative z-10 pb-2 border-slate-700/50">
+              <div class="flex justify-between items-start">
+                <div class="flex-1 flex items-start gap-3 min-w-0">
+                  <img v-if="player.uma" :src="getUmaImagePath(player.uma)" :alt="player.uma"
+                       class="w-10 h-10 rounded-full object-cover shrink-0 bg-slate-700 mt-0.5" />
+                  <div class="flex flex-col min-w-0">
+                    <div class="text-2xl font-bold leading-none group-hover:text-indigo-300 transition-colors" :style="{ color: getPlayerColor(player.id) }">{{ player.name }}</div>
+                    <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 mt-1 h-3.5" v-if="player.uma">{{ player.uma }}</div>
+                    <div v-else class="h-3.5 mt-1"></div>
                   </div>
                 </div>
+                <div class="text-right shrink-0 ml-2">
+                  <div class="text-2xl font-bold leading-none text-indigo-400 tabular-nums">{{ getTotalPoints(player.id) }}</div>
+                  <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 mt-1 h-3.5">Total Pts</div>
+                </div>
               </div>
-              <div class="text-right shrink-0 ml-2">
-                <div class="text-2xl font-bold leading-none text-indigo-400 tabular-nums">{{ getTotalPoints(player.id) }}</div>
-                <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 mt-1 h-3.5">Total Pts</div>
+              <div v-if="playerFameMap[player.id]?.length" class="flex flex-wrap gap-1 mt-2">
+                <div v-for="fame in playerFameMap[player.id]" :key="fame.title"
+                     class="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded border border-slate-700 bg-slate-900/80 flex items-center gap-1 shadow-sm">
+                  <i :class="[fame.icon, fame.color]" class="ph-fill text-[10px]"></i>
+                  <span class="text-slate-400">{{ fame.title }}</span>
+                </div>
               </div>
             </div>
 

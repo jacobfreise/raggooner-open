@@ -326,7 +326,7 @@ const categories: FameCategory[] = [
                     if (r.placements[p.id]) places.push(r.placements[p.id]!);
                 });
 
-                if (places.length < 3) return {player: p, value: 0}; // Need data for deviation
+                if (places.length < 3) return {player: p, value: 999}; // Need data for deviation
 
                 // 2. Calculate Standard Deviation
                 const mean = places.reduce((a, b) => a + b, 0) / places.length;
