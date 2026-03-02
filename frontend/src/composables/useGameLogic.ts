@@ -1,7 +1,7 @@
 import {ref, computed, type Ref, watch} from 'vue';
 import type {Tournament, Team, Race, FirestoreUpdate, Player, PointAdjustment} from '../types';
 import { POINTS_SYSTEM as DEFAULT_POINTS } from '../utils/constants';
-import {compareTeams, getPlayerUma, getPlayerName, raceKey} from '../utils/utils';
+import {compareTeams, getPlayerUma, getPlayerName, raceKey, recalculateTournamentScores} from '../utils/utils';
 import {
     arrayRemove,
     arrayUnion,
@@ -732,9 +732,15 @@ export function useGameLogic(
         raceData.placements = newPlacements;
         raceData.timestamp = new Date().toISOString();
 
+        const { teams: scoredTeams } = recalculateTournamentScores({
+            ...tournament.value,
+            races: { ...tournament.value.races, [key]: raceData }
+        });
+
         try {
             await secureUpdate({
                 [`races.${key}`]: raceData,
+                teams: scoredTeams,
             });
         } catch (e) {
             console.error(e);
@@ -769,9 +775,15 @@ export function useGameLogic(
 
         editingRaceKey.value = null;
 
+        const { teams: scoredTeams } = recalculateTournamentScores({
+            ...tournament.value,
+            races: { ...tournament.value.races, [key]: raceData }
+        });
+
         try {
             await secureUpdate({
                 [`races.${key}`]: raceData,
+                teams: scoredTeams,
             });
 
             entryMap.value = {};

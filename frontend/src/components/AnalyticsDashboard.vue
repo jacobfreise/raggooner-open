@@ -278,13 +278,18 @@ const expandedPlayerTournaments = computed(() => {
     const uniqueGroupSet = new Set(teams.map(tm => tm.group));
     const hasGroups = uniqueGroupSet.size > 1;
     const finalistTeams = teams.filter(tm => tm.inFinals);
-    const winningTeam = t
-      ? finalistTeams.length > 0
-        ? [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true))[0]
-        : !hasGroups && tStatus === 'completed'
-          ? [...teams].sort((a, b) => compareTeams(a, b, true, t, false))[0]
-          : null
-      : null;
+    let winningTeam: (typeof teams)[0] | null = null;
+    if (t && finalistTeams.length > 0) {
+      winningTeam = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true))[0] ?? null;
+    } else if (t && !hasGroups && tStatus === 'completed') {
+      const { teams: scoredTeams } = recalculateTournamentScores(t);
+      const topScored = [...scoredTeams].sort((a, b) => {
+        const aTotal = (a.points || 0) + (a.finalsPoints || 0);
+        const bTotal = (b.points || 0) + (b.finalsPoints || 0);
+        return bTotal !== aTotal ? bTotal - aTotal : a.id.localeCompare(b.id);
+      })[0];
+      winningTeam = topScored ? (teams.find(tm => tm.id === topScored.id) ?? null) : null;
+    }
 
     const wildcards = t?.wildcards || [];
     const playerWildcards = wildcards.filter(wc => wc.playerId === playerId);
@@ -657,16 +662,25 @@ const playerRankings = computed(() => {
     if (!t.teams || t.teams.length === 0) return;
     const finalistTeams = t.teams.filter(team => team.inFinals);
     const hasGroups = new Set(t.teams.map(tm => tm.group)).size > 1;
-    const candidateTeams = finalistTeams.length > 0 ? finalistTeams : (!hasGroups ? t.teams : []);
-    if (candidateTeams.length === 0) return;
+    if (finalistTeams.length === 0 && hasGroups) return;
 
-    const isFinals = finalistTeams.length > 0;
-    const sorted = [...candidateTeams].sort((a, b) => compareTeams(a, b, true, t, isFinals));
-    const winningTeam = sorted[0];
-    if (!winningTeam) return;
+    let winningTeamId: string | undefined;
+    if (finalistTeams.length > 0) {
+      winningTeamId = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true))[0]?.id;
+    } else {
+      // Small tournament: team.points/finalsPoints in Firestore are stale (never written back),
+      // so recalculate from race data to get accurate scores.
+      const { teams: scoredTeams } = recalculateTournamentScores(t);
+      winningTeamId = [...scoredTeams].sort((a, b) => {
+        const aTotal = (a.points || 0) + (a.finalsPoints || 0);
+        const bTotal = (b.points || 0) + (b.finalsPoints || 0);
+        return bTotal !== aTotal ? bTotal - aTotal : a.id.localeCompare(b.id);
+      })[0]?.id;
+    }
+    if (!winningTeamId) return;
 
     filteredParticipations.value
-        .filter(p => p.tournamentId === t.id && p.teamId === winningTeam.id)
+        .filter(p => p.tournamentId === t.id && p.teamId === winningTeamId)
         .forEach(p => {
           const stats = playerStats.get(p.playerId);
           if (stats) stats.tournamentWins++;
