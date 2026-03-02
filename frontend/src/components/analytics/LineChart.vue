@@ -5,6 +5,7 @@ export interface ChartDataset {
   label: string;
   color: string;
   points: (number | null)[];
+  meta?: (string | null)[];
 }
 
 const props = defineProps<{
@@ -209,7 +210,10 @@ const formatVal = (v: number | null | undefined) =>
              class="flex items-center justify-between gap-4 py-0.5">
           <div class="flex items-center gap-1.5 min-w-0">
             <div class="w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: ds.color }"></div>
-            <span class="text-slate-400 truncate">{{ ds.label }}</span>
+            <div class="min-w-0">
+              <span class="text-slate-400 truncate block">{{ ds.label }}</span>
+              <span v-if="ds.meta?.[hoverIdx]" class="text-slate-500 text-[10px] truncate block">{{ ds.meta[hoverIdx] }}</span>
+            </div>
           </div>
           <span class="font-bold tabular-nums shrink-0" :style="{ color: ds.color }">
             {{ formatVal(ds.points[hoverIdx]) }}

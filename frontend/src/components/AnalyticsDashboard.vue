@@ -625,9 +625,12 @@ const playerTimelineData = computed((): { xLabels: string[]; datasets: ChartData
     let cumFaced = 0, cumBeaten = 0;
     let cumPoints = 0, cumRaces = 0;
 
+    const meta: (string | null)[] = [];
     const points: (number | null)[] = sortedT.map(t => {
       const psys = tournamentPointSystemMap.value.get(t.id) ?? POINTS_SYSTEM;
       const tRaces = filteredRaces.value.filter(r => r.tournamentId === t.id);
+      const uma = tRaces.find(r => r.umaMapping[playerId])?.umaMapping[playerId] ?? null;
+      meta.push(uma);
 
       if (metric === 'avg-points') {
         let totalPts = 0, raceCount = 0;
@@ -668,6 +671,7 @@ const playerTimelineData = computed((): { xLabels: string[]; datasets: ChartData
       label: player?.name || playerId,
       color: diagramColorMap.value.get(playerId) ?? CHART_COLORS[0]!,
       points,
+      meta,
     };
   });
 
