@@ -278,8 +278,12 @@ const expandedPlayerTournaments = computed(() => {
     const uniqueGroupSet = new Set(teams.map(tm => tm.group));
     const hasGroups = uniqueGroupSet.size > 1;
     const finalistTeams = teams.filter(tm => tm.inFinals);
-    const winningTeam = finalistTeams.length > 0 && t
-      ? [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true))[0]
+    const winningTeam = t
+      ? finalistTeams.length > 0
+        ? [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true))[0]
+        : !hasGroups && tStatus === 'completed'
+          ? [...teams].sort((a, b) => compareTeams(a, b, true, t, false))[0]
+          : null
       : null;
 
     const wildcards = t?.wildcards || [];
@@ -652,9 +656,12 @@ const playerRankings = computed(() => {
   filteredTournaments.value.filter(t => t.status === 'completed').forEach(t => {
     if (!t.teams || t.teams.length === 0) return;
     const finalistTeams = t.teams.filter(team => team.inFinals);
-    if (finalistTeams.length === 0) return;
+    const hasGroups = new Set(t.teams.map(tm => tm.group)).size > 1;
+    const candidateTeams = finalistTeams.length > 0 ? finalistTeams : (!hasGroups ? t.teams : []);
+    if (candidateTeams.length === 0) return;
 
-    const sorted = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true));
+    const isFinals = finalistTeams.length > 0;
+    const sorted = [...candidateTeams].sort((a, b) => compareTeams(a, b, true, t, isFinals));
     const winningTeam = sorted[0];
     if (!winningTeam) return;
 
