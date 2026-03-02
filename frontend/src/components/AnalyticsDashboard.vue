@@ -2775,7 +2775,7 @@ const getRankIcon = (index: number) => {
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 p-3 max-h-64 overflow-y-auto custom-scrollbar">
             <button
-              v-for="p in playerRankings"
+              v-for="p in playerRankings.sort((a,b) => a.player.name.localeCompare(b.player.name))"
               :key="p.player.id"
               @click="toggleDiagramPlayer(p.player.id)"
               class="flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all"
