@@ -84,8 +84,12 @@ const CHART_COLORS: readonly string[] = [
   '#60a5fa', '#a78bfa', '#facc15', '#2dd4bf',
 ];
 const MAX_DIAGRAM_PLAYERS = 8;
+const MAX_DIAGRAM_UMAS = 8;
 const diagramSelectedPlayerIds = ref<string[]>([]);
+const diagramSelectedUmaNames = ref<string[]>([]);
 const diagramMode = ref<'per-tournament' | 'cumulative'>('per-tournament');
+const diagramMetric = ref<'dominance' | 'avg-points'>('dominance');
+const diagramSubject = ref<'players' | 'umas'>('players');
 
 const toggleDiagramPlayer = (playerId: string) => {
   const idx = diagramSelectedPlayerIds.value.indexOf(playerId);
@@ -93,6 +97,15 @@ const toggleDiagramPlayer = (playerId: string) => {
     diagramSelectedPlayerIds.value.splice(idx, 1);
   } else if (diagramSelectedPlayerIds.value.length < MAX_DIAGRAM_PLAYERS) {
     diagramSelectedPlayerIds.value.push(playerId);
+  }
+};
+
+const toggleDiagramUma = (umaName: string) => {
+  const idx = diagramSelectedUmaNames.value.indexOf(umaName);
+  if (idx !== -1) {
+    diagramSelectedUmaNames.value.splice(idx, 1);
+  } else if (diagramSelectedUmaNames.value.length < MAX_DIAGRAM_UMAS) {
+    diagramSelectedUmaNames.value.push(umaName);
   }
 };
 
@@ -570,6 +583,14 @@ const diagramSortedTournaments = computed(() =>
   )
 );
 
+const tournamentPointSystemMap = computed(() => {
+  const map = new Map<string, Record<number, number>>();
+  filteredTournaments.value.forEach(t => {
+    map.set(t.id, t.pointsSystem ?? POINTS_SYSTEM);
+  });
+  return map;
+});
+
 const diagramColorMap = computed(() => {
   const map = new Map<string, string>();
   diagramSelectedPlayerIds.value.forEach((id, i) => {
@@ -578,10 +599,18 @@ const diagramColorMap = computed(() => {
   return map;
 });
 
+const diagramUmaColorMap = computed(() => {
+  const map = new Map<string, string>();
+  diagramSelectedUmaNames.value.forEach((name, i) => {
+    map.set(name, CHART_COLORS[i % CHART_COLORS.length]);
+  });
+  return map;
+});
+
 const playerTimelineData = computed((): { xLabels: string[]; datasets: ChartDataset[] } => {
   const selectedIds = diagramSelectedPlayerIds.value;
+  const metric = diagramMetric.value;
 
-  // Only include tournaments where at least one selected player has race data
   const sortedT = diagramSortedTournaments.value.filter(t =>
     selectedIds.some(playerId =>
       filteredRaces.value.some(r =>
@@ -591,15 +620,33 @@ const playerTimelineData = computed((): { xLabels: string[]; datasets: ChartData
   );
   const xLabels = sortedT.map(t => t.name);
 
-  const datasets: ChartDataset[] = diagramSelectedPlayerIds.value.map(playerId => {
+  const datasets: ChartDataset[] = selectedIds.map(playerId => {
     const player = players.value.find(p => p.id === playerId);
     let cumFaced = 0, cumBeaten = 0;
+    let cumPoints = 0, cumRaces = 0;
 
     const points: (number | null)[] = sortedT.map(t => {
-      let faced = 0, beaten = 0;
-      filteredRaces.value
-        .filter(r => r.tournamentId === t.id)
-        .forEach(race => {
+      const psys = tournamentPointSystemMap.value.get(t.id) ?? POINTS_SYSTEM;
+      const tRaces = filteredRaces.value.filter(r => r.tournamentId === t.id);
+
+      if (metric === 'avg-points') {
+        let totalPts = 0, raceCount = 0;
+        tRaces.forEach(race => {
+          const pos = race.placements[playerId];
+          if (pos === undefined) return;
+          totalPts += psys[pos] ?? 0;
+          raceCount++;
+        });
+        if (diagramMode.value === 'cumulative') {
+          if (raceCount === 0) return null;
+          cumPoints += totalPts;
+          cumRaces += raceCount;
+          return Math.round((cumPoints / cumRaces) * 10) / 10;
+        }
+        return raceCount > 0 ? Math.round((totalPts / raceCount) * 10) / 10 : null;
+      } else {
+        let faced = 0, beaten = 0;
+        tRaces.forEach(race => {
           const pos = race.placements[playerId];
           if (pos === undefined) return;
           const numPlayers = Object.keys(race.placements).length;
@@ -607,19 +654,97 @@ const playerTimelineData = computed((): { xLabels: string[]; datasets: ChartData
           faced += numPlayers - 1;
           beaten += numPlayers - pos;
         });
-
-      if (diagramMode.value === 'cumulative') {
-        if (faced === 0) return null;
-        cumFaced += faced;
-        cumBeaten += beaten;
-        return Math.round((cumBeaten / cumFaced) * 1000) / 10;
+        if (diagramMode.value === 'cumulative') {
+          if (faced === 0) return null;
+          cumFaced += faced;
+          cumBeaten += beaten;
+          return Math.round((cumBeaten / cumFaced) * 1000) / 10;
+        }
+        return faced > 0 ? Math.round((beaten / faced) * 1000) / 10 : null;
       }
-      return faced > 0 ? Math.round((beaten / faced) * 1000) / 10 : null;
     });
 
     return {
       label: player?.name || playerId,
       color: diagramColorMap.value.get(playerId) || CHART_COLORS[0],
+      points,
+    };
+  });
+
+  return { xLabels, datasets };
+});
+
+const diagramAvailableUmas = computed(() => {
+  const umaSet = new Set<string>();
+  filteredRaces.value.forEach(r => {
+    Object.values(r.umaMapping).forEach(uma => uma && umaSet.add(uma));
+  });
+  return [...umaSet].sort();
+});
+
+const umaTimelineData = computed((): { xLabels: string[]; datasets: ChartDataset[] } => {
+  const selectedNames = diagramSelectedUmaNames.value;
+  const metric = diagramMetric.value;
+
+  const sortedT = diagramSortedTournaments.value.filter(t =>
+    selectedNames.some(umaName =>
+      filteredRaces.value.some(r =>
+        r.tournamentId === t.id && Object.values(r.umaMapping).includes(umaName)
+      )
+    )
+  );
+  const xLabels = sortedT.map(t => t.name);
+
+  const datasets: ChartDataset[] = selectedNames.map(umaName => {
+    let cumFaced = 0, cumBeaten = 0;
+    let cumPoints = 0, cumRaces = 0;
+
+    const points: (number | null)[] = sortedT.map(t => {
+      const psys = tournamentPointSystemMap.value.get(t.id) ?? POINTS_SYSTEM;
+      const tRaces = filteredRaces.value.filter(r => r.tournamentId === t.id);
+
+      if (metric === 'avg-points') {
+        let totalPts = 0, raceCount = 0;
+        tRaces.forEach(race => {
+          const playerId = Object.entries(race.umaMapping).find(([, uma]) => uma === umaName)?.[0];
+          if (!playerId) return;
+          const pos = race.placements[playerId];
+          if (pos === undefined) return;
+          totalPts += psys[pos] ?? 0;
+          raceCount++;
+        });
+        if (diagramMode.value === 'cumulative') {
+          if (raceCount === 0) return null;
+          cumPoints += totalPts;
+          cumRaces += raceCount;
+          return Math.round((cumPoints / cumRaces) * 10) / 10;
+        }
+        return raceCount > 0 ? Math.round((totalPts / raceCount) * 10) / 10 : null;
+      } else {
+        let faced = 0, beaten = 0;
+        tRaces.forEach(race => {
+          const playerId = Object.entries(race.umaMapping).find(([, uma]) => uma === umaName)?.[0];
+          if (!playerId) return;
+          const pos = race.placements[playerId];
+          if (pos === undefined) return;
+          const numPlayers = Object.keys(race.placements).length;
+          if (numPlayers <= 1) return;
+          faced += numPlayers - 1;
+          beaten += numPlayers - pos;
+        });
+        if (diagramMode.value === 'cumulative') {
+          if (faced === 0) return null;
+          cumFaced += faced;
+          cumBeaten += beaten;
+          return Math.round((cumBeaten / cumFaced) * 1000) / 10;
+        }
+        return faced > 0 ? Math.round((beaten / faced) * 1000) / 10 : null;
+      }
+    });
+
+    return {
+      label: umaName,
+      color: diagramUmaColorMap.value.get(umaName) || CHART_COLORS[0],
       points,
     };
   });
@@ -2546,14 +2671,47 @@ const getRankIcon = (index: number) => {
       <!-- ==================== DIAGRAMS TAB ==================== -->
       <div v-if="activeTab === 'diagrams'" class="space-y-4">
 
-        <!-- Dominance Timeline Chart -->
-        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-          <div class="p-4 border-b border-slate-700 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-            <div>
-              <h3 class="font-bold text-white">Player Dominance Timeline</h3>
-              <p class="text-xs text-slate-500 mt-0.5">Opponents beaten ÷ opponents faced, per tournament</p>
+        <!-- Disclaimer -->
+        <div class="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 text-amber-300 text-sm">
+          <i class="ph-bold ph-warning shrink-0 mt-0.5 text-base"></i>
+          <span>This is a new feature currently in development — data shown may contain errors.</span>
+        </div>
+
+        <!-- Shared controls: subject + metric + mode -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 flex flex-wrap gap-3 items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">View</span>
+            <div class="flex rounded-lg bg-slate-900 p-1 gap-1">
+              <button
+                @click="diagramSubject = 'players'"
+                class="px-3 py-1.5 text-xs font-bold rounded transition-all"
+                :class="diagramSubject === 'players' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+              >Players</button>
+              <button
+                @click="diagramSubject = 'umas'"
+                class="px-3 py-1.5 text-xs font-bold rounded transition-all"
+                :class="diagramSubject === 'umas' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+              >Umas</button>
             </div>
-            <div class="flex rounded-lg bg-slate-900 p-1 gap-1 self-start sm:self-auto">
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Metric</span>
+            <div class="flex rounded-lg bg-slate-900 p-1 gap-1">
+              <button
+                @click="diagramMetric = 'dominance'"
+                class="px-3 py-1.5 text-xs font-bold rounded transition-all"
+                :class="diagramMetric === 'dominance' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+              >Dominance</button>
+              <button
+                @click="diagramMetric = 'avg-points'"
+                class="px-3 py-1.5 text-xs font-bold rounded transition-all"
+                :class="diagramMetric === 'avg-points' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+              >Avg Points</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Mode</span>
+            <div class="flex rounded-lg bg-slate-900 p-1 gap-1">
               <button
                 @click="diagramMode = 'per-tournament'"
                 class="px-3 py-1.5 text-xs font-bold rounded transition-all"
@@ -2566,25 +2724,40 @@ const getRankIcon = (index: number) => {
               >Cumulative</button>
             </div>
           </div>
+        </div>
+
+        <!-- Player Timeline Chart -->
+        <div v-if="diagramSubject === 'players'" class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="p-4 border-b border-slate-700">
+            <h3 class="font-bold text-white">
+              Player {{ diagramMetric === 'dominance' ? 'Dominance' : 'Avg Points' }} Timeline
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">
+              {{ diagramMetric === 'dominance'
+                ? 'Opponents beaten ÷ opponents faced, per tournament'
+                : 'Average points scored per race, per tournament' }}
+            </p>
+          </div>
 
           <div class="p-4">
             <div v-if="diagramSelectedPlayerIds.length === 0"
                  class="py-16 text-center text-slate-500 space-y-2">
               <i class="ph ph-users text-5xl block"></i>
-              <p>Select players below to plot their dominance over time.</p>
+              <p>Select players below to plot their stats over time.</p>
             </div>
             <LineChart
               v-else
               :datasets="playerTimelineData.datasets"
               :x-labels="playerTimelineData.xLabels"
-              :y-max="100"
-              y-label="Dominance (%)"
+              :y-max="diagramMetric === 'dominance' ? 100 : undefined"
+              :y-unit="diagramMetric === 'dominance' ? '%' : ''"
+              :y-label="diagramMetric === 'dominance' ? 'Dominance (%)' : 'Avg Points'"
             />
           </div>
         </div>
 
         <!-- Player Selector -->
-        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div v-if="diagramSubject === 'players'" class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
           <div class="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
             <h4 class="font-bold text-sm text-white">Select Players</h4>
             <div class="flex items-center gap-3">
@@ -2616,6 +2789,73 @@ const getRankIcon = (index: number) => {
               ></div>
               <span class="truncate text-xs font-medium">{{ p.player.name }}</span>
               <span class="text-[10px] text-slate-500 font-mono ml-auto shrink-0">{{ p.dominance }}%</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Uma Timeline Chart -->
+        <div v-if="diagramSubject === 'umas'" class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="p-4 border-b border-slate-700">
+            <h3 class="font-bold text-white">
+              Uma {{ diagramMetric === 'dominance' ? 'Dominance' : 'Avg Points' }} Timeline
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">
+              {{ diagramMetric === 'dominance'
+                ? 'Opponents beaten ÷ opponents faced per uma, per tournament'
+                : 'Average points scored per race per uma, per tournament' }}
+            </p>
+          </div>
+
+          <div class="p-4">
+            <div v-if="diagramSelectedUmaNames.length === 0"
+                 class="py-16 text-center text-slate-500 space-y-2">
+              <i class="ph ph-horse text-5xl block"></i>
+              <p>Select Umas below to plot their stats over time.</p>
+            </div>
+            <LineChart
+              v-else
+              :datasets="umaTimelineData.datasets"
+              :x-labels="umaTimelineData.xLabels"
+              :y-max="diagramMetric === 'dominance' ? 100 : undefined"
+              :y-unit="diagramMetric === 'dominance' ? '%' : ''"
+              :y-label="diagramMetric === 'dominance' ? 'Dominance (%)' : 'Avg Points'"
+            />
+          </div>
+        </div>
+
+        <!-- Uma Selector -->
+        <div v-if="diagramSubject === 'umas'" class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+            <h4 class="font-bold text-sm text-white">Select Umas</h4>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-slate-500">{{ diagramSelectedUmaNames.length }} / {{ MAX_DIAGRAM_UMAS }} selected</span>
+              <button
+                v-if="diagramSelectedUmaNames.length > 0"
+                @click="diagramSelectedUmaNames = []"
+                class="text-xs text-slate-500 hover:text-rose-400 transition-colors"
+              >Clear all</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 p-3 max-h-64 overflow-y-auto custom-scrollbar">
+            <button
+              v-for="umaName in diagramAvailableUmas"
+              :key="umaName"
+              @click="toggleDiagramUma(umaName)"
+              class="flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all"
+              :class="diagramSelectedUmaNames.includes(umaName)
+                ? 'border-indigo-500/60 bg-indigo-600/15'
+                : diagramSelectedUmaNames.length >= MAX_DIAGRAM_UMAS
+                  ? 'border-slate-800 text-slate-600 cursor-not-allowed opacity-50'
+                  : 'border-slate-700 hover:border-slate-500 text-slate-300'"
+              :disabled="!diagramSelectedUmaNames.includes(umaName) && diagramSelectedUmaNames.length >= MAX_DIAGRAM_UMAS"
+            >
+              <div
+                class="w-2.5 h-2.5 rounded-full shrink-0 transition-colors"
+                :style="{ backgroundColor: diagramSelectedUmaNames.includes(umaName) ? diagramUmaColorMap.get(umaName) : undefined }"
+                :class="!diagramSelectedUmaNames.includes(umaName) ? 'bg-slate-700' : ''"
+              ></div>
+              <img :src="getUmaImagePath(umaName)" :alt="umaName" class="w-4 h-4 rounded-full object-cover shrink-0 bg-slate-700" />
+              <span class="truncate text-xs font-medium">{{ umaName }}</span>
             </button>
           </div>
         </div>
