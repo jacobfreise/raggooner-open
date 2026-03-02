@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import {ref, computed, onMounted, inject, type Ref} from 'vue';
+import {ref, computed, watch, onMounted, inject, type Ref} from 'vue';
+import LineChart, { type ChartDataset } from './analytics/LineChart.vue';
 import { collection, query, getDocs, orderBy, where, doc, setDoc, increment } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import type {GlobalPlayer, Tournament, Season} from '../types';
@@ -37,7 +38,7 @@ const hasNewUpdates = inject<Ref<boolean>>('hasNewUpdates')!;
 const APP_ID = 'default-app';
 
 const loading = ref(true);
-const activeTab = ref<'overview' | 'players' | 'umas' | 'tierlist' | 'tournaments'>('overview');
+const activeTab = ref<'overview' | 'players' | 'umas' | 'tierlist' | 'tournaments' | 'diagrams'>('overview');
 
 // Data
 const players = ref<GlobalPlayer[]>([]);
@@ -76,6 +77,24 @@ const umaPlayerSortKey = ref('racesPlayed');
 const umaPlayerSortDesc = ref(true);
 const umaTournamentSortKey = ref('tournamentName');
 const umaTournamentSortDesc = ref(false);
+
+// --- DIAGRAMS STATE ---
+const CHART_COLORS: readonly string[] = [
+  '#818cf8', '#34d399', '#f472b6', '#fb923c',
+  '#60a5fa', '#a78bfa', '#facc15', '#2dd4bf',
+];
+const MAX_DIAGRAM_PLAYERS = 8;
+const diagramSelectedPlayerIds = ref<string[]>([]);
+const diagramMode = ref<'per-tournament' | 'cumulative'>('per-tournament');
+
+const toggleDiagramPlayer = (playerId: string) => {
+  const idx = diagramSelectedPlayerIds.value.indexOf(playerId);
+  if (idx !== -1) {
+    diagramSelectedPlayerIds.value.splice(idx, 1);
+  } else if (diagramSelectedPlayerIds.value.length < MAX_DIAGRAM_PLAYERS) {
+    diagramSelectedPlayerIds.value.push(playerId);
+  }
+};
 
 // --- SORTING STATE ---
 const playerSortKey = ref('dominance');
@@ -542,6 +561,70 @@ const filteredParticipations = computed(() => {
 
 const filteredRaces = computed(() => {
   return races.value.filter(r => r.tournamentId && validTournamentIds.value.has(r.tournamentId));
+});
+
+// --- DIAGRAM COMPUTEDS ---
+const diagramSortedTournaments = computed(() =>
+  [...filteredTournaments.value].sort((a, b) =>
+    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  )
+);
+
+const diagramColorMap = computed(() => {
+  const map = new Map<string, string>();
+  diagramSelectedPlayerIds.value.forEach((id, i) => {
+    map.set(id, CHART_COLORS[i % CHART_COLORS.length]);
+  });
+  return map;
+});
+
+const playerTimelineData = computed((): { xLabels: string[]; datasets: ChartDataset[] } => {
+  const sortedT = diagramSortedTournaments.value;
+  const xLabels = sortedT.map(t => t.name);
+
+  const datasets: ChartDataset[] = diagramSelectedPlayerIds.value.map(playerId => {
+    const player = players.value.find(p => p.id === playerId);
+    let cumFaced = 0, cumBeaten = 0;
+
+    const points: (number | null)[] = sortedT.map(t => {
+      let faced = 0, beaten = 0;
+      filteredRaces.value
+        .filter(r => r.tournamentId === t.id)
+        .forEach(race => {
+          const pos = race.placements[playerId];
+          if (pos === undefined) return;
+          const numPlayers = Object.keys(race.placements).length;
+          if (numPlayers <= 1) return;
+          faced += numPlayers - 1;
+          beaten += numPlayers - pos;
+        });
+
+      if (diagramMode.value === 'cumulative') {
+        if (faced === 0) return null;
+        cumFaced += faced;
+        cumBeaten += beaten;
+        return Math.round((cumBeaten / cumFaced) * 1000) / 10;
+      }
+      return faced > 0 ? Math.round((beaten / faced) * 1000) / 10 : null;
+    });
+
+    return {
+      label: player?.name || playerId,
+      color: diagramColorMap.value.get(playerId) || CHART_COLORS[0],
+      points,
+    };
+  });
+
+  return { xLabels, datasets };
+});
+
+// Auto-select top 5 players when diagrams tab is first opened
+watch(activeTab, (tab) => {
+  if (tab === 'diagrams' && diagramSelectedPlayerIds.value.length === 0) {
+    diagramSelectedPlayerIds.value = playerRankings.value
+      .slice(0, 5)
+      .map(p => p.player.id);
+  }
 });
 
 const togglePlayerSort = (key: string) => {
@@ -1618,7 +1701,8 @@ const getRankIcon = (index: number) => {
             { id: 'tierlist', label: 'Tier List', icon: 'ph-ranking' },
             { id: 'players', label: 'Players', icon: 'ph-users' },
             { id: 'umas', label: 'Umas', icon: 'ph-horse' },
-            { id: 'tournaments', label: 'Tournaments', icon: 'ph-trophy' }
+            { id: 'tournaments', label: 'Tournaments', icon: 'ph-trophy' },
+            { id: 'diagrams', label: 'Diagrams', icon: 'ph-trend-up' }
           ]"
             :key="tab.id"
             @click="activeTab = tab.id as any"
@@ -2449,6 +2533,87 @@ const getRankIcon = (index: number) => {
           </div>
         </div>
       </div>
+
+      <!-- ==================== DIAGRAMS TAB ==================== -->
+      <div v-if="activeTab === 'diagrams'" class="space-y-4">
+
+        <!-- Dominance Timeline Chart -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="p-4 border-b border-slate-700 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+            <div>
+              <h3 class="font-bold text-white">Player Dominance Timeline</h3>
+              <p class="text-xs text-slate-500 mt-0.5">Opponents beaten ÷ opponents faced, per tournament</p>
+            </div>
+            <div class="flex rounded-lg bg-slate-900 p-1 gap-1 self-start sm:self-auto">
+              <button
+                @click="diagramMode = 'per-tournament'"
+                class="px-3 py-1.5 text-xs font-bold rounded transition-all"
+                :class="diagramMode === 'per-tournament' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+              >Per Tournament</button>
+              <button
+                @click="diagramMode = 'cumulative'"
+                class="px-3 py-1.5 text-xs font-bold rounded transition-all"
+                :class="diagramMode === 'cumulative' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+              >Cumulative</button>
+            </div>
+          </div>
+
+          <div class="p-4">
+            <div v-if="diagramSelectedPlayerIds.length === 0"
+                 class="py-16 text-center text-slate-500 space-y-2">
+              <i class="ph ph-users text-5xl block"></i>
+              <p>Select players below to plot their dominance over time.</p>
+            </div>
+            <LineChart
+              v-else
+              :datasets="playerTimelineData.datasets"
+              :x-labels="playerTimelineData.xLabels"
+              :y-max="100"
+              y-label="Dominance (%)"
+            />
+          </div>
+        </div>
+
+        <!-- Player Selector -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+            <h4 class="font-bold text-sm text-white">Select Players</h4>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-slate-500">{{ diagramSelectedPlayerIds.length }} / {{ MAX_DIAGRAM_PLAYERS }} selected</span>
+              <button
+                v-if="diagramSelectedPlayerIds.length > 0"
+                @click="diagramSelectedPlayerIds = []"
+                class="text-xs text-slate-500 hover:text-rose-400 transition-colors"
+              >Clear all</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 p-3 max-h-64 overflow-y-auto custom-scrollbar">
+            <button
+              v-for="p in playerRankings"
+              :key="p.player.id"
+              @click="toggleDiagramPlayer(p.player.id)"
+              class="flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all"
+              :class="diagramSelectedPlayerIds.includes(p.player.id)
+                ? 'border-indigo-500/60 bg-indigo-600/15'
+                : diagramSelectedPlayerIds.length >= MAX_DIAGRAM_PLAYERS
+                  ? 'border-slate-800 text-slate-600 cursor-not-allowed opacity-50'
+                  : 'border-slate-700 hover:border-slate-500 text-slate-300'"
+              :disabled="!diagramSelectedPlayerIds.includes(p.player.id) && diagramSelectedPlayerIds.length >= MAX_DIAGRAM_PLAYERS"
+            >
+              <div
+                class="w-2.5 h-2.5 rounded-full shrink-0 transition-colors"
+                :style="{ backgroundColor: diagramSelectedPlayerIds.includes(p.player.id) ? diagramColorMap.get(p.player.id) : undefined }"
+                :class="!diagramSelectedPlayerIds.includes(p.player.id) ? 'bg-slate-700' : ''"
+              ></div>
+              <span class="truncate text-xs font-medium">{{ p.player.name }}</span>
+              <span class="text-[10px] text-slate-500 font-mono ml-auto shrink-0">{{ p.dominance }}%</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+      <!-- ==================== END DIAGRAMS TAB ==================== -->
+
     </main>
 
   </div>
