@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { getPositionStyle, getPlayerAtPosition, getRaceTimestamp, raceKey } from '../../utils/utils';
 import { getRaceWinnerGif } from '../../utils/umaGifs';
+import { getUmaImagePath } from '../../utils/umaData';
 import type { Tournament } from '../../types';
 
 const props = defineProps<{
@@ -136,13 +137,17 @@ const sortedPlayers = computed(() => [...props.activePlayers].sort((a, b) => a.n
               {{ Object.keys(entryMap).find(key => entryMap[parseInt(key)] === player.id) }}
             </div>
 
-            <div class="flex flex-col w-full overflow-hidden text-left">
-              <span class="text-xs font-bold truncate group-hover:text-white leading-tight block w-full" :style="{ color: Object.values(entryMap).includes(player.id) ? '#fff' : getPlayerColor(player.id) }">
-                {{ player.name }}
-              </span>
-              <span class="text-[10px] opacity-70 truncate font-medium leading-none block w-full" :style="{ color: Object.values(entryMap).includes(player.id) ? '#fff' : getPlayerColor(player.id) }">
-                {{ player.uma || '' }}
-              </span>
+            <div class="flex items-center gap-1.5 w-full overflow-hidden text-left">
+              <img v-if="player.uma" :src="getUmaImagePath(player.uma)" :alt="player.uma"
+                   class="w-6 h-6 rounded-full object-cover shrink-0 bg-slate-700" />
+              <div class="flex flex-col min-w-0 overflow-hidden">
+                <span class="text-xs font-bold truncate group-hover:text-white leading-tight block w-full" :style="{ color: Object.values(entryMap).includes(player.id) ? '#fff' : getPlayerColor(player.id) }">
+                  {{ player.name }}
+                </span>
+                <span class="text-[10px] opacity-70 truncate font-medium leading-none block w-full" :style="{ color: Object.values(entryMap).includes(player.id) ? '#fff' : getPlayerColor(player.id) }">
+                  {{ player.uma || '' }}
+                </span>
+              </div>
             </div>
           </button>
         </div>
