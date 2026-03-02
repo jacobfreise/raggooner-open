@@ -594,7 +594,7 @@ const tournamentPointSystemMap = computed(() => {
 const diagramColorMap = computed(() => {
   const map = new Map<string, string>();
   diagramSelectedPlayerIds.value.forEach((id, i) => {
-    map.set(id, CHART_COLORS[i % CHART_COLORS.length]);
+    map.set(id, CHART_COLORS[i % CHART_COLORS.length]!);
   });
   return map;
 });
@@ -602,7 +602,7 @@ const diagramColorMap = computed(() => {
 const diagramUmaColorMap = computed(() => {
   const map = new Map<string, string>();
   diagramSelectedUmaNames.value.forEach((name, i) => {
-    map.set(name, CHART_COLORS[i % CHART_COLORS.length]);
+    map.set(name, CHART_COLORS[i % CHART_COLORS.length]!);
   });
   return map;
 });
@@ -666,7 +666,7 @@ const playerTimelineData = computed((): { xLabels: string[]; datasets: ChartData
 
     return {
       label: player?.name || playerId,
-      color: diagramColorMap.value.get(playerId) || CHART_COLORS[0],
+      color: diagramColorMap.value.get(playerId) ?? CHART_COLORS[0]!,
       points,
     };
   });
@@ -744,7 +744,7 @@ const umaTimelineData = computed((): { xLabels: string[]; datasets: ChartDataset
 
     return {
       label: umaName,
-      color: diagramUmaColorMap.value.get(umaName) || CHART_COLORS[0],
+      color: diagramUmaColorMap.value.get(umaName) ?? CHART_COLORS[0]!,
       points,
     };
   });
