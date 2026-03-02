@@ -579,7 +579,16 @@ const diagramColorMap = computed(() => {
 });
 
 const playerTimelineData = computed((): { xLabels: string[]; datasets: ChartDataset[] } => {
-  const sortedT = diagramSortedTournaments.value;
+  const selectedIds = diagramSelectedPlayerIds.value;
+
+  // Only include tournaments where at least one selected player has race data
+  const sortedT = diagramSortedTournaments.value.filter(t =>
+    selectedIds.some(playerId =>
+      filteredRaces.value.some(r =>
+        r.tournamentId === t.id && r.placements[playerId] !== undefined
+      )
+    )
+  );
   const xLabels = sortedT.map(t => t.name);
 
   const datasets: ChartDataset[] = diagramSelectedPlayerIds.value.map(playerId => {
