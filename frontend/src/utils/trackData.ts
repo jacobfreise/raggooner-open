@@ -2,9 +2,9 @@ import type {Track} from "../types.ts";
 
 export const TRACK_DICT: Record<string, Track> = {
     // --- Sapporo ---
+    'sapporo-1200-turf-right': { id: 'sapporo-1200-turf-right', location: 'Sapporo', distance: 1200, distanceType: 'Sprint', direction: 'right', surface: 'Turf', maxPlayers: 16 },
     'sapporo-1500-turf-right': { id: 'sapporo-1500-turf-right', location: 'Sapporo', distance: 1500, distanceType: 'Mile', direction: 'right', surface: 'Turf', maxPlayers: 14 },
     'sapporo-1800-turf-right': { id: 'sapporo-1800-turf-right', location: 'Sapporo', distance: 1800, distanceType: 'Mile', direction: 'right', surface: 'Turf', maxPlayers: 18 },
-    'sapporo-1200-turf-right': { id: 'sapporo-1200-turf-right', location: 'Sapporo', distance: 1200, distanceType: 'Sprint', direction: 'right', surface: 'Turf', maxPlayers: 16 },
     'sapporo-2000-turf-right': { id: 'sapporo-2000-turf-right', location: 'Sapporo', distance: 2000, distanceType: 'Medium', direction: 'right', surface: 'Turf', maxPlayers: 16 },
     'sapporo-2600-turf-right': { id: 'sapporo-2600-turf-right', location: 'Sapporo', distance: 2600, distanceType: 'Long', direction: 'right', surface: 'Turf', maxPlayers: 14 },
     // 'sapporo-1000-dirt-right': { id: 'sapporo-1000-dirt-right', location: 'Sapporo', distance: 1000, distanceType: 'Sprint', direction: 'right', surface: 'Dirt', maxPlayers: 16 },

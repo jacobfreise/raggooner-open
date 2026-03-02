@@ -9,6 +9,7 @@ import { POINTS_SYSTEM } from "../utils/constants.ts";
 import { useAdmin } from '../composables/useAdmin';
 import { useGameLogic } from "../composables/useGameLogic";
 import { useEasterEgg } from "../composables/useEasterEgg.ts";
+import { useVoicelines } from '../composables/useVoicelines';
 
 import TrackSelectionPhase from "../components/TrackSelectionPhase.vue";
 import TrackViewerPanel from "../components/TrackViewerPanel.vue";
@@ -60,6 +61,7 @@ const {
 
 const { currentView } = useGameLogic(tournament, secureUpdate);
 const { activeVisualEgg } = useEasterEgg(tournament);
+useVoicelines(tournament);
 
 // Global players & seasons (shared across phases)
 const globalPlayers = ref<GlobalPlayer[]>([]);

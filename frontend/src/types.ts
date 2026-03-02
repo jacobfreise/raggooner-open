@@ -198,7 +198,7 @@ export interface UmaData {
         style: StyleAptitude;
     };
     stars: number;
-    // Future fields can go here (e.g., rarity, iconUrl, growthRates)
+    characterId: number;  // Card ID from TerumiCharacterData.json (e.g., 100101)
 }
 
 

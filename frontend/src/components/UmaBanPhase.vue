@@ -4,6 +4,7 @@ import type { Tournament, FirestoreUpdate } from '../types';
 import { usePlayerDraft } from '../composables/usePlayerDraft';
 import { useGameLogic } from '../composables/useGameLogic';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
+import { voicelineVolume, playLocalSfx } from '../composables/useVoicelines';
 import { UMAS } from '../utils/constants';
 import { getPlayerName } from '../utils/utils';
 import { getUmaImagePath } from '../utils/umaData';
@@ -128,6 +129,13 @@ const resetBanTimer = async () => {
           <span class="sm:inline">Back to Player Draft</span>
         </button>
 
+        <div class="flex items-center gap-1.5 text-slate-500 mr-2">
+          <i class="ph-bold text-lg shrink-0"
+             :class="voicelineVolume === 0 ? 'ph-speaker-x' : voicelineVolume < 0.5 ? 'ph-speaker-low' : 'ph-speaker-high'"></i>
+          <input type="range" min="0" max="1" step="0.05" v-model.number="voicelineVolume"
+                 class="w-20 accent-indigo-500 cursor-pointer" />
+        </div>
+
         <div class="text-right hidden sm:block">
           <div class="text-2xl font-mono font-bold text-red-400">
             {{ tournament.bans?.length || 0 }}
@@ -165,6 +173,7 @@ const resetBanTimer = async () => {
         <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           <button v-for="uma in filteredUmas" :key="uma"
                   @click="toggleBan(uma)"
+                  @mouseenter="isAdminRef && playLocalSfx('/assets/sound-effects/sfx-ban-button-hover.ogg')"
                   :disabled="!isAdmin"
                   class="relative group p-4 rounded-lg border-2 text-left transition-all duration-200 overflow-hidden"
                   :class="isBanned(uma) ? 'bg-red-900/20 border-red-500/50' : 'bg-slate-800 border-slate-700 hover:border-indigo-400 hover:bg-slate-750'">
