@@ -4,13 +4,21 @@ on:
     branches:
       - main
 jobs:
-  build_and_deploy:
+  build_test_and_deploy: # Renamed slightly for clarity
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Build the Frontend
-      - run: cd frontend && npm ci && npm run build
+      # 1. Install Dependencies
+      - name: Install Dependencies
+        run: cd frontend && npm ci
+
+      # 2. NEW STEP: Run Vitest
+      # We use 'npx vitest run' to ensure it runs once and doesn't get stuck in watch mode
+      - name: Run Unit Tests
+        run: cd frontend && npx vitest run
+        # Passing your env variables here just in case any of your tested composables
+        # or components attempt to read Firebase config during the test run!
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
@@ -21,8 +29,22 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
 
-      # 2. Deploy HOSTING (Web Assets)
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      # 3. Build the Frontend
+      - name: Build Frontend
+        run: cd frontend && npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_DATABASE_URL: ${{ secrets.VITE_FIREBASE_DATABASE_URL }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+
+      # 4. Deploy HOSTING (Web Assets)
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RAGGOONEROPEN }}
@@ -30,13 +52,11 @@ jobs:
           projectId: raggooneropen
           entryPoint: ./frontend
 
-      # 3. NEW STEP: Deploy FIRESTORE RULES
+      # 5. Deploy FIRESTORE RULES
       - name: Deploy Firestore Rules
         uses: w9jds/firebase-action@master
         with:
           args: deploy --only firestore:rules
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RAGGOONEROPEN }}
-          # IMPORTANT: If your firestore.rules file is inside the 'frontend' folder,
-          # uncomment the line below. If it is in the root, leave it commented out.
           PROJECT_PATH: ./frontend

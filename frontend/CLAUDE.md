@@ -9,7 +9,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Type-check only:** `vue-tsc -b` or `vue-tsc --noEmit`
 - **Preview production build:** `npm run preview`
 
-No test framework is configured. Use `vue-tsc --noEmit` to verify type safety after changes.
+- **Run tests:** `npm test`
+- **Run tests (watch mode):** `npm run test:watch`
+
+Use `vue-tsc --noEmit` to verify type safety after changes.
 
 ## Tech Stack
 

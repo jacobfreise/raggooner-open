@@ -13,8 +13,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Build the Frontend
-      - run: cd frontend && npm ci && npm run build
+      # 1. Install Dependencies
+      - name: Install Dependencies
+        run: cd frontend && npm ci
+
+      # 2. Run Unit Tests
+      - name: Run Unit Tests
+        run: cd frontend && npm test
+
+      # 3. Build the Frontend
+      - name: Build Frontend
+        run: cd frontend && npm run build
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
