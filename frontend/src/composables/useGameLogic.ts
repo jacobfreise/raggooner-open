@@ -819,6 +819,7 @@ export function useGameLogic(
         canShowFinals,
         sortedPlayers,
         winningTeams,
+        projectedProgression,
         // Actions
         advanceToFinals,
         resolveManually,

@@ -27,6 +27,9 @@ A specialized Vue 3 application built for managing community tournaments for the
 - `npm run dev`: Start the Vite development server.
 - `npm run build`: Run type-checks (`vue-tsc`) and bundle the project for production.
 - `npm run preview`: Preview the production build locally.
+- `npm run test`: Run the test suite (Vitest).
+- `npm run test:watch`: Run the test suite in watch mode.
+- `npm run test:coverage`: Run the test suite with code coverage.
 
 ## 🛠️ Development Conventions
 
@@ -42,8 +45,10 @@ A specialized Vue 3 application built for managing community tournaments for the
 - **Partial Updates:** Use Firestore dot-notation (e.g., `'draft.currentIdx'`) for precise, non-destructive updates to nested state.
 
 ### Testing & Validation
+- **Unit Testing:** We use **Vitest** for unit testing. Tests are located alongside the source code with `.test.ts` extensions.
 - **Type Checking:** Run `vue-tsc -b` to verify type safety.
-- **Manual Verification:** No automated test suite is currently configured. Rely on the Firebase Emulator suite for integration testing.
+- **Manual Verification:** Rely on the Firebase Emulator suite for integration testing.
+- **Testing Strategy:** Prioritize testing complex business logic in composables (`src/composables/`) and utility functions (`src/utils/`).
 
 ## 📂 Directory Structure (Key Files)
 - `src/App.vue`: Root application component.
