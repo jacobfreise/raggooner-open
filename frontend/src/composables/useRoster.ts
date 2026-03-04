@@ -1,7 +1,7 @@
 import { ref, computed, type Ref } from 'vue';
 import {arrayUnion, deleteField} from 'firebase/firestore';
 import type { Tournament, Player, Wildcard, FirestoreUpdate } from '../types';
-import { UMAS } from '../utils/constants';
+import { UMA_DICT } from '../utils/umaData';
 import {getPlayerName, getPlayerUma} from "../utils/utils.ts";
 
 
@@ -63,7 +63,7 @@ export function useRoster(
         }
 
         // Return full sorted list of Umas for Classic format AND Wildcard players
-        return [...UMAS].sort();
+        return Object.keys(UMA_DICT).sort();
     };
 
     // --- ACTIONS ---

@@ -5,9 +5,8 @@ import { usePlayerDraft } from '../composables/usePlayerDraft';
 import { useGameLogic } from '../composables/useGameLogic';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
 import { voicelineVolume, playLocalSfx } from '../composables/useVoicelines';
-import { UMAS } from '../utils/constants';
 import { getPlayerName } from '../utils/utils';
-import { getUmaImagePath } from '../utils/umaData';
+import { UMA_DICT, getUmaImagePath } from '../utils/umaData';
 
 const props = defineProps<{
   tournament: Tournament;
@@ -33,7 +32,7 @@ const banSearch = ref('');
 // Computed for Search
 const filteredUmas = computed(() => {
   const query = banSearch.value.toLowerCase();
-  return [...UMAS].sort().filter(u => u.toLowerCase().includes(query));
+  return Object.keys(UMA_DICT).sort().filter(u => u.toLowerCase().includes(query));
 });
 
 // --- TIMER LOGIC ---
