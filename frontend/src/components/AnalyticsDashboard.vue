@@ -116,6 +116,9 @@ const playerSortDesc = ref(true);
 const umaSortKey = ref('dominance');
 const umaSortDesc = ref(true);
 
+const tournamentSortKey = ref('date');
+const tournamentSortDesc = ref(true);
+
 const togglePlayerExpand = (playerId: string) => {
   if (expandedPlayerId.value === playerId) {
     expandedPlayerId.value = null;
@@ -236,6 +239,12 @@ const togglePlayerTournamentSort = (key: string) => {
   }
 };
 
+const ordinal = (n: number): string => {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? 'th'}`;
+};
+
 const expandedPlayerTournaments = computed(() => {
   if (!expandedPlayerId.value) return [];
   const playerId = expandedPlayerId.value;
@@ -274,6 +283,7 @@ const expandedPlayerTournaments = computed(() => {
   const buildRow = (part: typeof uniqueParts[0], rowKey: string, stats: ReturnType<typeof computeRaceStats>, overrides: {
     isWildcard: boolean; wildcardGroup?: string;
     finalsStatus: 'winner' | 'no-groups' | 'finals' | 'eliminated' | '-';
+    teamRank?: number | null;
   }) => {
     const t = tournaments.value.find(tourney => tourney.id === part.tournamentId);
     return {
@@ -285,6 +295,7 @@ const expandedPlayerTournaments = computed(() => {
       isWildcard: overrides.isWildcard,
       wildcardGroup: overrides.wildcardGroup || null,
       finalsStatus: overrides.finalsStatus,
+      teamRank: overrides.teamRank ?? null,
       races: stats.races,
       wins: stats.wins,
       winRate: stats.races > 0 ? Math.round((stats.wins / stats.races) * 100 * 10) / 10 : 0,
@@ -341,11 +352,35 @@ const expandedPlayerTournaments = computed(() => {
         finalsStatus = 'eliminated';
       }
 
+      // Compute team rank in relevant stage
+      let teamRank: number | null = null;
+      if (finalsStatus === 'winner') {
+        teamRank = 1;
+      } else if (finalsStatus === 'finals' && t) {
+        const sorted = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true));
+        const idx = sorted.findIndex(tm => tm.id === playerTeam.id);
+        if (idx !== -1) teamRank = idx + 1;
+      } else if (finalsStatus === 'eliminated' && t) {
+        const groupTeams = teams.filter(tm => tm.group === playerTeam.group);
+        const sorted = [...groupTeams].sort((a, b) => compareTeams(a, b, true, t, false));
+        const idx = sorted.findIndex(tm => tm.id === playerTeam.id);
+        if (idx !== -1) teamRank = idx + 1;
+      } else if (finalsStatus === 'no-groups' && t) {
+        const { teams: scoredTeams } = recalculateTournamentScores(t);
+        const sorted = [...scoredTeams].sort((a, b) => {
+          const aTotal = (a.points || 0) + (a.finalsPoints || 0);
+          const bTotal = (b.points || 0) + (b.finalsPoints || 0);
+          return bTotal !== aTotal ? bTotal - aTotal : a.id.localeCompare(b.id);
+        });
+        const idx = sorted.findIndex(tm => tm.id === playerTeam.id);
+        if (idx !== -1) teamRank = idx + 1;
+      }
+
       // Team member races: their team's group + finals (if applicable)
       const teamGroups = new Set<string>([playerTeam.group]);
       if (playerTeam.inFinals) teamGroups.add('Finals');
       const stats = computeRaceStats(part.tournamentId, pointSystem, hasGroups ? teamGroups : undefined);
-      rows.push(buildRow(part, part.tournamentId, stats, { isWildcard: false, finalsStatus }));
+      rows.push(buildRow(part, part.tournamentId, stats, { isWildcard: false, finalsStatus, teamRank }));
     }
 
     // Wildcard rows — one per group appearance
@@ -782,6 +817,70 @@ const toggleUmaSort = (key: string) => {
     umaSortDesc.value = true;
   }
 };
+
+const toggleTournamentSort = (key: string) => {
+  if (tournamentSortKey.value === key) {
+    tournamentSortDesc.value = !tournamentSortDesc.value;
+  } else {
+    tournamentSortKey.value = key;
+    tournamentSortDesc.value = true;
+  }
+};
+
+const sortedTournaments = computed(() => {
+  const mod = tournamentSortDesc.value ? -1 : 1;
+  return [...filteredTournaments.value].sort((a, b) => {
+    let valA: string | number, valB: string | number;
+    switch (tournamentSortKey.value) {
+      case 'name':
+        valA = a.name.toLowerCase(); valB = b.name.toLowerCase(); break;
+      case 'winners':
+        valA = (tournamentWinnerNames.value.get(a.id)?.[0] ?? '').toLowerCase();
+        valB = (tournamentWinnerNames.value.get(b.id)?.[0] ?? '').toLowerCase(); break;
+      case 'players':
+        valA = Object.keys(a.players).length; valB = Object.keys(b.players).length; break;
+      default: // 'date'
+        valA = new Date(a.createdAt).getTime(); valB = new Date(b.createdAt).getTime();
+    }
+    if (valA < valB) return -1 * mod;
+    if (valA > valB) return 1 * mod;
+    return 0;
+  });
+});
+
+// Tournament winners (all player names in winning team)
+const tournamentWinnerNames = computed(() => {
+  const map = new Map<string, string[]>();
+  filteredTournaments.value.filter(t => t.status === 'completed').forEach(t => {
+    if (!t.teams || t.teams.length === 0) return;
+    const finalistTeams = t.teams.filter(team => team.inFinals);
+    const hasGroups = new Set(t.teams.map(tm => tm.group)).size > 1;
+
+    let winningTeam: typeof t.teams[0] | undefined;
+    if (finalistTeams.length > 0) {
+      winningTeam = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true))[0];
+    } else if (!hasGroups) {
+      const { teams: scoredTeams } = recalculateTournamentScores(t);
+      const top = [...scoredTeams].sort((a, b) => {
+        const aTotal = (a.points || 0) + (a.finalsPoints || 0);
+        const bTotal = (b.points || 0) + (b.finalsPoints || 0);
+        return bTotal !== aTotal ? bTotal - aTotal : a.id.localeCompare(b.id);
+      })[0];
+      winningTeam = top ? t.teams.find(tm => tm.id === top.id) : undefined;
+    }
+
+    if (!winningTeam) return;
+    const names: string[] = [];
+    const captain = t.players[winningTeam.captainId];
+    if (captain) names.push(captain.name);
+    winningTeam.memberIds.forEach(id => {
+      const player = t.players[id];
+      if (player) names.push(player.name);
+    });
+    map.set(t.id, names);
+  });
+  return map;
+});
 
 // Overview Stats
 const overviewStats = computed(() => {
@@ -2216,9 +2315,9 @@ const getRankIcon = (index: number) => {
                                 <div class="flex items-center justify-end gap-1 flex-wrap">
                                   <span v-if="t.isWildcard" class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-bold uppercase">WC {{ t.wildcardGroup }}</span>
                                   <span v-if="t.finalsStatus === 'winner'" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-bold uppercase">Winner</span>
-                                  <span v-else-if="t.finalsStatus === 'finals'" class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-bold uppercase">Finals</span>
-                                  <span v-else-if="t.finalsStatus === 'eliminated'" class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 font-bold uppercase">Out</span>
-                                  <span v-else-if="t.finalsStatus === 'no-groups'" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-400 font-bold uppercase">Small</span>
+                                  <span v-else-if="t.finalsStatus === 'finals'" class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-bold uppercase">{{ t.teamRank ? ordinal(t.teamRank) + ' Finals' : 'Finals' }}</span>
+                                  <span v-else-if="t.finalsStatus === 'eliminated'" class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 font-bold uppercase">{{ t.teamRank ? ordinal(t.teamRank) + ' Grps' : 'Out' }}</span>
+                                  <span v-else-if="t.finalsStatus === 'no-groups'" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-400 font-bold uppercase">{{ t.teamRank ? ordinal(t.teamRank) : '-' }}</span>
                                   <span v-else-if="!t.isWildcard" class="text-slate-600">-</span>
                                 </div>
                               </td>
@@ -2643,14 +2742,25 @@ const getRankIcon = (index: number) => {
             <table class="w-full">
               <thead class="bg-slate-900 border-b border-slate-700">
               <tr>
-                <th class="px-4 py-2 text-left text-xs font-bold text-slate-400 uppercase">Date</th>
-                <th class="px-4 py-2 text-left text-xs font-bold text-slate-400 uppercase">Name</th>
-                <th class="px-4 py-2 text-left text-xs font-bold text-slate-400 uppercase">Winner(s)</th>
-                <th class="px-4 py-2 text-right text-xs font-bold text-slate-400 uppercase">Players</th>
+                <th v-for="col in [
+                  { key: 'date',    label: 'Date',     align: 'left'  },
+                  { key: 'name',    label: 'Name',     align: 'left'  },
+                  { key: 'winners', label: 'Winner(s)', align: 'left' },
+                  { key: 'players', label: 'Players',  align: 'right' },
+                ]" :key="col.key"
+                    @click="toggleTournamentSort(col.key)"
+                    class="px-4 py-2 text-xs font-bold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors group select-none"
+                    :class="col.align === 'right' ? 'text-right' : 'text-left'">
+                  <div class="flex items-center gap-1" :class="col.align === 'right' ? 'justify-end' : ''">
+                    {{ col.label }}
+                    <i v-if="tournamentSortKey === col.key" class="ph-bold text-indigo-400" :class="tournamentSortDesc ? 'ph-caret-down' : 'ph-caret-up'"></i>
+                    <i v-else class="ph-bold ph-caret-down opacity-0 group-hover:opacity-50"></i>
+                  </div>
+                </th>
               </tr>
               </thead>
               <tbody class="divide-y divide-slate-700">
-              <tr v-for="t in filteredTournaments" :key="t.id" class="hover:bg-slate-750 transition-colors">
+              <tr v-for="t in sortedTournaments" :key="t.id" class="hover:bg-slate-750 transition-colors">
                 <td class="px-4 py-3 text-sm text-slate-400 font-mono">
                   {{ new Date(t.createdAt).toLocaleDateString() }}
                 </td>
@@ -2660,7 +2770,7 @@ const getRankIcon = (index: number) => {
                   </router-link>
                 </td>
                 <td class="px-4 py-3 text-sm text-amber-400 font-medium">
-                  tbd
+                  {{ tournamentWinnerNames.get(t.id)?.join(', ') || '—' }}
                 </td>
                 <td class="px-4 py-3 text-sm text-right text-slate-300">
                   {{ Object.keys(t.players).length }}
