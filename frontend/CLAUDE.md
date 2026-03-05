@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Run tests:** `npm test`
 - **Run tests (watch mode):** `npm run test:watch`
 
-Use `vue-tsc --noEmit` to verify type safety after changes.
+After making changes, verify correctness with `npm test && npm run build`.
 
 ## Tech Stack
 

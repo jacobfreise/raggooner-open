@@ -39,10 +39,23 @@ const raceGif = computed(() => {
   return race ? getRaceWinnerGif(race, Object.values(props.tournament.players)) : undefined;
 });
 
+const hasResults = computed(() =>
+  !!props.tournament.races[raceKey(props.stageId, props.groupId, props.raceNum)]
+);
+
+const isNextRace = computed(() => {
+  if (hasResults.value) return false;
+  for (let i = 1; i < props.raceNum; i++) {
+    if (!props.tournament.races[raceKey(props.stageId, props.groupId, i)]) return false;
+  }
+  return true;
+});
+
 const canEdit = computed(() => {
   if (!props.isAdmin) return false;
-  if (props.stageId === 'groups') return props.tournament.stage === 'groups';
-  return props.tournament.status === 'active';
+  if (props.stageId === 'groups' && props.tournament.stage !== 'groups') return false;
+  if (props.stageId === 'finals' && props.tournament.status !== 'active') return false;
+  return hasResults.value || isNextRace.value;
 });
 
 const isSelectDisabled = computed(() => !canEdit.value);
@@ -51,7 +64,7 @@ const sortedPlayers = computed(() => [...props.activePlayers].sort((a, b) => a.n
 </script>
 
 <template>
-  <div class="w-64 flex-1 mb-4 transition-all duration-500 perspective-1000">
+  <div class="w-64 flex-1 mb-4 transition-all duration-500 perspective-1000" :class="{ 'opacity-40': !canEdit }">
 
     <div v-if="inputMode === 'dropdown'" class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col h-full">
       <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center relative overflow-hidden">
