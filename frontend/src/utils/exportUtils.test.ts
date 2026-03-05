@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateDiscordReport } from './exportUtils';
+import { generateDiscordReport, generateDiscordReportSplit, generateDiscordReportSplit3 } from './exportUtils';
 import type { Tournament, Player, Team, Race } from '../types';
 
 describe('exportUtils', () => {
@@ -69,5 +69,47 @@ describe('exportUtils', () => {
         
         expect(report).toContain('🏁 Finals');
         expect(report).toContain('Team Alice');
+    });
+
+    it('generates a split report (2 parts)', () => {
+        const tWithFinals: Tournament = {
+            ...tournament,
+            races: {
+                ...tournament.races,
+                'finals-A-1': makeRace('rf', { p1: 1, p2: 2 }, 'finals', 'A')
+            },
+            teams: tournament.teams.map(t => ({ ...t, inFinals: true, finalsPoints: t.id === 't1' ? 25 : 18 }))
+        };
+        const messages = generateDiscordReportSplit(tWithFinals);
+        expect(messages).toHaveLength(2);
+        expect(messages[0]).toContain('TEST CUP');
+        expect(messages[1]).toContain('Finals');
+    });
+
+    it('generates a split report (3 parts)', () => {
+        const tWithComplex: Tournament = {
+            ...tournament,
+            teams: [
+                ...tournament.teams,
+                makeTeam('t3', 'Team C', 'p3', 'B'),
+                makeTeam('t4', 'Team D', 'p4', 'B')
+            ],
+            players: {
+                ...tournament.players,
+                p3: makePlayer('p3', 'Charlie', 'C'),
+                p4: makePlayer('p4', 'David', 'D')
+            },
+            races: {
+                ...tournament.races,
+                'groups-B-1': makeRace('rB1', { p3: 1, p4: 2 }, 'groups', 'B'),
+                'finals-A-1': makeRace('rf1', { p1: 1, p3: 2 }, 'finals', 'A')
+            }
+        };
+        tWithComplex.teams[0]!.inFinals = true;
+        tWithComplex.teams[2]!.inFinals = true;
+
+        const messages = generateDiscordReportSplit3(tWithComplex);
+        expect(messages.length).toBeGreaterThanOrEqual(1);
+        expect(messages[0]).toContain('TEST CUP');
     });
 });

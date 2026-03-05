@@ -282,4 +282,24 @@ describe('usePlayerDraft — random wheel actions', () => {
         expect(showRandomModal.value).toBe(false)
         expect(secureUpdate).toHaveBeenCalled()
     })
+
+    it('startRandomDraft handles more than 12 candidates with decoys', async () => {
+        const secureUpdate = vi.fn().mockResolvedValue(undefined)
+        const players: Record<string, Player> = {}
+        for (let i = 1; i <= 15; i++) {
+            players[`m${i}`] = makePlayer(`m${i}`, false)
+        }
+        players.c1 = makePlayer('c1', true)
+        
+        const tournament = ref(makeTournament({
+            players,
+            teams: [makeTeam('t1', 'c1')],
+            draft: { order: ['t1'], currentIdx: 0 }
+        }))
+        const { startRandomDraft, randomCandidates } = usePlayerDraft(tournament, secureUpdate, ref(true))
+
+        startRandomDraft()
+
+        expect(randomCandidates.value.length).toBe(12) // Decoy logic caps it at 12
+    })
 })

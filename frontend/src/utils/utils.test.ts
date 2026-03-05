@@ -10,6 +10,11 @@ import {
     getPlayerUma,
     migratePlayers,
     migrateRaces,
+    getStatusColor,
+    getPositionStyle,
+    getRankColor,
+    getPlayerAtPosition,
+    getRaceTimestamp,
 } from './utils'
 import type { Player, Race, Team, Tournament } from '../types'
 
@@ -233,5 +238,74 @@ describe('migrateRaces', () => {
     it('passes through an existing map unchanged', () => {
         const races = { 'groups-A-1': makeRace('r1', 'A', 1, { p1: 1 }) }
         expect(migrateRaces(races)).toEqual(races)
+    })
+})
+
+describe('UI Helpers', () => {
+    describe('getStatusColor', () => {
+        it('returns correct classes for statuses', () => {
+            expect(getStatusColor('registration')).toContain('text-green-300')
+            expect(getStatusColor('active')).toContain('text-indigo-300')
+            expect(getStatusColor('draft')).toContain('text-yellow-300')
+            expect(getStatusColor('track-selection')).toContain('text-cyan-300')
+            expect(getStatusColor('unknown')).toContain('text-slate-400')
+        })
+    })
+
+    describe('getPositionStyle', () => {
+        it('returns correct classes for positions', () => {
+            expect(getPositionStyle(1)).toContain('text-amber-500')
+            expect(getPositionStyle(2)).toContain('text-slate-300')
+            expect(getPositionStyle(3)).toContain('text-orange-600')
+            expect(getPositionStyle(4)).toContain('text-slate-400')
+            expect(getPositionStyle(0)).toContain('text-slate-600')
+        })
+
+        it('applies finals ring', () => {
+            expect(getPositionStyle(1, 'finals')).toContain('ring-2')
+        })
+    })
+
+    describe('getRankColor', () => {
+        it('returns correct border colors', () => {
+            expect(getRankColor(0)).toBe('border-amber-400')
+            expect(getRankColor(1)).toBe('border-slate-400')
+            expect(getRankColor(2)).toBe('border-orange-700')
+            expect(getRankColor(3)).toBe('border-slate-700')
+        })
+    })
+
+    describe('getPlayerAtPosition', () => {
+        it('returns the player ID at a given position', () => {
+            const t = makeTournament({
+                races: {
+                    'groups-A-1': makeRace('r1', 'A', 1, { 'p1': 1, 'p2': 2 })
+                }
+            })
+            expect(getPlayerAtPosition('A', 1, 1, t, 'groups')).toBe('p1')
+            expect(getPlayerAtPosition('A', 1, 2, t, 'groups')).toBe('p2')
+            expect(getPlayerAtPosition('A', 1, 3, t, 'groups')).toBe('')
+        })
+
+        it('returns empty string if race is not found', () => {
+            expect(getPlayerAtPosition('A', 1, 1, null, 'groups')).toBe('')
+        })
+    })
+
+    describe('getRaceTimestamp', () => {
+        it('returns formatted time', () => {
+            const timestamp = new Date('2024-01-01T12:00:00Z').toISOString()
+            const t = makeTournament({
+                races: {
+                    'groups-A-1': { ...makeRace('r1', 'A', 1, {}), timestamp }
+                }
+            })
+            const result = getRaceTimestamp('A', 1, t, 'groups')
+            expect(result).not.toBe('Not Started')
+        })
+
+        it('returns Not Started if race missing', () => {
+            expect(getRaceTimestamp('A', 1, null, 'groups')).toBe('Not Started')
+        })
     })
 })

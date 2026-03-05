@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref } from 'vue';
+
+vi.mock('../utils/umaData', () => ({
+    UMA_DICT: {
+        'Special Week': { id: 'special-week' },
+        'Silence Suzuka': { id: 'silence-suzuka' }
+    }
+}));
+
 import { useUmaDraft } from './useUmaDraft';
 import type { Tournament } from '../types';
 
@@ -29,6 +37,7 @@ describe('useUmaDraft', () => {
 
     beforeEach(() => {
         secureUpdate.mockClear();
+        isAdmin.value = true;
     });
 
     it('identifies the current picker correctly', () => {
@@ -118,6 +127,59 @@ describe('useUmaDraft', () => {
 
             expect(availableUmas.value).not.toContain('Special Week');
             expect(availableUmas.value).toContain('Silence Suzuka');
+        });
+    });
+
+    describe('actions: startRandomUma', () => {
+        beforeEach(() => {
+            vi.useFakeTimers();
+        });
+
+        it('picks a random uma and opens modal', async () => {
+            const tournament = ref(makeTournament());
+            const { startRandomUma, showRandomModal, slotReel } = useUmaDraft(tournament, secureUpdate, isAdmin);
+
+            startRandomUma();
+
+            expect(showRandomModal.value).toBe(true);
+            expect(slotReel.value.length).toBeGreaterThan(40);
+
+            // Advance for reel animation + pick wait (4500ms)
+            await vi.advanceTimersByTimeAsync(5000);
+
+            expect(showRandomModal.value).toBe(false);
+            expect(secureUpdate).toHaveBeenCalled();
+        });
+
+        it('does nothing if no candidates or not admin', () => {
+            isAdmin.value = false;
+            const tournament = ref(makeTournament());
+            const { startRandomUma, showRandomModal } = useUmaDraft(tournament, secureUpdate, isAdmin);
+
+            startRandomUma();
+            expect(showRandomModal.value).toBe(false);
+        });
+    });
+
+    describe('error cases', () => {
+        it('pickUma does nothing if team not found', async () => {
+            const tournament = ref(makeTournament({
+                draft: { order: ['nonexistent'], currentIdx: 0 }
+            }));
+            isAdmin.value = true;
+            const { pickUma } = useUmaDraft(tournament, secureUpdate, isAdmin);
+            await pickUma('Special Week');
+            expect(secureUpdate).not.toHaveBeenCalled();
+        });
+
+        it('undoLastPick does nothing if team not found or no pool', async () => {
+            const tournament = ref(makeTournament({
+                draft: { order: ['nonexistent'], currentIdx: 1 }
+            }));
+            isAdmin.value = true;
+            const { undoLastPick } = useUmaDraft(tournament, secureUpdate, isAdmin);
+            await undoLastPick();
+            expect(secureUpdate).not.toHaveBeenCalled();
         });
     });
 });
