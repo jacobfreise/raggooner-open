@@ -9,9 +9,17 @@ export interface ChangeLogEntry {
     }[];
 }
 
-export const APP_VERSION = '2.3.0'; // Update this manually when you deploy
+export const APP_VERSION = '2.3.1'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '2.3.1',
+        date: '2026-03-05',
+        title: 'Uma-fied Sound Effects',
+        changes: [
+            { type: 'improvement', text: 'Sound Effects in Pick and Ban Phases adjusted to be more Uma-like.' },
+        ]
+    },
     {
         version: '2.3.0',
         date: '2026-03-02',
