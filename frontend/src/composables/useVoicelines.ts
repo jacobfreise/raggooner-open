@@ -24,7 +24,7 @@ export function useVoicelines(tournament: Ref<Tournament | null>) {
             if (!newBans || !oldBans) return;
             for (const uma of newBans) {
                 if (!oldBans.includes(uma)) {
-                    playAudio('/assets/sound-effects/sfx-ban-button-click.ogg');
+                    playAudio('/assets/sound-effects/sfx-ban-button-click.mp3');
                     const characterId = UMA_DICT[uma]?.characterId;
                     if (characterId) playAudio(`/assets/Voicelines/${characterId}/${characterId}-banned.wav`);
                 }
@@ -45,7 +45,7 @@ export function useVoicelines(tournament: Ref<Tournament | null>) {
                 const newPool = newTeam.umaPool ?? [];
                 for (const uma of newPool) {
                     if (!oldPool.includes(uma)) {
-                        playAudio('/assets/sound-effects/sfx-lockin-button-click.ogg');
+                        playAudio('/assets/sound-effects/sfx-lockin-button-click.mp3');
                         const characterId = UMA_DICT[uma]?.characterId;
                         if (characterId) playAudio(`/assets/Voicelines/${characterId}/${characterId}-picked.wav`);
                     }
@@ -55,7 +55,7 @@ export function useVoicelines(tournament: Ref<Tournament | null>) {
                 const oldMembers = oldTeam?.memberIds ?? [];
                 const newMembers = newTeam.memberIds ?? [];
                 if (newMembers.length > oldMembers.length) {
-                    playAudio('/assets/sound-effects/sfx-lockin-button-click.ogg');
+                    playAudio('/assets/sound-effects/sfx-lockin-button-click.mp3');
                 }
             }
         }

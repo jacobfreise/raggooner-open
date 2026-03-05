@@ -172,7 +172,7 @@ const resetBanTimer = async () => {
         <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           <button v-for="uma in filteredUmas" :key="uma"
                   @click="toggleBan(uma)"
-                  @mouseenter="isAdminRef && playLocalSfx('/assets/sound-effects/sfx-ban-button-hover.ogg')"
+                  @mouseenter="isAdminRef && playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3')"
                   :disabled="!isAdmin"
                   class="relative group p-4 rounded-lg border-2 text-left transition-all duration-200 overflow-hidden"
                   :class="isBanned(uma) ? 'bg-red-900/20 border-red-500/50' : 'bg-slate-800 border-slate-700 hover:border-indigo-400 hover:bg-slate-750'">

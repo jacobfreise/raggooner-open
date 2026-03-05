@@ -196,7 +196,7 @@ const sortedAvailablePlayers = computed(() => {
             </div>
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 auto-rows-fr">
               <button @click="startRandomDraft"
-                      @mouseenter="isAdmin && playLocalSfx('/assets/sound-effects/sfx-lockin-button-hover.ogg')"
+                      @mouseenter="isAdmin && playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3')"
                       :disabled="!isAdmin"
                       class="bg-gradient-to-br from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 p-4 rounded-lg shadow-lg border-2 border-amber-300 flex items-center justify-between group relative overflow-hidden transition-all transform hover:scale-[1.02]">
 
@@ -213,7 +213,7 @@ const sortedAvailablePlayers = computed(() => {
               </button>
               <button v-for="player in sortedAvailablePlayers" :key="player.id"
                       @click="draftPlayer(player)"
-                      @mouseenter="isAdmin && playLocalSfx('/assets/sound-effects/sfx-lockin-button-hover.ogg')"
+                      @mouseenter="isAdmin && playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3')"
                       :disabled="!isAdmin"
                       class="h-full w-full bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 p-3 rounded-xl transition-all text-left group relative overflow-hidden flex flex-col justify-between min-h-[80px] shadow-sm hover:shadow-indigo-500/20">
 
