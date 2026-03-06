@@ -148,42 +148,131 @@ const weightPercent = (weights: Record<string, number>, key: string): number => 
   return total === 0 ? 0 : Math.round(((weights[key] || 0) / total) * 100);
 };
 
-// Each dimension falls back to uniform (weight=1) independently if it has a conflict.
-// This means a zero-weight weather never poisons ground/season weights, and vice versa.
+// ── IPF Probability Matrix Logic ──
+
+const normalize = (weights: Record<string, number>, allowed: string[]) => {
+  const filtered = Object.fromEntries(Object.entries(weights).filter(([k]) => allowed.includes(k)));
+  const total = Object.values(filtered).reduce((a, b) => a + b, 0);
+  if (total === 0) return Object.fromEntries(allowed.map(k => [k, 1 / allowed.length]));
+  return Object.fromEntries(Object.entries(filtered).map(([k, v]) => [k, v / total]));
+};
+
+const conditionProbs = computed(() => {
+  const combos = validConditionCombos.value.map(c => ({ ...c, prob: 1 }));
+  if (combos.length === 0) return [];
+
+  const weatherTarget = normalize(weatherWeights.value, filteredWeathers.value);
+  const groundTarget = normalize(groundWeights.value, filteredGrounds.value);
+  const seasonTarget = normalize(seasonWeights.value, filteredSeasons.value);
+
+  const iterations = 50;
+  for (let i = 0; i < iterations; i++) {
+    // Weather adjustment
+    for (const w in weatherTarget) {
+      const sum = combos.filter(c => c.weather === w).reduce((s, c) => s + c.prob, 0);
+      if (sum > 0) {
+        const factor = weatherTarget[w]! / sum;
+        combos.filter(c => c.weather === w).forEach(c => c.prob *= factor);
+      }
+    }
+    // Ground adjustment
+    for (const g in groundTarget) {
+      const sum = combos.filter(c => c.ground === g).reduce((s, c) => s + c.prob, 0);
+      if (sum > 0) {
+        const factor = groundTarget[g]! / sum;
+        combos.filter(c => c.ground === g).forEach(c => c.prob *= factor);
+      }
+    }
+    // Season adjustment
+    for (const s in seasonTarget) {
+      const sum = combos.filter(c => c.season === s).reduce((s, c) => s + c.prob, 0);
+      if (sum > 0) {
+        const factor = seasonTarget[s]! / sum;
+        combos.filter(c => c.season === s).forEach(c => c.prob *= factor);
+      }
+    }
+  }
+
+  const total = combos.reduce((s, c) => s + c.prob, 0);
+  combos.forEach(c => c.prob /= total);
+  return combos;
+});
+
+const trackProbs = computed(() => {
+  const tracks = filteredTracks.value;
+  if (tracks.length === 0) return [];
+
+  const allowedSurfaces = [...new Set(tracks.map(t => t.surface))];
+  const allowedDistances = [...new Set(tracks.map(t => t.distanceType))];
+
+  const surfaceTarget = normalize(surfaceWeights.value, allowedSurfaces);
+  const distanceTarget = normalize(distanceWeights.value, allowedDistances);
+
+  // We build a matrix of Surface x DistanceType
+  const matrix: { surface: string; distanceType: string; prob: number }[] = [];
+  for (const s of allowedSurfaces) {
+    for (const d of allowedDistances) {
+      const hasTrack = tracks.some(t => t.surface === s && t.distanceType === d);
+      if (hasTrack) {
+        matrix.push({ surface: s, distanceType: d, prob: 1 });
+      }
+    }
+  }
+
+  const iterations = 50;
+  for (let i = 0; i < iterations; i++) {
+    // Surface adjustment
+    for (const s in surfaceTarget) {
+      const sum = matrix.filter(m => m.surface === s).reduce((sum, m) => sum + m.prob, 0);
+      if (sum > 0) {
+        const factor = surfaceTarget[s]! / sum;
+        matrix.filter(m => m.surface === s).forEach(m => m.prob *= factor);
+      }
+    }
+    // Distance adjustment
+    for (const d in distanceTarget) {
+      const sum = matrix.filter(m => m.distanceType === d).reduce((sum, m) => sum + m.prob, 0);
+      if (sum > 0) {
+        const factor = distanceTarget[d]! / sum;
+        matrix.filter(m => m.distanceType === d).forEach(m => m.prob *= factor);
+      }
+    }
+  }
+
+  const total = matrix.reduce((s, m) => s + m.prob, 0);
+  matrix.forEach(m => m.prob /= total);
+  return matrix;
+});
+
 const rollCondition = (): { weather: string; ground: string; season: string } => {
-  const combos = validConditionCombos.value;
-  if (combos.length === 0) return combos[0]!;
-  const weights = combos.map(c => {
-    const gw = groundWeightConflict.value ? 1 : (groundWeights.value[c.ground as Condition['ground']] ?? 0);
-    const ww = weatherWeightConflict.value ? 1 : (weatherWeights.value[c.weather as Condition['weather']] ?? 0);
-    const sw = seasonWeightConflict.value ? 1 : (seasonWeights.value[c.season as Condition['season']] ?? 0);
-    return gw * ww * sw;
-  });
-  const totalWeight = weights.reduce((s, w) => s + w, 0);
-  if (totalWeight === 0) return randomFrom(combos);
-  let rand = Math.random() * totalWeight;
-  for (let i = 0; i < combos.length; i++) {
-    rand -= weights[i]!;
-    if (rand <= 0) return combos[i]!;
+  const combos = conditionProbs.value;
+  if (combos.length === 0) return { weather: 'Sunny', ground: 'Firm', season: 'Spring' };
+
+  let r = Math.random();
+  for (const c of combos) {
+    r -= c.prob;
+    if (r <= 0) return c;
   }
   return combos[combos.length - 1]!;
 };
 
 const rollTrack = (): Track => {
+  const matrix = trackProbs.value;
   const tracks = filteredTracks.value;
-  const weights = tracks.map(t => {
-    const sw = surfaceWeightConflict.value ? 1 : (surfaceWeights.value[t.surface] ?? 0);
-    const dw = distanceWeightConflict.value ? 1 : (distanceWeights.value[t.distanceType] ?? 0);
-    return sw * dw;
-  });
-  const totalWeight = weights.reduce((s, w) => s + w, 0);
-  if (totalWeight === 0) return randomFrom(tracks);
-  let rand = Math.random() * totalWeight;
-  for (let i = 0; i < tracks.length; i++) {
-    rand -= weights[i]!;
-    if (rand <= 0) return tracks[i]!;
+  if (matrix.length === 0 || tracks.length === 0) return tracks[0]!;
+
+  let r = Math.random();
+  let selected = matrix[matrix.length - 1]!;
+  for (const m of matrix) {
+    r -= m.prob;
+    if (r <= 0) {
+      selected = m;
+      break;
+    }
   }
-  return tracks[tracks.length - 1]!;
+
+  const matchingTracks = tracks.filter(t => t.surface === selected.surface && t.distanceType === selected.distanceType);
+  return randomFrom(matchingTracks);
 };
 
 // ── Per-dimension conflict detection ──
