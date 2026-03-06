@@ -148,15 +148,17 @@ const weightPercent = (weights: Record<string, number>, key: string): number => 
   return total === 0 ? 0 : Math.round(((weights[key] || 0) / total) * 100);
 };
 
-// Weighted random: each combo's weight = ground × weather × season weights multiplied together
+// Each dimension falls back to uniform (weight=1) independently if it has a conflict.
+// This means a zero-weight weather never poisons ground/season weights, and vice versa.
 const rollCondition = (): { weather: string; ground: string; season: string } => {
   const combos = validConditionCombos.value;
   if (combos.length === 0) return combos[0]!;
-  const weights = combos.map(c =>
-    (groundWeights.value[c.ground as Condition['ground']] ?? 0) *
-    (weatherWeights.value[c.weather as Condition['weather']] ?? 0) *
-    (seasonWeights.value[c.season as Condition['season']] ?? 0)
-  );
+  const weights = combos.map(c => {
+    const gw = groundWeightConflict.value ? 1 : (groundWeights.value[c.ground as Condition['ground']] ?? 0);
+    const ww = weatherWeightConflict.value ? 1 : (weatherWeights.value[c.weather as Condition['weather']] ?? 0);
+    const sw = seasonWeightConflict.value ? 1 : (seasonWeights.value[c.season as Condition['season']] ?? 0);
+    return gw * ww * sw;
+  });
   const totalWeight = weights.reduce((s, w) => s + w, 0);
   if (totalWeight === 0) return randomFrom(combos);
   let rand = Math.random() * totalWeight;
@@ -167,12 +169,13 @@ const rollCondition = (): { weather: string; ground: string; season: string } =>
   return combos[combos.length - 1]!;
 };
 
-// Weighted random: each track's weight = surface × distance weights multiplied together
 const rollTrack = (): Track => {
   const tracks = filteredTracks.value;
-  const weights = tracks.map(t =>
-    (surfaceWeights.value[t.surface] ?? 0) * (distanceWeights.value[t.distanceType] ?? 0)
-  );
+  const weights = tracks.map(t => {
+    const sw = surfaceWeightConflict.value ? 1 : (surfaceWeights.value[t.surface] ?? 0);
+    const dw = distanceWeightConflict.value ? 1 : (distanceWeights.value[t.distanceType] ?? 0);
+    return sw * dw;
+  });
   const totalWeight = weights.reduce((s, w) => s + w, 0);
   if (totalWeight === 0) return randomFrom(tracks);
   let rand = Math.random() * totalWeight;
@@ -182,6 +185,76 @@ const rollTrack = (): Track => {
   }
   return tracks[tracks.length - 1]!;
 };
+
+// ── Per-dimension conflict detection ──
+// A conflict means every filtered option in that dimension has weight 0 → fall back to uniform for that dimension only
+const groundWeightConflict = computed(() => filteredGrounds.value.length > 0 && filteredGrounds.value.every(g => (groundWeights.value[g] ?? 0) === 0));
+const weatherWeightConflict = computed(() => filteredWeathers.value.length > 0 && filteredWeathers.value.every(w => (weatherWeights.value[w] ?? 0) === 0));
+const seasonWeightConflict = computed(() => filteredSeasons.value.length > 0 && filteredSeasons.value.every(s => (seasonWeights.value[s] ?? 0) === 0));
+const surfaceWeightConflict = computed(() => surfaceFilters.value.size > 0 && [...surfaceFilters.value].every(s => (surfaceWeights.value[s] ?? 0) === 0));
+const distanceWeightConflict = computed(() => distanceFilters.value.size > 0 && [...distanceFilters.value].every(d => (distanceWeights.value[d] ?? 0) === 0));
+
+// Per-dimension warning: which dimensions have all-zero weights
+const conflictingDimensions = computed(() => {
+  const dims: string[] = [];
+  if (surfaceWeightConflict.value) dims.push('Surface');
+  if (distanceWeightConflict.value) dims.push('Distance');
+  if (groundWeightConflict.value) dims.push('Ground');
+  if (weatherWeightConflict.value) dims.push('Weather');
+  if (seasonWeightConflict.value) dims.push('Season');
+  return dims;
+});
+
+// Cross-dimension fallback: even after per-dimension substitution, no track/combo gets non-zero weight
+// e.g. only Dirt tracks exist but Long is the only weighted distance and no Dirt Long track exists
+const trackCombinationFallback = computed(() => {
+  const tracks = filteredTracks.value;
+  if (tracks.length === 0) return false;
+  return tracks.every(t => {
+    const sw = surfaceWeightConflict.value ? 1 : (surfaceWeights.value[t.surface] ?? 0);
+    const dw = distanceWeightConflict.value ? 1 : (distanceWeights.value[t.distanceType] ?? 0);
+    return sw * dw === 0;
+  });
+});
+
+const conditionCombinationFallback = computed(() => {
+  const combos = validConditionCombos.value;
+  if (combos.length === 0) return false;
+  return combos.every(c => {
+    const gw = groundWeightConflict.value ? 1 : (groundWeights.value[c.ground as Condition['ground']] ?? 0);
+    const ww = weatherWeightConflict.value ? 1 : (weatherWeights.value[c.weather as Condition['weather']] ?? 0);
+    const sw = seasonWeightConflict.value ? 1 : (seasonWeights.value[c.season as Condition['season']] ?? 0);
+    return gw * ww * sw === 0;
+  });
+});
+
+// Describe what weighted surface+distance combos have no matching tracks
+const trackFallbackDescription = computed(() => {
+  const weightedSurfaces = [...surfaceFilters.value].filter(s => surfaceWeightConflict.value || (surfaceWeights.value[s] ?? 0) > 0);
+  const weightedDistances = [...distanceFilters.value].filter(d => distanceWeightConflict.value || (distanceWeights.value[d] ?? 0) > 0);
+  return `${weightedSurfaces.join('/')} × ${weightedDistances.join('/')}`;
+});
+
+// Describe what weighted ground+weather+season combos are all impossible given the constraint graph
+const conditionFallbackDescription = computed(() => {
+  const wg = GROUNDS.filter(g => groundWeightConflict.value || (groundWeights.value[g] ?? 0) > 0).join('/');
+  const ww = WEATHERS.filter(w => weatherWeightConflict.value || (weatherWeights.value[w] ?? 0) > 0).join('/');
+  const ws = SEASONS.filter(s => seasonWeightConflict.value || (seasonWeights.value[s] ?? 0) > 0).join('/');
+  return `${wg} × ${ww} × ${ws}`;
+});
+
+const hasAnyWarning = computed(() =>
+  conflictingDimensions.value.length > 0 || trackCombinationFallback.value || conditionCombinationFallback.value
+);
+
+const rollableTrackCount = computed(() => {
+  if (trackCombinationFallback.value) return filteredTracks.value.length;
+  return filteredTracks.value.filter(t => {
+    const sw = surfaceWeightConflict.value ? 1 : (surfaceWeights.value[t.surface] ?? 0);
+    const dw = distanceWeightConflict.value ? 1 : (distanceWeights.value[t.distanceType] ?? 0);
+    return sw * dw > 0;
+  }).length;
+});
 
 // Build all valid condition combos from the enabled filters
 const validConditionCombos = computed(() => {
@@ -639,11 +712,14 @@ const getSeasonIcon = (s: string) => {
               </template>
             </div>
 
+            <div class="flex flex-col items-center gap-2">
             <div class="flex gap-3 items-center">
               <button @click="openWeightsModal"
                       title="Roll weights"
-                      class="px-3 py-3 rounded-lg border border-slate-700 bg-slate-900 text-slate-400 hover:text-white hover:border-slate-500 transition-colors flex items-center">
+                      class="relative px-3 py-3 rounded-lg border bg-slate-900 transition-colors flex items-center"
+                      :class="hasAnyWarning ? 'border-amber-500/60 text-amber-400 hover:border-amber-400' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'">
                 <i class="ph-bold ph-gear"></i>
+                <span v-if="hasAnyWarning" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-slate-900"></span>
               </button>
 
               <button @click="rollRandom"
@@ -654,7 +730,7 @@ const getSeasonIcon = (s: string) => {
                         : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-900/30'">
                 <i class="ph-bold ph-shuffle" :class="{ 'animate-spin': isRolling }"></i>
                 {{ isRolling ? 'Rolling...' : 'Roll' }}
-                <span class="text-xs opacity-70">({{ filteredTracks.length }})</span>
+                <span class="text-xs opacity-70">({{ rollableTrackCount }})</span>
               </button>
 
               <button v-if="rollerSettled && rollerTrack"
@@ -664,6 +740,22 @@ const getSeasonIcon = (s: string) => {
                 <i class="ph-bold ph-check-circle"></i>
                 Confirm
               </button>
+            </div>
+
+            <div v-if="hasAnyWarning" class="text-xs text-amber-400 space-y-1">
+              <p v-if="conflictingDimensions.length > 0" class="flex items-center gap-1.5">
+                <i class="ph-bold ph-warning shrink-0"></i>
+                Rolling uniformly for {{ conflictingDimensions.join(', ') }} — all weights are 0
+              </p>
+              <p v-if="trackCombinationFallback" class="flex items-center gap-1.5">
+                <i class="ph-bold ph-warning shrink-0"></i>
+                No filtered tracks match {{ trackFallbackDescription }} — rolling uniformly across all filtered tracks
+              </p>
+              <p v-if="conditionCombinationFallback" class="flex items-center gap-1.5">
+                <i class="ph-bold ph-warning shrink-0"></i>
+                No valid condition exists for {{ conditionFallbackDescription }} — rolling uniformly across all filtered conditions
+              </p>
+            </div>
             </div>
           </div>
         </div>
