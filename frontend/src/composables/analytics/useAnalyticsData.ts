@@ -4,7 +4,7 @@ import { db, auth } from '../../firebase';
 import type { GlobalPlayer, Tournament, Season } from '../../types';
 import { migrateRaces, migratePlayers } from "../../utils/utils.ts";
 import { getCached, setCache } from "../../utils/cache.ts";
-import { deriveFromTournaments, type DerivedParticipation, type DerivedRace, type TierCriterion } from '../../utils/analyticsUtils';
+import { deriveFromTournaments, type TierCriterion } from '../../utils/analyticsUtils';
 import { TRACK_DICT } from '../../utils/trackData';
 
 const APP_ID = 'default-app';
@@ -18,8 +18,6 @@ export function useAnalyticsData() {
 
   // Raw Data
   const players = ref<GlobalPlayer[]>([]);
-  const participations = ref<DerivedParticipation[]>([]);
-  const races = ref<DerivedRace[]>([]);
   const tournaments = ref<Tournament[]>([]);
   const seasons = ref<Season[]>([]);
 
@@ -97,10 +95,6 @@ export function useAnalyticsData() {
       players.value = p;
       tournaments.value = t;
 
-      const { derivedParticipations, derivedRaces } = deriveFromTournaments(t);
-      participations.value = derivedParticipations;
-      races.value = derivedRaces;
-
       if (fetchCount > 0) trackUsage(fetchCount, readOps);
     } catch (e) {
       console.error('Failed to fetch analytics data:', e);
@@ -131,13 +125,15 @@ export function useAnalyticsData() {
 
   const validTournamentIds = computed(() => new Set(filteredTournaments.value.map(t => t.id)));
 
-  const filteredParticipations = computed(() => {
-    return participations.value.filter(p => validTournamentIds.value.has(p.tournamentId));
-  });
+  const derived = computed(() => deriveFromTournaments(tournaments.value));
 
-  const filteredRaces = computed(() => {
-    return races.value.filter(r => r.tournamentId && validTournamentIds.value.has(r.tournamentId));
-  });
+  const filteredParticipations = computed(() =>
+    derived.value.derivedParticipations.filter(p => validTournamentIds.value.has(p.tournamentId))
+  );
+
+  const filteredRaces = computed(() =>
+    derived.value.derivedRaces.filter(r => r.tournamentId && validTournamentIds.value.has(r.tournamentId))
+  );
 
   const overviewStats = computed(() => {
     const uniquePlayerIds = new Set(filteredParticipations.value.map(p => p.playerId));
