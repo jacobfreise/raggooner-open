@@ -21,6 +21,8 @@ const allTracks = computed(() =>
 );
 
 // ── Condition options & valid combinations ──
+const SURFACES = ['Turf', 'Dirt'] as const;
+const DISTANCES = ['Sprint', 'Mile', 'Medium', 'Long'] as const;
 const GROUNDS: Condition['ground'][] = ['Firm', 'Good', 'Soft', 'Heavy'];
 const WEATHERS: Condition['weather'][] = ['Sunny', 'Cloudy', 'Rainy', 'Snowy'];
 const SEASONS: Condition['season'][] = ['Spring', 'Summer', 'Fall', 'Winter'];
@@ -98,6 +100,89 @@ const filteredSeasons = computed(() => SEASONS.filter(s => seasonFilters.value.h
 
 const randomFrom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
 
+// ── Roll weights ──
+const WEIGHTS_KEY = 'raggooner-roll-weights';
+const _savedWeights = (() => { try { return JSON.parse(localStorage.getItem(WEIGHTS_KEY) ?? '{}'); } catch { return {}; } })();
+
+const groundWeights = ref<Record<Condition['ground'], number>>(_savedWeights.ground ?? { Firm: 50, Good: 20, Soft: 20, Heavy: 10 });
+const weatherWeights = ref<Record<Condition['weather'], number>>(_savedWeights.weather ?? { Sunny: 1, Cloudy: 1, Rainy: 1, Snowy: 1 });
+const seasonWeights = ref<Record<Condition['season'], number>>(_savedWeights.season ?? { Spring: 1, Summer: 1, Fall: 1, Winter: 1 });
+const surfaceWeights = ref<Record<string, number>>(_savedWeights.surface ?? { Turf: 1, Dirt: 1 });
+const distanceWeights = ref<Record<string, number>>(_savedWeights.distance ?? { Sprint: 1, Mile: 1, Medium: 1, Long: 1 });
+
+const showWeightsModal = ref(false);
+const draftGroundWeights = ref({ ...groundWeights.value });
+const draftWeatherWeights = ref({ ...weatherWeights.value });
+const draftSeasonWeights = ref({ ...seasonWeights.value });
+const draftSurfaceWeights = ref({ ...surfaceWeights.value });
+const draftDistanceWeights = ref({ ...distanceWeights.value });
+
+const openWeightsModal = () => {
+  draftGroundWeights.value = { ...groundWeights.value };
+  draftWeatherWeights.value = { ...weatherWeights.value };
+  draftSeasonWeights.value = { ...seasonWeights.value };
+  draftSurfaceWeights.value = { ...surfaceWeights.value };
+  draftDistanceWeights.value = { ...distanceWeights.value };
+  showWeightsModal.value = true;
+};
+const saveWeights = () => {
+  groundWeights.value = { ...draftGroundWeights.value };
+  weatherWeights.value = { ...draftWeatherWeights.value };
+  seasonWeights.value = { ...draftSeasonWeights.value };
+  surfaceWeights.value = { ...draftSurfaceWeights.value };
+  distanceWeights.value = { ...draftDistanceWeights.value };
+  try {
+    localStorage.setItem(WEIGHTS_KEY, JSON.stringify({
+      ground: groundWeights.value,
+      weather: weatherWeights.value,
+      season: seasonWeights.value,
+      surface: surfaceWeights.value,
+      distance: distanceWeights.value,
+    }));
+  } catch { /* storage unavailable */ }
+  showWeightsModal.value = false;
+};
+
+const weightPercent = (weights: Record<string, number>, key: string): number => {
+  const total = Object.values(weights).reduce((s, v) => s + (v || 0), 0);
+  return total === 0 ? 0 : Math.round(((weights[key] || 0) / total) * 100);
+};
+
+// Weighted random: each combo's weight = ground × weather × season weights multiplied together
+const rollCondition = (): { weather: string; ground: string; season: string } => {
+  const combos = validConditionCombos.value;
+  if (combos.length === 0) return combos[0]!;
+  const weights = combos.map(c =>
+    (groundWeights.value[c.ground as Condition['ground']] ?? 0) *
+    (weatherWeights.value[c.weather as Condition['weather']] ?? 0) *
+    (seasonWeights.value[c.season as Condition['season']] ?? 0)
+  );
+  const totalWeight = weights.reduce((s, w) => s + w, 0);
+  if (totalWeight === 0) return randomFrom(combos);
+  let rand = Math.random() * totalWeight;
+  for (let i = 0; i < combos.length; i++) {
+    rand -= weights[i]!;
+    if (rand <= 0) return combos[i]!;
+  }
+  return combos[combos.length - 1]!;
+};
+
+// Weighted random: each track's weight = surface × distance weights multiplied together
+const rollTrack = (): Track => {
+  const tracks = filteredTracks.value;
+  const weights = tracks.map(t =>
+    (surfaceWeights.value[t.surface] ?? 0) * (distanceWeights.value[t.distanceType] ?? 0)
+  );
+  const totalWeight = weights.reduce((s, w) => s + w, 0);
+  if (totalWeight === 0) return randomFrom(tracks);
+  let rand = Math.random() * totalWeight;
+  for (let i = 0; i < tracks.length; i++) {
+    rand -= weights[i]!;
+    if (rand <= 0) return tracks[i]!;
+  }
+  return tracks[tracks.length - 1]!;
+};
+
 // Build all valid condition combos from the enabled filters
 const validConditionCombos = computed(() => {
   const combos: { weather: string; ground: string; season: string }[] = [];
@@ -134,8 +219,8 @@ const rollRandom = () => {
 
   const tick = () => {
     flipCount++;
-    rollerTrack.value = randomFrom(candidates);
-    const combo = randomFrom(combos);
+    rollerTrack.value = rollTrack();
+    const combo = rollCondition();
     rollerCondition.value = {
       id: '',
       ground: combo.ground as Condition['ground'],
@@ -554,7 +639,13 @@ const getSeasonIcon = (s: string) => {
               </template>
             </div>
 
-            <div class="flex gap-3">
+            <div class="flex gap-3 items-center">
+              <button @click="openWeightsModal"
+                      title="Roll weights"
+                      class="px-3 py-3 rounded-lg border border-slate-700 bg-slate-900 text-slate-400 hover:text-white hover:border-slate-500 transition-colors flex items-center">
+                <i class="ph-bold ph-gear"></i>
+              </button>
+
               <button @click="rollRandom"
                       :disabled="isRolling || filteredTracks.length === 0 || validConditionCombos.length === 0"
                       class="px-6 py-3 rounded-lg font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -724,4 +815,126 @@ const getSeasonIcon = (s: string) => {
       <p class="text-slate-500">The admin is selecting a track for this tournament.</p>
     </div>
   </div>
+
+  <!-- Roll Weights Modal -->
+  <Teleport to="body">
+    <div v-if="showWeightsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showWeightsModal = false">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-96 flex flex-col max-h-[80vh]">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700 shrink-0">
+          <h3 class="font-bold text-white">Roll Weights</h3>
+          <button @click="showWeightsModal = false" class="text-slate-400 hover:text-white transition-colors">
+            <i class="ph-bold ph-x"></i>
+          </button>
+        </div>
+
+        <!-- Scrollable body -->
+        <div class="overflow-y-auto px-6 py-4 space-y-6">
+
+          <!-- Surface -->
+          <div>
+            <h4 class="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-3">Surface</h4>
+            <div class="space-y-2">
+              <div v-for="s in SURFACES" :key="s" class="flex items-center gap-3">
+                <span class="text-sm text-slate-300 w-16">{{ s }}</span>
+                <input type="number" min="0"
+                       :value="draftSurfaceWeights[s]"
+                       @input="draftSurfaceWeights[s] = Math.max(0, parseInt(($event.target as HTMLInputElement).value) || 0)"
+                       class="w-14 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white text-sm text-center focus:outline-none focus:border-indigo-500 transition-colors" />
+                <span class="text-xs text-slate-500 w-7 text-right">{{ weightPercent(draftSurfaceWeights, s) }}%</span>
+                <div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div class="h-full bg-indigo-500 rounded-full transition-all duration-200" :style="{ width: `${weightPercent(draftSurfaceWeights, s)}%` }"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Distance -->
+          <div>
+            <h4 class="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-3">Distance</h4>
+            <div class="space-y-2">
+              <div v-for="d in DISTANCES" :key="d" class="flex items-center gap-3">
+                <span class="text-sm text-slate-300 w-16">{{ d }}</span>
+                <input type="number" min="0"
+                       :value="draftDistanceWeights[d]"
+                       @input="draftDistanceWeights[d] = Math.max(0, parseInt(($event.target as HTMLInputElement).value) || 0)"
+                       class="w-14 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white text-sm text-center focus:outline-none focus:border-indigo-500 transition-colors" />
+                <span class="text-xs text-slate-500 w-7 text-right">{{ weightPercent(draftDistanceWeights, d) }}%</span>
+                <div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div class="h-full bg-indigo-500 rounded-full transition-all duration-200" :style="{ width: `${weightPercent(draftDistanceWeights, d)}%` }"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ground -->
+          <div>
+            <h4 class="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-3">Ground</h4>
+            <div class="space-y-2">
+              <div v-for="g in GROUNDS" :key="g" class="flex items-center gap-3">
+                <span class="text-sm text-slate-300 w-16">{{ g }}</span>
+                <input type="number" min="0"
+                       :value="draftGroundWeights[g]"
+                       @input="draftGroundWeights[g] = Math.max(0, parseInt(($event.target as HTMLInputElement).value) || 0)"
+                       class="w-14 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white text-sm text-center focus:outline-none focus:border-indigo-500 transition-colors" />
+                <span class="text-xs text-slate-500 w-7 text-right">{{ weightPercent(draftGroundWeights, g) }}%</span>
+                <div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div class="h-full bg-indigo-500 rounded-full transition-all duration-200" :style="{ width: `${weightPercent(draftGroundWeights, g)}%` }"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Weather -->
+          <div>
+            <h4 class="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-3">Weather</h4>
+            <div class="space-y-2">
+              <div v-for="w in WEATHERS" :key="w" class="flex items-center gap-3">
+                <span class="text-sm text-slate-300 w-16">{{ w }}</span>
+                <input type="number" min="0"
+                       :value="draftWeatherWeights[w]"
+                       @input="draftWeatherWeights[w] = Math.max(0, parseInt(($event.target as HTMLInputElement).value) || 0)"
+                       class="w-14 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white text-sm text-center focus:outline-none focus:border-indigo-500 transition-colors" />
+                <span class="text-xs text-slate-500 w-7 text-right">{{ weightPercent(draftWeatherWeights, w) }}%</span>
+                <div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div class="h-full bg-indigo-500 rounded-full transition-all duration-200" :style="{ width: `${weightPercent(draftWeatherWeights, w)}%` }"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Season -->
+          <div>
+            <h4 class="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-3">Season</h4>
+            <div class="space-y-2">
+              <div v-for="s in SEASONS" :key="s" class="flex items-center gap-3">
+                <span class="text-sm text-slate-300 w-16">{{ s }}</span>
+                <input type="number" min="0"
+                       :value="draftSeasonWeights[s]"
+                       @input="draftSeasonWeights[s] = Math.max(0, parseInt(($event.target as HTMLInputElement).value) || 0)"
+                       class="w-14 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white text-sm text-center focus:outline-none focus:border-indigo-500 transition-colors" />
+                <span class="text-xs text-slate-500 w-7 text-right">{{ weightPercent(draftSeasonWeights, s) }}%</span>
+                <div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div class="h-full bg-indigo-500 rounded-full transition-all duration-200" :style="{ width: `${weightPercent(draftSeasonWeights, s)}%` }"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-700 shrink-0">
+          <button @click="showWeightsModal = false"
+                  class="px-3 py-1.5 text-xs font-bold border border-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors">
+            Cancel
+          </button>
+          <button @click="saveWeights"
+                  class="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors">
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
