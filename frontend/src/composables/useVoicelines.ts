@@ -17,13 +17,31 @@ export const playLocalSfx = (path: string) => playAudio(path);
 export function useVoicelines(tournament: Ref<Tournament | null>) {
     watch(voicelineVolume, (v) => localStorage.setItem('voicelineVolume', String(v)));
 
-    // Ban phase: click SFX + voiceline for everyone via Firestore watcher
+    // Snapshots of state at page-load time. Only changes after these are populated trigger sounds.
+    // The tournament watcher (immediate) fires before the sub-field watchers, so these are always
+    // initialized before the bans/teams watchers run for the first time.
+    let seenBans: Set<string> | null = null;
+    let seenUmaPools: Map<string, Set<string>> | null = null;
+    let seenMembers: Map<string, Set<string>> | null = null;
+
+    watch(() => tournament.value, (t) => {
+        if (t === null) return;
+        if (seenBans === null)
+            seenBans = new Set(t.bans ?? []);
+        if (seenUmaPools === null)
+            seenUmaPools = new Map(t.teams.map(team => [team.id, new Set(team.umaPool ?? [])]));
+        if (seenMembers === null)
+            seenMembers = new Map(t.teams.map(team => [team.id, new Set(team.memberIds ?? [])]));
+    }, { immediate: true });
+
+    // Ban phase
     watch(
         () => tournament.value?.bans,
-        (newBans, oldBans) => {
-            if (!newBans || !oldBans) return;
+        (newBans) => {
+            if (!newBans || seenBans === null) return;
             for (const uma of newBans) {
-                if (!oldBans.includes(uma)) {
+                if (!seenBans.has(uma)) {
+                    seenBans.add(uma);
                     playAudio('/assets/sound-effects/sfx-ban-button-click.mp3');
                     const characterId = UMA_DICT[uma]?.characterId;
                     if (characterId) playAudio(`/assets/Voicelines/${characterId}/${characterId}-banned.wav`);
@@ -32,30 +50,32 @@ export function useVoicelines(tournament: Ref<Tournament | null>) {
         }
     );
 
-    // Uma draft picks + player draft picks: click SFX (+ voiceline for uma) for everyone
+    // Uma draft picks + player draft picks
     watch(
         () => tournament.value?.teams,
-        (newTeams, oldTeams) => {
-            if (!newTeams || !oldTeams) return;
-            for (const newTeam of newTeams) {
-                const oldTeam = oldTeams.find(t => t.id === newTeam.id);
-
-                // Uma draft picks (umaPool)
-                const oldPool = oldTeam?.umaPool ?? [];
-                const newPool = newTeam.umaPool ?? [];
-                for (const uma of newPool) {
-                    if (!oldPool.includes(uma)) {
+        (newTeams) => {
+            if (!newTeams || seenUmaPools === null || seenMembers === null) return;
+            for (const team of newTeams) {
+                // Uma pool picks
+                const poolSeen = seenUmaPools.get(team.id) ?? new Set<string>();
+                for (const uma of team.umaPool ?? []) {
+                    if (!poolSeen.has(uma)) {
+                        poolSeen.add(uma);
+                        seenUmaPools.set(team.id, poolSeen);
                         playAudio('/assets/sound-effects/sfx-lockin-button-click.mp3');
                         const characterId = UMA_DICT[uma]?.characterId;
                         if (characterId) playAudio(`/assets/Voicelines/${characterId}/${characterId}-picked.wav`);
                     }
                 }
 
-                // Player draft picks (memberIds)
-                const oldMembers = oldTeam?.memberIds ?? [];
-                const newMembers = newTeam.memberIds ?? [];
-                if (newMembers.length > oldMembers.length) {
-                    playAudio('/assets/sound-effects/sfx-lockin-button-click.mp3');
+                // Player draft picks
+                const membersSeen = seenMembers.get(team.id) ?? new Set<string>();
+                for (const memberId of team.memberIds ?? []) {
+                    if (!membersSeen.has(memberId)) {
+                        membersSeen.add(memberId);
+                        seenMembers.set(team.id, membersSeen);
+                        playAudio('/assets/sound-effects/sfx-lockin-button-click.mp3');
+                    }
                 }
             }
         }

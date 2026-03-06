@@ -64,7 +64,7 @@ const sortedPlayers = computed(() => [...props.activePlayers].sort((a, b) => a.n
 </script>
 
 <template>
-  <div class="w-64 flex-1 mb-4 transition-all duration-500 perspective-1000" :class="{ 'opacity-40': !hasResults }">
+  <div class="w-64 flex-1 mb-4 transition-all duration-500 perspective-1000" :class="{ 'opacity-40': !hasResults && !isNextRace }">
 
     <div v-if="inputMode === 'dropdown'" class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col h-full">
       <div class="bg-slate-900/50 p-3 border-b border-slate-700 flex justify-between items-center relative overflow-hidden">
