@@ -4,7 +4,7 @@ import { db, auth } from '../../firebase';
 import type { GlobalPlayer, Tournament, Season } from '../../types';
 import { migrateRaces, migratePlayers } from "../../utils/utils.ts";
 import { getCached, setCache } from "../../utils/cache.ts";
-import { deriveFromTournaments, type DerivedParticipation, type DerivedRace } from '../../utils/analyticsUtils';
+import { deriveFromTournaments, type DerivedParticipation, type DerivedRace, type TierCriterion } from '../../utils/analyticsUtils';
 import { TRACK_DICT } from '../../utils/trackData';
 
 const APP_ID = 'default-app';
@@ -25,6 +25,7 @@ export function useAnalyticsData() {
 
   // Filters
   const minTournaments = ref(3);
+  const tierCriterion = ref<TierCriterion>('dominance');
   const selectedSeasons = ref<string[]>(['season-2']);
   const selectedFormats = ref<string[]>([]);
   const selectedSurfaces = ref<string[]>([]);
@@ -187,6 +188,7 @@ export function useAnalyticsData() {
     tournaments,
     seasons,
     minTournaments,
+    tierCriterion,
     
     selectedSeasons,
     selectedFormats,

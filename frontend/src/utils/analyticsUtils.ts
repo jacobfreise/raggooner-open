@@ -1,5 +1,6 @@
-import type { Tournament } from '../types';
-import { recalculateTournamentScores } from './utils';
+import { ref } from 'vue';
+import type { Tournament, Team } from '../types';
+import { recalculateTournamentScores, compareTeams } from './utils';
 
 export interface DerivedParticipation {
   playerId: string;
@@ -56,6 +57,39 @@ export function assignTier(value: number, criterion: TierCriterion): string {
 
 export function getStatValue(item: any, criterion: TierCriterion): number {
   return item[criterion] || 0;
+}
+
+export function createSortState(defaultKey: string, defaultDesc = true) {
+  const sortKey = ref(defaultKey);
+  const sortDesc = ref(defaultDesc);
+  const toggle = (key: string) => {
+    if (sortKey.value === key) sortDesc.value = !sortDesc.value;
+    else { sortKey.value = key; sortDesc.value = defaultDesc; }
+  };
+  const reset = () => { sortKey.value = defaultKey; sortDesc.value = defaultDesc; };
+  return { sortKey, sortDesc, toggle, reset };
+}
+
+export function getWinningTeam(tournament: Tournament): Team | undefined {
+  const teams = tournament.teams;
+  if (!teams || teams.length === 0) return undefined;
+
+  const finalistTeams = teams.filter(team => team.inFinals);
+  if (finalistTeams.length > 0) {
+    return [...finalistTeams].sort((a, b) => compareTeams(a, b, true, tournament, true))[0];
+  }
+
+  const hasGroups = new Set(teams.map(tm => tm.group)).size > 1;
+  if (hasGroups) return undefined;
+
+  const { teams: scoredTeams } = recalculateTournamentScores(tournament);
+  const topId = [...scoredTeams].sort((a, b) => {
+    const aTotal = (a.points || 0) + (a.finalsPoints || 0);
+    const bTotal = (b.points || 0) + (b.finalsPoints || 0);
+    return bTotal !== aTotal ? bTotal - aTotal : a.id.localeCompare(b.id);
+  })[0]?.id;
+
+  return topId ? teams.find(tm => tm.id === topId) : undefined;
 }
 
 /**

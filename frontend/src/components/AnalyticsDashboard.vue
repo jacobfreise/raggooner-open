@@ -2,14 +2,13 @@
 import { ref, computed, onMounted, inject, type Ref } from 'vue';
 import LineChart from './analytics/LineChart.vue';
 import { getUmaImagePath } from "../utils/umaData.ts";
-import { compareTeams, recalculateTournamentScores } from "../utils/utils.ts";
 import { TOURNAMENT_FORMATS } from "../utils/constants.ts";
 
 import { useAnalyticsData } from '../composables/analytics/useAnalyticsData';
 import { usePlayerRankings } from '../composables/analytics/usePlayerRankings';
 import { useUmaStats } from '../composables/analytics/useUmaStats';
 import { useDiagrams } from '../composables/analytics/useDiagrams';
-import { TIER_CRITERIA, TOP5_CRITERIA } from '../utils/analyticsUtils';
+import { TIER_CRITERIA, TOP5_CRITERIA, getWinningTeam } from '../utils/analyticsUtils';
 
 // Inject Changelog functions from App.vue
 const openChangelog = inject<() => void>('openChangelog')!;
@@ -21,7 +20,7 @@ const umaSearchQuery = ref('');
 
 // 1. Data Layer
 const {
-  loading, players, seasons, minTournaments,
+  loading, players, seasons, minTournaments, tierCriterion,
   selectedSeasons, selectedFormats, selectedSurfaces, selectedDistanceTypes, selectedLocations, allTrackLocations,
   filteredTournaments, filteredParticipations, filteredRaces, overviewStats,
   loadData, forceRefreshAnalytics, toggleSeason, toggleFormat, toggleSurface, toggleDistanceType, toggleLocation
@@ -32,9 +31,9 @@ const {
   playerRankings, expandedPlayerTournaments, expandedPlayerUmas, topPlayers, playerTierList,
   playerSortKey, playerSortDesc, expandedPlayerId, expandedDetailTab,
   playerUmaSortKey, playerUmaSortDesc, playerTournamentSortKey, playerTournamentSortDesc,
-  topPlayerCriterion, tierCriterion,
+  topPlayerCriterion,
   togglePlayerSort, togglePlayerExpand, togglePlayerUmaSort, togglePlayerTournamentSort, getStatValue
-} = usePlayerRankings(players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments);
+} = usePlayerRankings(players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion);
 
 // 3. Uma Stats Layer
 const {
@@ -90,23 +89,7 @@ const sortedTournaments = computed(() => {
 const tournamentWinnerNames = computed(() => {
   const map = new Map<string, string[]>();
   filteredTournaments.value.filter(t => t.status === 'completed').forEach(t => {
-    if (!t.teams || t.teams.length === 0) return;
-    const finalistTeams = t.teams.filter(team => team.inFinals);
-    const hasGroups = new Set(t.teams.map(tm => tm.group)).size > 1;
-
-    let winningTeam: typeof t.teams[0] | undefined;
-    if (finalistTeams.length > 0) {
-      winningTeam = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true))[0];
-    } else if (!hasGroups) {
-      const { teams: scoredTeams } = recalculateTournamentScores(t);
-      const top = [...scoredTeams].sort((a, b) => {
-        const aTotal = (a.points || 0) + (a.finalsPoints || 0);
-        const bTotal = (b.points || 0) + (b.finalsPoints || 0);
-        return bTotal !== aTotal ? bTotal - aTotal : a.id.localeCompare(b.id);
-      })[0];
-      winningTeam = top ? t.teams.find(tm => tm.id === top.id) : undefined;
-    }
-
+    const winningTeam = getWinningTeam(t);
     if (!winningTeam) return;
     const names: string[] = [];
     const captain = t.players[winningTeam.captainId];

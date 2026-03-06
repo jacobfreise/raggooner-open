@@ -1,16 +1,17 @@
 import { ref, computed, type Ref } from 'vue';
 import type { GlobalPlayer, Tournament } from '../../types';
-import { compareTeams } from "../../utils/utils.ts";
 import { POINTS_SYSTEM } from "../../utils/constants.ts";
-import { 
-  type DerivedParticipation, 
-  type DerivedRace, 
-  TIER_STYLES, 
-  type TierCriterion, 
-  TOP5_CRITERIA, 
+import {
+  type DerivedParticipation,
+  type DerivedRace,
+  TIER_STYLES,
+  type TierCriterion,
+  TOP5_CRITERIA,
   type Top5Key,
   assignTier,
-  getStatValue
+  getStatValue,
+  createSortState,
+  getWinningTeam
 } from '../../utils/analyticsUtils';
 import { getUmaData } from '../../utils/umaData';
 
@@ -23,58 +24,35 @@ export function useUmaStats(
   tierCriterion: Ref<TierCriterion>
 ) {
   // Sort and display states
-  const umaSortKey = ref('dominance');
-  const umaSortDesc = ref(true);
-  
+  const umaSort = createSortState('dominance');
+  const umaSortKey = umaSort.sortKey;
+  const umaSortDesc = umaSort.sortDesc;
+  const toggleUmaSort = umaSort.toggle;
+
+  const umaPlayerSort = createSortState('racesPlayed');
+  const umaPlayerSortKey = umaPlayerSort.sortKey;
+  const umaPlayerSortDesc = umaPlayerSort.sortDesc;
+  const toggleUmaPlayerSort = umaPlayerSort.toggle;
+
+  const umaTournamentSort = createSortState('tournamentName', false);
+  const umaTournamentSortKey = umaTournamentSort.sortKey;
+  const umaTournamentSortDesc = umaTournamentSort.sortDesc;
+  const toggleUmaTournamentSort = umaTournamentSort.toggle;
+
   const expandedUmaName = ref<string | null>(null);
   const expandedUmaDetailTab = ref<'players' | 'tournaments'>('tournaments');
-  
-  const umaPlayerSortKey = ref('racesPlayed');
-  const umaPlayerSortDesc = ref(true);
-  
-  const umaTournamentSortKey = ref('tournamentName');
-  const umaTournamentSortDesc = ref(false);
 
   const topUmaCriterion = ref<Top5Key>('winRate');
 
   // Actions
-  const toggleUmaSort = (key: string) => {
-    if (umaSortKey.value === key) {
-      umaSortDesc.value = !umaSortDesc.value;
-    } else {
-      umaSortKey.value = key;
-      umaSortDesc.value = true;
-    }
-  };
-
   const toggleUmaExpand = (umaName: string) => {
     if (expandedUmaName.value === umaName) {
       expandedUmaName.value = null;
     } else {
       expandedUmaName.value = umaName;
       expandedUmaDetailTab.value = 'tournaments';
-      umaPlayerSortKey.value = 'racesPlayed';
-      umaPlayerSortDesc.value = true;
-      umaTournamentSortKey.value = 'tournamentName';
-      umaTournamentSortDesc.value = false;
-    }
-  };
-
-  const toggleUmaPlayerSort = (key: string) => {
-    if (umaPlayerSortKey.value === key) {
-      umaPlayerSortDesc.value = !umaPlayerSortDesc.value;
-    } else {
-      umaPlayerSortKey.value = key;
-      umaPlayerSortDesc.value = true;
-    }
-  };
-
-  const toggleUmaTournamentSort = (key: string) => {
-    if (umaTournamentSortKey.value === key) {
-      umaTournamentSortDesc.value = !umaTournamentSortDesc.value;
-    } else {
-      umaTournamentSortKey.value = key;
-      umaTournamentSortDesc.value = true;
+      umaPlayerSort.reset();
+      umaTournamentSort.reset();
     }
   };
 
@@ -138,11 +116,8 @@ export function useUmaStats(
     // 3. Team Winners for Uma
     const winningTeamByTournament = new Map<string, string>();
     filteredTournaments.value.filter(t => t.status === 'completed').forEach(t => {
-      if (!t.teams || t.teams.length === 0) return;
-      const finalistTeams = t.teams.filter(team => team.inFinals);
-      if (finalistTeams.length === 0) return;
-      const sorted = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true));
-      if (sorted[0]) winningTeamByTournament.set(t.id, sorted[0].id);
+      const winningTeam = getWinningTeam(t);
+      if (winningTeam) winningTeamByTournament.set(t.id, winningTeam.id);
     });
 
     const playerTeamMap = new Map<string, string>();

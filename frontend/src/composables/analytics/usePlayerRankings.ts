@@ -2,15 +2,17 @@ import { ref, computed, type Ref } from 'vue';
 import type { GlobalPlayer, Tournament } from '../../types';
 import { compareTeams, recalculateTournamentScores } from "../../utils/utils.ts";
 import { POINTS_SYSTEM } from "../../utils/constants.ts";
-import { 
-  type DerivedParticipation, 
-  type DerivedRace, 
-  TIER_STYLES, 
-  type TierCriterion, 
-  TOP5_CRITERIA, 
+import {
+  type DerivedParticipation,
+  type DerivedRace,
+  TIER_STYLES,
+  type TierCriterion,
+  TOP5_CRITERIA,
   type Top5Key,
   assignTier,
-  getStatValue
+  getStatValue,
+  createSortState,
+  getWinningTeam
 } from '../../utils/analyticsUtils';
 
 export interface PlayerStats {
@@ -41,62 +43,39 @@ export function usePlayerRankings(
   filteredTournaments: Ref<Tournament[]>,
   filteredParticipations: Ref<DerivedParticipation[]>,
   filteredRaces: Ref<DerivedRace[]>,
-  minTournaments: Ref<number>
+  minTournaments: Ref<number>,
+  tierCriterion: Ref<TierCriterion>
 ) {
   // Sort states
-  const playerSortKey = ref('dominance');
-  const playerSortDesc = ref(true);
-  
+  const playerSort = createSortState('dominance');
+  const playerSortKey = playerSort.sortKey;
+  const playerSortDesc = playerSort.sortDesc;
+  const togglePlayerSort = playerSort.toggle;
+
+  const playerUmaSort = createSortState('racesPlayed');
+  const playerUmaSortKey = playerUmaSort.sortKey;
+  const playerUmaSortDesc = playerUmaSort.sortDesc;
+  const togglePlayerUmaSort = playerUmaSort.toggle;
+
+  const playerTournamentSort = createSortState('dominance');
+  const playerTournamentSortKey = playerTournamentSort.sortKey;
+  const playerTournamentSortDesc = playerTournamentSort.sortDesc;
+  const togglePlayerTournamentSort = playerTournamentSort.toggle;
+
   const expandedPlayerId = ref<string | null>(null);
   const expandedDetailTab = ref<'umas' | 'tournaments'>('tournaments');
-  
-  const playerUmaSortKey = ref('racesPlayed');
-  const playerUmaSortDesc = ref(true);
-  
-  const playerTournamentSortKey = ref('dominance');
-  const playerTournamentSortDesc = ref(true);
 
   const topPlayerCriterion = ref<Top5Key>('totalPoints');
-  const tierCriterion = ref<TierCriterion>('dominance');
 
   // Actions
-  const togglePlayerSort = (key: string) => {
-    if (playerSortKey.value === key) {
-      playerSortDesc.value = !playerSortDesc.value;
-    } else {
-      playerSortKey.value = key;
-      playerSortDesc.value = true;
-    }
-  };
-
   const togglePlayerExpand = (playerId: string) => {
     if (expandedPlayerId.value === playerId) {
       expandedPlayerId.value = null;
     } else {
       expandedPlayerId.value = playerId;
       expandedDetailTab.value = 'tournaments';
-      playerUmaSortKey.value = 'racesPlayed';
-      playerUmaSortDesc.value = true;
-      playerTournamentSortKey.value = 'dominance';
-      playerTournamentSortDesc.value = true;
-    }
-  };
-
-  const togglePlayerUmaSort = (key: string) => {
-    if (playerUmaSortKey.value === key) {
-      playerUmaSortDesc.value = !playerUmaSortDesc.value;
-    } else {
-      playerUmaSortKey.value = key;
-      playerUmaSortDesc.value = true;
-    }
-  };
-
-  const togglePlayerTournamentSort = (key: string) => {
-    if (playerTournamentSortKey.value === key) {
-      playerTournamentSortDesc.value = !playerTournamentSortDesc.value;
-    } else {
-      playerTournamentSortKey.value = key;
-      playerTournamentSortDesc.value = true;
+      playerUmaSort.reset();
+      playerTournamentSort.reset();
     }
   };
 
@@ -132,22 +111,7 @@ export function usePlayerRankings(
 
     // 2. Count Tournament Wins
     filteredTournaments.value.filter(t => t.status === 'completed').forEach(t => {
-      if (!t.teams || t.teams.length === 0) return;
-      const finalistTeams = t.teams.filter(team => team.inFinals);
-      const hasGroups = new Set(t.teams.map(tm => tm.group)).size > 1;
-      if (finalistTeams.length === 0 && hasGroups) return;
-
-      let winningTeamId: string | undefined;
-      if (finalistTeams.length > 0) {
-        winningTeamId = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true))[0]?.id;
-      } else {
-        const { teams: scoredTeams } = recalculateTournamentScores(t);
-        winningTeamId = [...scoredTeams].sort((a, b) => {
-          const aTotal = (a.points || 0) + (a.finalsPoints || 0);
-          const bTotal = (b.points || 0) + (b.finalsPoints || 0);
-          return bTotal !== aTotal ? bTotal - aTotal : a.id.localeCompare(b.id);
-        })[0]?.id;
-      }
+      const winningTeamId = getWinningTeam(t)?.id;
       if (!winningTeamId) return;
 
       filteredParticipations.value
@@ -333,18 +297,7 @@ export function usePlayerRankings(
       const hasGroups = uniqueGroupSet.size > 1;
       const finalistTeams = teams.filter(tm => tm.inFinals);
       
-      let winningTeam: any = null;
-      if (t && finalistTeams.length > 0) {
-        winningTeam = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true))[0] ?? null;
-      } else if (t && !hasGroups && tStatus === 'completed') {
-        const { teams: scoredTeams } = recalculateTournamentScores(t);
-        const topScored = [...scoredTeams].sort((a, b) => {
-          const aTotal = (a.points || 0) + (a.finalsPoints || 0);
-          const bTotal = (b.points || 0) + (b.finalsPoints || 0);
-          return bTotal !== aTotal ? bTotal - aTotal : a.id.localeCompare(b.id);
-        })[0];
-        winningTeam = topScored ? (teams.find(tm => tm.id === topScored.id) ?? null) : null;
-      }
+      const winningTeam = t ? (getWinningTeam(t) ?? null) : null;
 
       const wildcards = t?.wildcards || [];
       const playerWildcards = wildcards.filter(wc => wc.playerId === playerId);
@@ -446,8 +399,7 @@ export function usePlayerRankings(
     playerTournamentSortKey,
     playerTournamentSortDesc,
     topPlayerCriterion,
-    tierCriterion,
-    
+
     togglePlayerSort,
     togglePlayerExpand,
     togglePlayerUmaSort,
