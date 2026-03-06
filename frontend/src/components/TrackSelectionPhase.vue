@@ -813,19 +813,19 @@ const getSeasonIcon = (s: string) => {
 
               <button @click="rollRandom"
                       :disabled="isRolling || filteredTracks.length === 0 || validConditionCombos.length === 0"
-                      class="px-6 py-3 rounded-lg font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      class="w-36 justify-center px-6 py-3 rounded-lg font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       :class="isRolling
                         ? 'bg-indigo-700 text-indigo-200 cursor-wait'
                         : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-900/30'">
                 <i class="ph-bold ph-shuffle" :class="{ 'animate-spin': isRolling }"></i>
-                {{ isRolling ? 'Rolling...' : 'Roll' }}
+                <span>{{ isRolling ? 'Rolling...' : 'Roll' }}</span>
                 <span class="text-xs opacity-70">({{ rollableTrackCount }})</span>
               </button>
 
-              <button v-if="rollerSettled && rollerTrack"
-                      @click="confirmRolledTrack"
-                      :disabled="isSelecting"
-                      class="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold transition-all flex items-center gap-2 shadow-lg shadow-emerald-900/30 disabled:opacity-50">
+              <button @click="confirmRolledTrack"
+                      :disabled="!rollerSettled || !rollerTrack || isSelecting"
+                      class="w-36 justify-center px-6 py-3 rounded-lg font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed bg-emerald-600 text-white shadow-lg shadow-emerald-900/30"
+                      :class="!rollerSettled || !rollerTrack ? '' : 'hover:bg-emerald-500'">
                 <i class="ph-bold ph-check-circle"></i>
                 Confirm
               </button>
