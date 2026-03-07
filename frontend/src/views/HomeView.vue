@@ -37,7 +37,24 @@ const toggleSeasonGroup = (seasonId: string) => {
   }
 };
 
-const activeTournamentsList = computed(() => allTournaments.value.filter(t => t.status !== 'completed'));
+const isScheduledStatus = (t: Tournament) =>
+    !!t.scheduledTime && (t.status === 'registration' || t.status === 'track-selection');
+
+const scheduledTournamentsList = computed(() =>
+    allTournaments.value
+        .filter(t => t.status !== 'completed' && isScheduledStatus(t))
+        .sort((a, b) => new Date(a.scheduledTime!).getTime() - new Date(b.scheduledTime!).getTime())
+);
+
+const activeTournamentsList = computed(() =>
+    allTournaments.value.filter(t => t.status !== 'completed' && !isScheduledStatus(t))
+);
+
+const formatScheduledTime = (iso: string) =>
+    new Date(iso).toLocaleString(undefined, {
+        weekday: 'short', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
 
 const groupedPastTournaments = computed(() => {
   const completed = allTournaments.value.filter(t => t.status === 'completed');
@@ -311,6 +328,36 @@ onMounted(() => {
                 <button @click="joinTournament" :disabled="!joinId" class="bg-slate-700 hover:bg-slate-600 text-white px-8 rounded-lg font-bold transition-colors">
                   Join
                 </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="scheduledTournamentsList.length > 0">
+            <div class="flex items-center gap-3 mb-6">
+              <div class="h-8 w-2 bg-violet-500 rounded-full"></div>
+              <h2 class="text-2xl font-bold text-white">Scheduled Events</h2>
+            </div>
+            <div class="grid lg:grid-cols-2 gap-4">
+              <div v-for="t in scheduledTournamentsList" :key="t.id"
+                   @click="selectTournamentFromHome(t.id)"
+                   class="group relative bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-violet-500/50 rounded-xl p-6 cursor-pointer transition-all duration-300 hover:-translate-y-1 shadow-lg flex flex-col h-full">
+                <div class="flex justify-between items-start mb-3">
+                  <div class="flex items-center gap-1.5 text-xs font-bold text-violet-300 bg-violet-500/10 border border-violet-500/30 px-2 py-1 rounded-md">
+                    <i class="ph-bold ph-calendar-check"></i>
+                    {{ formatScheduledTime(t.scheduledTime!) }}
+                  </div>
+                  <div :class="`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${getStatusColor(t.status)}`">
+                    {{ t.status }}
+                  </div>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-auto group-hover:text-violet-400 transition-colors line-clamp-2">
+                  {{ t.name }}
+                </h3>
+                <div class="flex flex-col gap-1 text-sm text-slate-400 mt-6 pt-4 border-t border-slate-700/50">
+                  <div class="flex items-center gap-2"><i class="ph-fill ph-users"></i> {{ Object.keys(t.players || {}).length }} Players</div>
+                  <div class="flex items-center gap-2"><i class="ph-fill ph-tree-structure"></i> {{ t.format ? TOURNAMENT_FORMATS[t.format]?.name || 'Blind Pick' : 'Blind Pick' }}</div>
+                  <div class="flex items-center gap-2 mt-1 text-xs text-slate-600">ID: <span class="font-mono text-slate-500">{{ t.id }}</span></div>
+                </div>
               </div>
             </div>
           </div>

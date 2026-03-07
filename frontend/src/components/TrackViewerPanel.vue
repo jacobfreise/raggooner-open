@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import type { Tournament } from '../types';
 import { TRACK_DICT } from '../utils/trackData';
+import { generateAnnouncementText } from '../utils/announcementUtils';
 
 const props = defineProps<{
   isOpen: boolean;
@@ -17,6 +18,28 @@ const track = computed(() => {
 });
 
 const condition = computed(() => props.tournament.selectedCondition || null);
+
+const showCopySuccess = ref(false);
+const showCopyImageSuccess = ref(false);
+
+const copyAnnouncement = async () => {
+    const text = generateAnnouncementText(props.tournament, track.value, condition.value);
+    try {
+        await navigator.clipboard.writeText(text);
+        showCopySuccess.value = true;
+        setTimeout(() => { showCopySuccess.value = false; }, 2500);
+    } catch (e) { console.error('Clipboard failed', e); }
+};
+
+const copyTrackImage = async () => {
+    if (!track.value) return;
+    try {
+        const blob = await fetch(`/assets/tracks/${track.value.id}.png`).then(r => r.blob());
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        showCopyImageSuccess.value = true;
+        setTimeout(() => { showCopyImageSuccess.value = false; }, 2500);
+    } catch (e) { console.error('Clipboard image failed', e); }
+};
 
 const getSurfaceBadgeClass = (surface: string) =>
     surface === 'Turf'
@@ -57,6 +80,24 @@ const getSeasonIcon = (s: string) => {
         <i class="ph-fill ph-map-trifold text-indigo-400"></i>
         Track Info
       </h3>
+      <template v-if="track">
+        <button @click="copyAnnouncement"
+            class="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-md border transition-colors mr-1 ml-3"
+            :class="showCopySuccess
+              ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
+              : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'">
+          <i :class="showCopySuccess ? 'ph-bold ph-check' : 'ph-bold ph-copy'"></i>
+          {{ showCopySuccess ? 'Copied!' : 'Copy Text' }}
+        </button>
+        <button @click="copyTrackImage"
+            class="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-md border transition-colors mr-auto"
+            :class="showCopyImageSuccess
+              ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
+              : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'">
+          <i :class="showCopyImageSuccess ? 'ph-bold ph-check' : 'ph-bold ph-image'"></i>
+          {{ showCopyImageSuccess ? 'Copied!' : 'Copy Image' }}
+        </button>
+      </template>
       <button @click="$emit('close')" class="text-slate-500 hover:text-white transition-colors">
         <i class="ph-bold ph-x"></i>
       </button>

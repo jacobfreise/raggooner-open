@@ -54,19 +54,32 @@ const SEASON_WEATHER_MAP: Record<string, string[]> = {
   Winter: ['Sunny', 'Cloudy', 'Rainy', 'Snowy'],
 };
 
-// ── Filters (all ON by default) ──
-const surfaceFilters = ref<Set<string>>(new Set(['Turf', 'Dirt']));
-const distanceFilters = ref<Set<string>>(new Set(['Sprint', 'Mile', 'Medium', 'Long']));
-const directionFilters = ref<Set<string>>(new Set(['left', 'right', 'straight']));
+// ── Filters (persisted to localStorage) ──
+const FILTERS_KEY = 'raggooner-roll-filters';
+const _savedFilters = (() => { try { return JSON.parse(localStorage.getItem(FILTERS_KEY) ?? '{}'); } catch { return {}; } })();
+
+const loadSet = <T extends string>(saved: T[] | null | undefined, defaults: T[]): Set<T> => {
+    if (!saved) return new Set(defaults);
+    const valid = saved.filter(v => defaults.includes(v));
+    return valid.length > 0 ? new Set(valid) : new Set(defaults);
+};
+
+const surfaceFilters = ref<Set<string>>(loadSet(_savedFilters.surface, ['Turf', 'Dirt']));
+const distanceFilters = ref<Set<string>>(loadSet(_savedFilters.distance, ['Sprint', 'Mile', 'Medium', 'Long']));
+const directionFilters = ref<Set<string>>(loadSet(_savedFilters.direction, ['left', 'right', 'straight']));
 const maxPlayersFilters = ref<Set<number>>(new Set());
-const groundFilters = ref<Set<string>>(new Set(GROUNDS));
-const weatherFilters = ref<Set<string>>(new Set(WEATHERS));
-const seasonFilters = ref<Set<string>>(new Set(SEASONS));
+const groundFilters = ref<Set<string>>(loadSet(_savedFilters.ground, [...GROUNDS]));
+const weatherFilters = ref<Set<string>>(loadSet(_savedFilters.weather, [...WEATHERS]));
+const seasonFilters = ref<Set<string>>(loadSet(_savedFilters.season, [...SEASONS]));
 
 const allLocations = computed(() => [...new Set(allTracks.value.map(t => t.location))].sort());
 const locationFilters = ref<Set<string>>(new Set(allLocations.value));
 
-if (allLocations.value.length) locationFilters.value = new Set(allLocations.value);
+if (allLocations.value.length) {
+    const saved = _savedFilters.location as string[] | undefined;
+    const valid = saved ? saved.filter(l => (allLocations.value as string[]).includes(l)) : [];
+    locationFilters.value = valid.length > 0 ? new Set(valid) : new Set(allLocations.value);
+}
 
 const toggleFilter = (set: Set<string>, value: string) => {
   if (set.has(value)) set.delete(value);
@@ -82,7 +95,11 @@ const allMaxPlayers = computed(() =>
     [...new Set(allTracks.value.map(t => t.maxPlayers))].sort((a, b) => a - b)
 );
 
-if (allMaxPlayers.value.length) maxPlayersFilters.value = new Set(allMaxPlayers.value);
+if (allMaxPlayers.value.length) {
+    const saved = _savedFilters.maxPlayers as number[] | undefined;
+    const valid = saved ? saved.filter(n => allMaxPlayers.value.includes(n)) : [];
+    maxPlayersFilters.value = valid.length > 0 ? new Set(valid) : new Set(allMaxPlayers.value);
+}
 
 const filteredTracks = computed(() =>
     allTracks.value.filter(t =>
@@ -97,6 +114,27 @@ const filteredTracks = computed(() =>
 const filteredGrounds = computed(() => GROUNDS.filter(g => groundFilters.value.has(g)));
 const filteredWeathers = computed(() => WEATHERS.filter(w => weatherFilters.value.has(w)));
 const filteredSeasons = computed(() => SEASONS.filter(s => seasonFilters.value.has(s)));
+
+const saveFilters = () => {
+    try {
+        localStorage.setItem(FILTERS_KEY, JSON.stringify({
+            surface: [...surfaceFilters.value],
+            distance: [...distanceFilters.value],
+            direction: [...directionFilters.value],
+            maxPlayers: [...maxPlayersFilters.value],
+            ground: [...groundFilters.value],
+            weather: [...weatherFilters.value],
+            season: [...seasonFilters.value],
+            location: [...locationFilters.value],
+        }));
+    } catch { /* storage unavailable */ }
+};
+
+watch(
+    [surfaceFilters, distanceFilters, directionFilters, maxPlayersFilters, groundFilters, weatherFilters, seasonFilters, locationFilters],
+    saveFilters,
+    { deep: true }
+);
 
 const randomFrom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
 

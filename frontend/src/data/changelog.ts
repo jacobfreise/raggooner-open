@@ -9,9 +9,21 @@ export interface ChangeLogEntry {
     }[];
 }
 
-export const APP_VERSION = '2.3.1'; // Update this manually when you deploy
+export const APP_VERSION = '2.3.2'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '2.3.2',
+        date: '2026-03-07',
+        title: 'Schedule Tournaments & Roller Improvements',
+        changes: [
+            { type: 'new', text: 'Admins can now schedule a tournament with a date and time during registration. Scheduled tournaments appear in a dedicated "Scheduled Events" section on the home screen.' },
+            { type: 'new', text: 'Schedule modal auto-generates a format-aware Discord announcement with timestamp, track, conditions, and rules — ready to copy and paste.' },
+            { type: 'new', text: 'Copy Image button next to Copy Text in the announcement preview and track panel, to paste the track image directly into Discord.' },
+            { type: 'new', text: 'Random Track Roller: custom weights for surface, distance, ground, weather, and season are now saved across sessions.' },
+            { type: 'improvement', text: 'Random Track Roller: filter settings are also persisted, so your preferred filters are remembered between visits.' },
+        ]
+    },
     {
         version: '2.3.1',
         date: '2026-03-05',
