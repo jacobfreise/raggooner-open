@@ -4,7 +4,9 @@ import type { Tournament, FirestoreUpdate, GlobalPlayer, Season } from '../types
 import { useRoster } from '../composables/useRoster';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
 import PlayerSelector from './PlayerSelector.vue';
-import { arrayUnion } from 'firebase/firestore';
+import { arrayUnion, deleteField } from 'firebase/firestore';
+import { TRACK_DICT } from '../utils/trackData';
+import { generateAnnouncementText } from '../utils/announcementUtils';
 
 const props = defineProps<{
   tournament: Tournament;
@@ -64,6 +66,82 @@ const {
 
 // Initialize Tournament Flow (for phase transitions)
 const { advancePhase, isAdvancing } = useTournamentFlow(tournamentRef, props.secureUpdate);
+
+// Schedule modal state
+const showScheduleModal = ref(false);
+const scheduledTimeInput = ref('');
+const isSavingSchedule = ref(false);
+const showScheduleCopySuccess = ref(false);
+const showScheduleCopyImageSuccess = ref(false);
+
+const selectedTrack = computed(() =>
+    props.tournament.selectedTrack
+        ? Object.values(TRACK_DICT).find(t => t.id === props.tournament.selectedTrack) ?? null
+        : null
+);
+const selectedCondition = computed(() => props.tournament.selectedCondition ?? null);
+
+const announcementText = computed(() => {
+    const isoOverride = scheduledTimeInput.value
+        ? new Date(scheduledTimeInput.value).toISOString()
+        : props.tournament.scheduledTime;
+    return generateAnnouncementText(
+        { ...props.tournament, scheduledTime: isoOverride },
+        selectedTrack.value,
+        selectedCondition.value
+    );
+});
+
+const openScheduleModal = () => {
+    if (!props.isAdmin) return;
+    if (props.tournament.scheduledTime) {
+        const d = new Date(props.tournament.scheduledTime);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        scheduledTimeInput.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } else {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        d.setHours(11, 0, 0, 0);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        scheduledTimeInput.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T11:00`;
+    }
+    showScheduleModal.value = true;
+};
+
+const saveSchedule = async () => {
+    if (!props.isAdmin || !scheduledTimeInput.value) return;
+    isSavingSchedule.value = true;
+    try {
+        await props.secureUpdate({ scheduledTime: new Date(scheduledTimeInput.value).toISOString() });
+        showScheduleModal.value = false;
+    } finally {
+        isSavingSchedule.value = false;
+    }
+};
+
+const clearSchedule = async () => {
+    if (!props.isAdmin) return;
+    await props.secureUpdate({ scheduledTime: deleteField() });
+    showScheduleModal.value = false;
+};
+
+const copyAnnouncement = async () => {
+    try {
+        await navigator.clipboard.writeText(announcementText.value);
+        showScheduleCopySuccess.value = true;
+        setTimeout(() => { showScheduleCopySuccess.value = false; }, 2500);
+    } catch (e) { console.error('Clipboard failed', e); }
+};
+
+const copyTrackImage = async () => {
+    if (!selectedTrack.value) return;
+    try {
+        const blob = await fetch(`/assets/tracks/${selectedTrack.value.id}.png`).then(r => r.blob());
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        showScheduleCopyImageSuccess.value = true;
+        setTimeout(() => { showScheduleCopyImageSuccess.value = false; }, 2500);
+    } catch (e) { console.error('Clipboard image failed', e); }
+};
 
 // Get list of already added player IDs
 const addedPlayerIds = () => {
@@ -186,13 +264,20 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
           </select>
         </div>
 
-        <div
-            v-if="Object.keys(tournament.players).length === 0"
-            class="text-center py-20 text-slate-600 border-2 border-dashed border-slate-800 rounded-xl"
-        >
+        <div v-if="Object.keys(tournament.players).length === 0"
+             class="text-center py-20 text-slate-600 border-2 border-dashed border-slate-800 rounded-xl">
           <i class="ph ph-users text-6xl mb-4 opacity-30"></i>
           <p class="text-lg font-medium">No players added yet</p>
           <p class="text-sm text-slate-700 mt-2">Use the search on the left to add players</p>
+
+          <button v-if="isAdmin" @click="openScheduleModal"
+              class="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold border transition-colors"
+              :class="tournament.scheduledTime
+                ? 'bg-indigo-900/40 border-indigo-500/50 text-indigo-300 hover:bg-indigo-900/60'
+                : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-indigo-500 hover:text-white'">
+            <i class="ph-bold ph-calendar-check"></i>
+            {{ tournament.scheduledTime ? 'Edit Schedule' : 'Schedule Tournament' }}
+          </button>
         </div>
 
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -263,6 +348,83 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
       </div>
     </div>
   </div>
+  <Teleport to="body">
+    <div v-if="showScheduleModal"
+         class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+         @click.self="showScheduleModal = false">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between p-5 border-b border-slate-700">
+          <h3 class="text-lg font-bold text-white flex items-center gap-2">
+            <i class="ph-bold ph-calendar-check text-indigo-400"></i>
+            Schedule Tournament
+          </h3>
+          <button @click="showScheduleModal = false" class="text-slate-500 hover:text-white transition-colors">
+            <i class="ph-bold ph-x text-xl"></i>
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="flex-1 overflow-y-auto p-5 space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Date & Time</label>
+            <input type="datetime-local"
+                   v-model="scheduledTimeInput"
+                   class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-indigo-500 transition-colors" />
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-bold text-slate-400 uppercase">Announcement Preview</label>
+              <div class="flex items-center gap-1.5">
+                <button @click="copyAnnouncement"
+                    class="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-md border transition-colors"
+                    :class="showScheduleCopySuccess
+                      ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
+                      : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'">
+                  <i :class="showScheduleCopySuccess ? 'ph-bold ph-check' : 'ph-bold ph-copy'"></i>
+                  {{ showScheduleCopySuccess ? 'Copied!' : 'Copy Text' }}
+                </button>
+                <button v-if="selectedTrack" @click="copyTrackImage"
+                    class="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-md border transition-colors"
+                    :class="showScheduleCopyImageSuccess
+                      ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
+                      : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'">
+                  <i :class="showScheduleCopyImageSuccess ? 'ph-bold ph-check' : 'ph-bold ph-image'"></i>
+                  {{ showScheduleCopyImageSuccess ? 'Copied!' : 'Copy Image' }}
+                </button>
+              </div>
+            </div>
+            <textarea readonly
+                      :value="announcementText"
+                      rows="10"
+                      class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-xs text-slate-400 font-mono resize-none focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center gap-2 p-5 border-t border-slate-700">
+          <button v-if="tournament.scheduledTime"
+                  @click="clearSchedule"
+                  class="px-4 py-2 rounded-lg text-sm font-bold border border-rose-700/50 text-rose-400 hover:bg-rose-900/30 transition-colors mr-auto">
+            Clear Schedule
+          </button>
+          <button @click="showScheduleModal = false"
+                  class="px-4 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-colors ml-auto">
+            Cancel
+          </button>
+          <button @click="saveSchedule"
+                  :disabled="!scheduledTimeInput || isSavingSchedule"
+                  class="px-5 py-2 rounded-lg text-sm font-bold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors flex items-center gap-2">
+            <i v-if="isSavingSchedule" class="ph ph-spinner animate-spin"></i>
+            {{ isSavingSchedule ? 'Saving...' : 'Save' }}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
