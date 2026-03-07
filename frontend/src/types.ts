@@ -149,6 +149,7 @@ export interface Tournament {
     bans?: string[];
     createdAt: string;
     completedAt?: string;
+    playedAt?: string; // ISO UTC string, set when tournament enters active status
     scheduledTime?: string; // ISO UTC string
     metadataSynced?: boolean;
     draft?: {

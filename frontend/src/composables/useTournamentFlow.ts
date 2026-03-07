@@ -66,6 +66,7 @@ export function useTournamentFlow(
                             status: 'active',
                             stage: isSmallTournament ? 'finals' : 'groups',
                             banTimerStart: null,
+                            playedAt: new Date().toISOString(),
                             activeTimerStart: new Date().toISOString(),
                             activeTimerStopped: false
                         });
@@ -116,6 +117,7 @@ export function useTournamentFlow(
                             status: 'active',
                             stage: isSmallTournament ? 'finals' : 'groups',
                             banTimerStart: null,
+                            playedAt: new Date().toISOString(),
                             activeTimerStart: new Date().toISOString(),
                             activeTimerStopped: false
                         });
