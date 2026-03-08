@@ -135,14 +135,13 @@ const getSeasonIcon = (s: string) => {
             <p class="text-lg font-bold">No track selected yet.</p>
           </div>
 
-          <div v-else class="space-y-4 animate-fade-in">
+          <div v-else class="space-y-2 animate-fade-in">
             <!-- Seamless Header & Info -->
             <div class="text-center space-y-3">
               <div>
                 <h2 class="text-2xl font-black text-white uppercase tracking-tighter drop-shadow-lg">
                   {{ track.location }}
                 </h2>
-                <div class="h-0.5 w-12 bg-indigo-500 mx-auto mt-0.5 rounded-full"></div>
               </div>
 
               <!-- Compact Info Bar (No Block) -->
@@ -201,7 +200,7 @@ const getSeasonIcon = (s: string) => {
             </div>
 
             <!-- Visuals -->
-            <div class="space-y-4 pb-8">
+            <div class="space-y-3 pb-8">
               <div class="rounded-2xl overflow-hidden border-2 border-slate-700 bg-slate-950 shadow-2xl">
                 <img :src="`/assets/tracks/${track.id}.png`"
                      class="w-full object-contain"
