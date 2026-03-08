@@ -164,6 +164,87 @@ const EGG_LIST: EggConfig[] = [
 //     return teamPlayerCount + wildcardCount;
 // };
 
+export function useSumpfranzeEgg() {
+    const isShowingSumpfranzeEgg = ref(false);
+    const currentStep = ref(0);
+    const position = ref({ top: '50%', left: '50%' });
+    const timeLeft = ref(4);
+    let timerInterval: any = null;
+    let moveInterval: any = null;
+
+    const jokes = [
+        "Are you absolutely sure? This choice is... questionable.",
+        "Sumpfranze? Really? There are better players out there, you know.",
+        "System warning: Selecting Sumpfranze may lead to immediate loss.",
+        "Netanyahu will find your house if you click confirm",
+        "Final warning: Click the button to seal your fate. If you can catch it!"
+    ];
+
+    const reset = () => {
+        isShowingSumpfranzeEgg.value = false;
+        currentStep.value = 0;
+        clearInterval(timerInterval);
+        clearInterval(moveInterval);
+    };
+
+    const nextStep = (onComplete: () => void) => {
+        if (currentStep.value < jokes.length - 1) {
+            currentStep.value++;
+            timeLeft.value = 4;
+            updatePosition();
+            if (currentStep.value === jokes.length - 1) {
+                startMoving();
+            }
+        } else {
+            reset();
+            onComplete();
+        }
+    };
+
+    const updatePosition = () => {
+        const top = Math.random() * 60 + 20; // 20% to 80%
+        const left = Math.random() * 60 + 20; // 20% to 80%
+        position.value = { top: `${top}%`, left: `${left}%` };
+    };
+
+    const startMoving = () => {
+        moveInterval = setInterval(() => {
+            const top = parseFloat(position.value.top) + (Math.random() * 10 - 5);
+            const left = parseFloat(position.value.left) + (Math.random() * 10 - 5);
+            position.value = { 
+                top: `${Math.max(10, Math.min(90, top))}%`, 
+                left: `${Math.max(10, Math.min(90, left))}%` 
+            };
+        }, 100);
+    };
+
+    const triggerSumpfranzeEgg = (onFail: () => void) => {
+        isShowingSumpfranzeEgg.value = true;
+        currentStep.value = 0;
+        timeLeft.value = 4;
+        updatePosition();
+
+        timerInterval = setInterval(() => {
+            timeLeft.value -= 0.1;
+            if (timeLeft.value <= 0) {
+                reset();
+                onFail();
+            }
+        }, 100);
+    };
+
+    return {
+        isShowingSumpfranzeEgg,
+        currentStep,
+        position,
+        timeLeft,
+        jokes,
+        triggerSumpfranzeEgg,
+        nextStep,
+        reset
+    };
+}
+
 export function useEasterEgg(tournament: Ref<Tournament | null>) {
     // --- STATE ---
     // Holds the config of the CURRENTLY playing visual egg (if any)

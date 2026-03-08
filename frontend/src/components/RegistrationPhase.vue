@@ -3,6 +3,7 @@ import { ref, toRef, computed } from 'vue';
 import type { Tournament, FirestoreUpdate, GlobalPlayer, Season } from '../types';
 import { useRoster } from '../composables/useRoster';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
+import { useSumpfranzeEgg } from '../composables/useEasterEgg';
 import PlayerSelector from './PlayerSelector.vue';
 import { arrayUnion, deleteField } from 'firebase/firestore';
 import { TRACK_DICT } from '../utils/trackData';
@@ -63,6 +64,36 @@ const {
   validTotalPlayers,
   canStartDraft
 } = useRoster(tournamentRef, props.secureUpdate, isAdminRef);
+
+// Easter Egg Logic
+const {
+  isShowingSumpfranzeEgg,
+  currentStep,
+  position,
+  timeLeft,
+  jokes,
+  triggerSumpfranzeEgg,
+  nextStep
+} = useSumpfranzeEgg();
+
+const interceptToggleCaptain = (playerId: string) => {
+  if (!props.isAdmin) return;
+  const player = props.tournament.players[playerId];
+  if (player && player.name === 'Sumpfranze' && !player.isCaptain) {
+    triggerSumpfranzeEgg(() => {
+      console.log('Failed to select Sumpfranze');
+    });
+  } else {
+    toggleCaptain(playerId);
+  }
+};
+
+const confirmSumpfranze = () => {
+  const sumpfranzeId = Object.values(props.tournament.players).find(p => p.name === 'Sumpfranze')?.id;
+  if (sumpfranzeId) {
+    nextStep(() => toggleCaptain(sumpfranzeId));
+  }
+};
 
 // Initialize Tournament Flow (for phase transitions)
 const { advancePhase, isAdvancing } = useTournamentFlow(tournamentRef, props.secureUpdate);
@@ -283,7 +314,7 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
           <div
               v-for="player in sortedPlayers"
               :key="player.id"
-              @click="isAdmin && toggleCaptain(player.id)"
+              @click="isAdmin && interceptToggleCaptain(player.id)"
               class="relative p-3 rounded-lg flex items-center justify-between group border transition-all select-none"
               :class="[
               player.isCaptain
@@ -348,6 +379,31 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
     </div>
   </div>
   <Teleport to="body">
+    <div v-if="isShowingSumpfranzeEgg"
+         class="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-[2px] pointer-events-auto">
+      <div class="absolute glass-panel p-6 rounded-2xl border-2 border-indigo-500 shadow-2xl transition-all duration-300 w-80"
+           :style="{ top: position.top, left: position.left, transform: 'translate(-50%, -50%)' }">
+        <div class="flex items-center gap-3 mb-4 text-amber-400">
+          <i class="ph-bold ph-warning-circle text-2xl animate-pulse"></i>
+          <h3 class="font-black uppercase tracking-tighter">System Alert</h3>
+        </div>
+        
+        <p class="text-white font-medium leading-tight mb-6">
+          {{ jokes[currentStep] }}
+        </p>
+
+        <div class="relative h-1 bg-slate-800 rounded-full overflow-hidden mb-4">
+          <div class="absolute inset-y-0 left-0 bg-indigo-500 transition-all duration-100"
+               :style="{ width: `${(timeLeft / 4) * 100}%` }"></div>
+        </div>
+
+        <button @click="confirmSumpfranze"
+                class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-colors">
+          {{ currentStep === jokes.length - 1 ? 'SEAL FATE' : 'Confirm Selection' }}
+        </button>
+      </div>
+    </div>
+
     <div v-if="showScheduleModal"
          class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
          @click.self="showScheduleModal = false">
