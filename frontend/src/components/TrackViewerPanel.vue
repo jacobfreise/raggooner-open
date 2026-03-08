@@ -9,7 +9,7 @@ const props = defineProps<{
   tournament: Tournament;
 }>();
 
-defineEmits(['close']);
+const emit = defineEmits(['close']);
 
 // Block background scrolling when drawer is open
 watch(() => props.isOpen, (open) => {
@@ -54,11 +54,6 @@ const copyTrackImage = async () => {
     } catch (e) { console.error('Clipboard image failed', e); }
 };
 
-const getSurfaceBadgeClass = (surface: string) =>
-    surface === 'Turf'
-        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
-        : 'bg-amber-500/20 text-amber-300 border-amber-500/50';
-
 const getDirectionIcon = (dir: string) =>
     dir === 'left' ? 'ph-arrow-arc-left' : (dir === 'straight' ? 'ph-arrow-right' : 'ph-arrow-arc-right');
 
@@ -97,44 +92,44 @@ const getSeasonIcon = (s: string) => {
       <div v-if="isOpen" class="fixed inset-y-0 right-0 z-[100] w-full md:w-2/3 bg-slate-900 shadow-2xl border-l border-slate-700 flex flex-col">
         
         <!-- Header -->
-        <div class="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-800/30">
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
-              <i class="ph-bold ph-map-trifold text-2xl"></i>
+        <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-800/30">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
+              <i class="ph-bold ph-map-trifold text-xl"></i>
             </div>
             <div>
-              <h3 class="text-xl font-black text-white uppercase tracking-tighter">Track Information</h3>
-              <p v-if="track" class="text-xs text-indigo-400/70 font-bold uppercase tracking-widest">{{ track.location }} — {{ track.distance }}m</p>
+              <h3 class="text-base font-black text-white uppercase tracking-tighter leading-none">Track Info</h3>
+              <p v-if="track" class="text-[10px] text-indigo-400/70 font-bold uppercase tracking-widest mt-1">Details & Simulation</p>
             </div>
           </div>
           
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5">
             <template v-if="track">
               <button @click="copyAnnouncement"
-                  class="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border transition-all"
+                  class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-all"
                   :class="showCopySuccess
                     ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
                     : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'">
-                <i :class="showCopySuccess ? 'ph-bold ph-check' : 'ph-bold ph-copy'"></i>
-                <span class="hidden sm:inline">{{ showCopySuccess ? 'Copied!' : 'Copy Announcement' }}</span>
+                <i :class="showCopySuccess ? 'ph-bold ph-check' : 'ph-bold ph-copy'" class="text-xs"></i>
+                <span class="hidden sm:inline">{{ showCopySuccess ? 'Copied!' : 'Announcement' }}</span>
               </button>
               <button @click="copyTrackImage"
-                  class="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border transition-all"
+                  class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-all"
                   :class="showCopyImageSuccess
                     ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
                     : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'">
-                <i :class="showCopyImageSuccess ? 'ph-bold ph-check' : 'ph-bold ph-image'"></i>
-                <span class="hidden sm:inline">{{ showCopyImageSuccess ? 'Copied!' : 'Copy Image' }}</span>
+                <i :class="showCopyImageSuccess ? 'ph-bold ph-check' : 'ph-bold ph-image'" class="text-xs"></i>
+                <span class="hidden sm:inline">{{ showCopyImageSuccess ? 'Copied!' : 'Image' }}</span>
               </button>
             </template>
-            <button @click="$emit('close')" class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white transition-colors ml-2">
-              <i class="ph-bold ph-x text-xl"></i>
+            <button @click="emit('close')" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white transition-colors ml-1">
+              <i class="ph-bold ph-x text-lg"></i>
             </button>
           </div>
         </div>
 
         <!-- Body -->
-        <div class="flex-1 overflow-y-auto p-6 space-y-8">
+        <div class="flex-1 overflow-y-auto p-6 space-y-4">
           <div v-if="!track" class="text-center py-20 text-slate-500">
             <i class="ph-fill ph-map-trifold text-6xl mb-4 block opacity-20"></i>
             <p class="text-lg font-bold">No track selected yet.</p>
@@ -206,32 +201,21 @@ const getSeasonIcon = (s: string) => {
             </div>
 
             <!-- Visuals -->
-            <div class="space-y-6">
-              <div class="space-y-3">
-                <div class="rounded-2xl overflow-hidden border-2 border-slate-700 bg-slate-950 shadow-2xl">
-                  <img :src="`/assets/tracks/${track.id}.png`"
-                       class="w-full object-contain"
-                       :alt="track.location" />
-                </div>
+            <div class="space-y-4 pb-8">
+              <div class="rounded-2xl overflow-hidden border-2 border-slate-700 bg-slate-950 shadow-2xl">
+                <img :src="`/assets/tracks/${track.id}.png`"
+                     class="w-full object-contain"
+                     :alt="track.location" />
               </div>
 
-              <div class="space-y-3">
-                <div class="rounded-2xl overflow-hidden border-2 border-slate-700 bg-slate-950 shadow-2xl relative group/sim">
-                  <div class="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover/sim:opacity-100 transition-opacity pointer-events-none"></div>
-                  <img :src="`/assets/tracks/${track.id}-sim.png`"
-                       class="w-full object-contain"
-                       :alt="`${track.location} simulation`" />
-                </div>
+              <div class="rounded-2xl overflow-hidden border-2 border-slate-700 bg-slate-950 shadow-2xl relative group/sim">
+                <div class="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover/sim:opacity-100 transition-opacity pointer-events-none"></div>
+                <img :src="`/assets/tracks/${track.id}-sim.png`"
+                     class="w-full object-contain"
+                     :alt="`${track.location} simulation`" />
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="p-6 border-t border-slate-800 bg-slate-950/50">
-          <button @click="$emit('close')" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg transition-colors uppercase tracking-widest text-sm">
-            Close Panel
-          </button>
         </div>
       </div>
     </Transition>
@@ -245,7 +229,7 @@ const getSeasonIcon = (s: string) => {
         leave-from-class="opacity-100"
         leave-to-class="opacity-0"
     >
-      <div v-if="isOpen" @click="$emit('close')" class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm"></div>
+      <div v-if="isOpen" @click="emit('close')" class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm"></div>
     </Transition>
   </Teleport>
 </template>
