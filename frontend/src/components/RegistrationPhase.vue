@@ -94,16 +94,15 @@ const announcementText = computed(() => {
 
 const openScheduleModal = () => {
     if (!props.isAdmin) return;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     if (props.tournament.scheduledTime) {
-        const d = new Date(props.tournament.scheduledTime);
-        const pad = (n: number) => String(n).padStart(2, '0');
-        scheduledTimeInput.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        scheduledTimeInput.value = fmt(new Date(props.tournament.scheduledTime));
     } else {
         const d = new Date();
-        d.setDate(d.getDate() + 1);
-        d.setHours(11, 0, 0, 0);
-        const pad = (n: number) => String(n).padStart(2, '0');
-        scheduledTimeInput.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T11:00`;
+        d.setUTCDate(d.getUTCDate() + 1);
+        d.setUTCHours(10, 0, 0, 0);
+        scheduledTimeInput.value = fmt(d);
     }
     showScheduleModal.value = true;
 };
