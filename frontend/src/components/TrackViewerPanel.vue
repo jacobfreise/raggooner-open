@@ -145,57 +145,54 @@ const getSeasonIcon = (s: string) => {
               </div>
 
               <!-- Compact Info Bar (No Block) -->
-              <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-1">
+              <div class="flex flex-wrap items-center justify-center gap-1.5 py-1">
                 <!-- Track Specs -->
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 rounded-lg">
                   <div class="flex flex-col items-center">
-                    <span class="text-[7px] uppercase font-black text-slate-500 tracking-tighter">Dist</span>
-                    <span class="text-xs font-black text-slate-200 leading-none">{{ track.distance }}m</span>
+                    <span class="text-[7px] uppercase font-black text-indigo-400/70 tracking-tighter">Dist</span>
+                    <span class="text-xs font-black text-indigo-100 leading-none">{{ track.distance }}m</span>
                   </div>
-                  <div class="w-px h-4 bg-slate-800"></div>
+                  <div class="w-px h-4 bg-indigo-500/20"></div>
                   <div class="flex flex-col items-center">
-                    <span class="text-[7px] uppercase font-black text-slate-500 tracking-tighter">Type</span>
-                    <span class="text-xs font-black text-slate-200 leading-none">{{ track.distanceType }}</span>
+                    <span class="text-[7px] uppercase font-black text-indigo-400/70 tracking-tighter">Type</span>
+                    <span class="text-xs font-black text-indigo-100 leading-none">{{ track.distanceType }}</span>
                   </div>
-                  <div class="w-px h-4 bg-slate-800"></div>
-                  <div class="flex flex-col items-center">
-                    <span class="text-[7px] uppercase font-black text-slate-500 tracking-tighter">Surf</span>
-                    <span class="text-xs font-black leading-none" :class="track.surface === 'Turf' ? 'text-emerald-500/80' : 'text-amber-500/80'">{{ track.surface }}</span>
+                  <div class="w-px h-4 bg-indigo-500/20"></div>
+                  <div class="flex flex-col items-center px-1">
+                    <span class="text-[7px] uppercase font-black text-indigo-400/70 tracking-tighter">Surf</span>
+                    <span class="text-xs font-black leading-none" :class="track.surface === 'Turf' ? 'text-emerald-400' : 'text-amber-400'">{{ track.surface }}</span>
                   </div>
-                  <div class="w-px h-4 bg-slate-800"></div>
+                  <div class="w-px h-4 bg-indigo-500/20"></div>
                   <div class="flex flex-col items-center">
-                    <span class="text-[7px] uppercase font-black text-slate-500 tracking-tighter">Dir</span>
-                    <div class="flex items-center gap-1 text-xs font-black text-slate-200 leading-none">
+                    <span class="text-[7px] uppercase font-black text-indigo-400/70 tracking-tighter">Dir</span>
+                    <div class="flex items-center gap-1 text-xs font-black text-indigo-100 leading-none">
                       <i class="ph-bold" :class="getDirectionIcon(track.direction)"></i>
                       {{ track.direction === 'straight' ? 'Str' : track.direction.charAt(0).toUpperCase() }}
                     </div>
                   </div>
                 </div>
 
-                <!-- Subtle divider -->
-                <div class="hidden sm:block w-px h-6 bg-slate-800 mx-1"></div>
-
                 <!-- Conditions -->
-                <div v-if="condition" class="flex items-center gap-3">
-                  <div class="flex flex-col items-center">
-                    <span class="text-[7px] uppercase font-black text-orange-500/50 tracking-tighter">Ground</span>
-                    <span class="text-xs font-bold text-orange-200/80 leading-none">{{ condition.ground }}</span>
+                <template v-if="condition">
+                  <div class="flex flex-col items-center bg-orange-500/10 border border-orange-500/20 px-2 py-1 rounded-lg min-w-[45px]">
+                    <span class="text-[7px] uppercase font-black text-orange-500/70 tracking-tighter">Ground</span>
+                    <span class="text-xs font-bold text-orange-200 leading-none">{{ condition.ground }}</span>
                   </div>
-                  <div class="flex flex-col items-center">
-                    <span class="text-[7px] uppercase font-black text-sky-500/50 tracking-tighter">Weather</span>
-                    <div class="flex items-center gap-1 text-xs font-bold text-sky-200/80 leading-none">
+                  <div class="flex flex-col items-center bg-sky-500/10 border border-sky-500/20 px-2 py-1 rounded-lg min-w-[45px]">
+                    <span class="text-[7px] uppercase font-black text-sky-500/70 tracking-tighter">Weather</span>
+                    <div class="flex items-center gap-1 text-xs font-bold text-sky-200 leading-none">
                       <i class="ph-fill text-[9px]" :class="getWeatherIcon(condition.weather)"></i>
                       {{ condition.weather }}
                     </div>
                   </div>
-                  <div class="flex flex-col items-center">
-                    <span class="text-[7px] uppercase font-black text-pink-500/50 tracking-tighter">Season</span>
-                    <div class="flex items-center gap-1 text-xs font-bold text-pink-200/80 leading-none">
+                  <div class="flex flex-col items-center bg-pink-500/10 border border-pink-500/20 px-2 py-1 rounded-lg min-w-[45px]">
+                    <span class="text-[7px] uppercase font-black text-pink-500/70 tracking-tighter">Season</span>
+                    <div class="flex items-center gap-1 text-xs font-bold text-pink-200 leading-none">
                       <i class="ph-fill text-[9px]" :class="getSeasonIcon(condition.season)"></i>
                       {{ condition.season }}
                     </div>
                   </div>
-                </div>
+                </template>
               </div>
             </div>
 
