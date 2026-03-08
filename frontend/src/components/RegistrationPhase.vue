@@ -90,8 +90,9 @@ const isLastJokeStep = computed(() => {
 const interceptToggleCaptain = (playerId: string) => {
   if (!props.isAdmin) return;
   const player = props.tournament.players[playerId];
-  if (player && !player.isCaptain && JOKE_PLAYERS[player.name]) {
-    triggerJoke(playerId, JOKE_PLAYERS[player.name], () => {
+  const jokeConfig = player ? JOKE_PLAYERS[player.name] : null;
+  if (player && !player.isCaptain && jokeConfig) {
+    triggerJoke(playerId, jokeConfig, () => {
       console.log(`Failed to select ${player.name}`);
     });
   } else {
