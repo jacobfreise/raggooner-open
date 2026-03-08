@@ -392,7 +392,7 @@ const savePointsSystem = async () => {
     </div>
 
     <!-- Track Viewer slide-out toggle (right side) -->
-    <div v-if="tournament?.selectedTrack"
+    <div v-if="tournament?.selectedTrack && !isTrackPanelOpen"
          class="fixed top-1/2 -translate-y-1/2 z-[100] transition-all duration-300"
          :class="isTrackPanelOpen ? 'right-full md:right-2/3' : 'right-0'">
       <button
