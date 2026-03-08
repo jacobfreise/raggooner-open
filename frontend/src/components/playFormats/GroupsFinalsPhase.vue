@@ -38,8 +38,6 @@ const selectedTeamId = ref('');
 const adjAmount = ref(0);
 const adjReason = ref('');
 
-const isDev = import.meta.env.DEV;
-
 // Initialize Game Logic locally
 // This keeps 'currentView' (Groups vs Finals) state inside this component
 const {
@@ -48,11 +46,9 @@ const {
   sortedTeamsB,
   sortedTeamsC,
   sortedFinalsTeams,
-  sortedRaces,
   canAdvanceToFinals,
   canEndTournament,
   canShowFinals,
-  getRaceResults,
   getGroupWildcards,
   advanceToFinals,
   getRoundPoints,
@@ -81,7 +77,6 @@ const {
 // Initialize Roster (for visual helpers like colors/names)
 const {
   showUmaModal,
-  getPlayerColor,
   submitUmaForPlayer,
   closeUmaModal,
   getUmaList,
