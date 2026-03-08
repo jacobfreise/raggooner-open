@@ -205,6 +205,52 @@ const sortedTeamsForModal = computed(() => {
 <template>
   <div class="space-y-6">
 
+    <!--    BAN DISPLAY-->
+    <div v-if="tournament.bans && tournament.bans.length > 0" class="mb-8">
+      <div class="bg-red-900/10 border border-red-500/20 rounded-xl overflow-hidden transition-all duration-300"
+           :class="showBans ? 'shadow-lg shadow-red-900/10' : ''">
+
+        <button @click="showBans = !showBans"
+                class="w-full px-4 py-3 flex items-center justify-between hover:bg-red-500/5 transition-colors group">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20 group-hover:bg-red-500/20 transition-colors">
+              <i class="ph-bold ph-prohibit text-lg"></i>
+            </div>
+            <div class="text-left">
+              <span class="block text-red-200 font-bold uppercase tracking-wider text-sm">Banned List</span>
+              <span class="text-xs text-red-400/70">{{ tournament.bans?.length }} characters restricted</span>
+            </div>
+          </div>
+          <i class="ph-bold ph-caret-down text-red-400 transition-transform duration-300"
+             :class="showBans ? 'rotate-180' : ''"></i>
+        </button>
+
+        <div v-show="showBans" class="border-t border-red-500/10 bg-red-950/20 p-6 relative overflow-hidden">
+          <!-- Background decorative stripes -->
+          <div class="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgNDBMNDAgME0tMTAgMTBMMTAgLTEwTTMwIDUwTDUwIDMwIiBzdHJva2U9IiNmZjAwMDAiIHN0cm9rZS13aWR0aD0iNSIvPjwvc3ZnPg==')]"></div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 relative z-10">
+            <div v-for="uma in tournament.bans" :key="uma"
+                 class="group/uma flex flex-col items-center gap-2 p-3 bg-slate-900/60 border border-red-500/20 rounded-xl hover:border-red-500/50 hover:bg-red-950/30 transition-all duration-500 hover:-translate-y-1 hover:shadow-lg hover:shadow-red-900/20">
+              <div class="relative">
+                <div class="w-16 h-16 rounded-2xl overflow-hidden border-2 border-red-500/20 group-hover/uma:border-red-500/50 transition-colors shadow-inner bg-slate-800">
+                  <img :src="getUmaImagePath(uma)" :alt="uma"
+                       class="w-full h-full object-cover grayscale brightness-75 group-hover/uma:grayscale-0 group-hover/uma:brightness-100 transition-all duration-700" />
+                </div>
+                <!-- Banned Badge -->
+                <div class="absolute -top-2 -right-2 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg animate-pulse">
+                  <i class="ph-fill ph-prohibit text-white text-[10px]"></i>
+                </div>
+              </div>
+              <span class="text-[10px] font-black uppercase tracking-tighter text-red-400 group-hover/uma:text-red-200 transition-colors text-center leading-normal w-full px-1">
+                {{ uma }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
 <!--    ACTIVE PHASE TIMER -->
     <div v-if="tournament.activeTimerStart && tournament.status === 'active'">
       <!-- Collapsed state: minimal pill -->
@@ -269,14 +315,14 @@ const sortedTeamsForModal = computed(() => {
 
       <div class="flex-1 pb-3 flex justify-center md:justify-end w-full md:w-auto gap-2 shrink-0">
         <!-- Banned List Toggle -->
-        <button v-if="tournament.bans && tournament.bans.length > 0"
-                @click="showBans = true"
-                class="relative group/ban px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center gap-2"
-                title="View Banned Umas">
-          <i class="ph-bold ph-prohibit text-lg"></i>
-          <span class="text-xs font-bold uppercase tracking-wider hidden sm:inline">Bans</span>
-          <span class="bg-red-500 text-white text-[10px] px-1.5 rounded-full font-mono">{{ tournament.bans.length }}</span>
-        </button>
+<!--        <button v-if="tournament.bans && tournament.bans.length > 0"-->
+<!--                @click="showBans = true"-->
+<!--                class="relative group/ban px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center gap-2"-->
+<!--                title="View Banned Umas">-->
+<!--          <i class="ph-bold ph-prohibit text-lg"></i>-->
+<!--          <span class="text-xs font-bold uppercase tracking-wider hidden sm:inline">Bans</span>-->
+<!--          <span class="bg-red-500 text-white text-[10px] px-1.5 rounded-full font-mono">{{ tournament.bans.length }}</span>-->
+<!--        </button>-->
 
         <button v-if="isAdminRef" @click="showUmaModal = true"
                 class="text-slate-500 hover:text-indigo-400 px-2 transition-colors">
@@ -869,241 +915,12 @@ const sortedTeamsForModal = computed(() => {
 <!--    HALL OF FAME-->
     <HallOfFame :tournament="tournament"></HallOfFame>
 
-<!--    PLAYER STATISTICS-->
-<!--    <div class="mt-12 pt-8 border-t border-slate-700">-->
-<!--      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">-->
-<!--        <div class="flex items-center gap-3 mb-6">-->
-<!--          <div class="h-8 w-1.5 bg-amber-500 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.6)]"></div>-->
-<!--          <div>-->
-<!--            <h2 class="text-xl font-bold text-white uppercase tracking-widest">Player Stats</h2>-->
-<!--            <p class="text-xs text-slate-400 font-medium">Points and Placements of Players</p>-->
-<!--          </div>-->
-<!--        </div>-->
-
-<!--        <div class="flex flex-wrap items-center gap-2">-->
-
-<!--          <span class="text-xs font-bold text-slate-500 uppercase tracking-widest mr-1 hidden sm:inline">-->
-<!--            Sort:-->
-<!--          </span>-->
-
-<!--          <div class="relative">-->
-<!--            <select v-model="sortBy"-->
-<!--                    class="appearance-none bg-slate-800 text-slate-300 text-xs font-bold uppercase tracking-wider pl-3 pr-8 py-2 rounded-lg border border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-750 transition-colors">-->
-<!--              <option value="total">Points (Total)</option>-->
-<!--              <option value="group" v-if="!isSmallTournament">Points (Group)</option>-->
-<!--              <option value="finals" v-if="!isSmallTournament">Points (Finals)</option>-->
-<!--              <option value="name">Name</option>-->
-<!--              <option value="uma">Uma</option>-->
-<!--            </select>-->
-<!--            <i class="ph-bold ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"></i>-->
-<!--          </div>-->
-
-<!--          <button @click="sortDesc = !sortDesc"-->
-<!--                  class="flex items-center bg-slate-800 text-slate-300 hover:text-white px-3 py-2 text-xs rounded-lg border border-slate-700 hover:border-slate-600 transition-colors"-->
-<!--                  :title="sortDesc ? 'Descending' : 'Ascending'">-->
-<!--            <i class="ph-bold text-base" :class="!sortDesc ? 'ph-sort-descending' : 'ph-sort-ascending'"></i>-->
-<!--          </button>-->
-
-<!--          <div class="w-px h-6 bg-slate-700 mx-1"></div>-->
-
-<!--          <button @click="groupByTeam = !groupByTeam"-->
-<!--                  class="flex items-center gap-2 px-3 py-2 rounded-lg border transition-all text-xs font-bold uppercase tracking-wider"-->
-<!--                  :class="groupByTeam ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'">-->
-<!--            <i class="ph-bold" :class="groupByTeam ? 'ph-users-three' : 'ph-squares-four'"></i>-->
-<!--            <span class="hidden sm:inline">Group by Team</span>-->
-<!--          </button>-->
-<!--        </div>-->
-<!--      </div>-->
-
-<!--      <div class="space-y-8">-->
-<!--        <div v-for="section in structuredPlayerStats" :key="section.id">-->
-
-<!--          <div v-if="groupByTeam && section.id !== 'all'" class="flex items-center gap-3 mb-4">-->
-
-<!--            <div class="h-px bg-slate-700 flex-1"></div>-->
-
-<!--            <span class="flex items-center gap-2 text-sm font-bold uppercase tracking-widest px-3 py-1 rounded border bg-slate-800/50 whitespace-nowrap"-->
-<!--                  :style="{ color: section.color || '#fff', borderColor: (section.color || '#fff') + '40' }">-->
-<!--              {{ section.title }}-->
-<!--              <span v-if="['total', 'group', 'finals'].includes(sortBy)"-->
-<!--                    class="whitespace-nowrap text-xs font-mono font-bold text-slate-400 bg-slate-900 px-2 rounded border border-slate-800 shadow-sm">-->
-<!--                {{ section.sortNumeric }} pts-->
-<!--              </span>-->
-<!--            </span>-->
-
-<!--            <div class="h-px bg-slate-700 flex-1"></div>-->
-<!--          </div>-->
-
-<!--          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">-->
-
-<!--            <div v-for="player in section.players" :key="player.id"-->
-<!--                 class="relative overflow-hidden bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-indigo-500/50 transition-all flex flex-col h-full group hover:shadow-xl hover:-translate-y-1">-->
-
-<!--              <div class="absolute inset-0 transition-opacity duration-500 opacity-0 group-hover:opacity-100 pointer-events-none"-->
-<!--                   :style="{ background: `linear-gradient(to bottom right, ${getPlayerColor(player.id)}33, transparent)` }">-->
-<!--              </div>-->
-
-<!--              <div class="relative z-10 flex justify-between items-start pb-2 border-slate-700/50">-->
-<!--                <div>-->
-<!--                  <div class="text-2xl font-bold leading-none group-hover:text-indigo-300 transition-colors"-->
-<!--                       :style="{ color: getPlayerColor(player.id) }">-->
-<!--                    {{ player.name }}-->
-<!--                  </div>-->
-<!--                  <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 mt-1 h-3.5" v-if="player.uma">-->
-<!--                    {{ player.uma }}-->
-<!--                  </div>-->
-<!--                  <div v-else class="h-3.5 mt-1"></div>-->
-<!--                </div>-->
-<!--                <div class="text-right">-->
-<!--                  <div class="text-2xl font-bold leading-none text-indigo-400 tabular-nums">-->
-<!--                    {{ getTotalPoints(player.id) }}-->
-<!--                  </div>-->
-<!--                  <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 mt-1 h-3.5">-->
-<!--                    Total Pts-->
-<!--                  </div>-->
-<!--                </div>-->
-<!--              </div>-->
-
-<!--              <div class="flex-1 flex flex-col gap-2">-->
-<!--                <template v-for="results in [getSplitResults(player.id)]" :key="player.id">-->
-
-<!--                  <div v-if="isSmallTournament">-->
-<!--                    <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">-->
-<!--                      Races-->
-<!--                      <div class="h-px bg-slate-700 flex-1"></div>-->
-<!--                    </div>-->
-
-<!--                    <div class="min-h-[60px] flex flex-col justify-center">-->
-<!--                      <div v-if="results.finals.length === 0" class="flex items-center justify-center">-->
-<!--                        <span class="text-xs text-slate-600 italic">No races recorded yet</span>-->
-<!--                      </div>-->
-<!--                      <div v-else class="grid grid-cols-5 gap-2">-->
-<!--                        <div v-for="(result, idx) in results.finals" :key="'r'+idx" class="flex flex-col items-center gap-1">-->
-<!--                          <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110"-->
-<!--                               :class="getPositionStyle(result.position, 'finals')">-->
-<!--                            {{ result.position || '-' }}-->
-<!--                          </div>-->
-<!--                          <span class="text-[10px] font-mono text-slate-500">-->
-<!--                          {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}-->
-<!--                        </span>-->
-<!--                        </div>-->
-<!--                      </div>-->
-<!--                    </div>-->
-<!--                  </div>-->
-
-<!--                  <div v-else class="contents">-->
-<!--                    <div>-->
-<!--                      <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">-->
-<!--                        Group Stage-->
-<!--                        <div class="h-px bg-slate-700 flex-1"></div>-->
-<!--                        <span class="font-mono text-slate-400">{{ getPhaseTotal(results.groups) }} pts</span>-->
-<!--                      </div>-->
-
-<!--                      <div class="min-h-[60px] flex flex-col justify-center">-->
-<!--                        <div v-if="results.groups.length === 0" class="flex items-center justify-center">-->
-<!--                          <span class="text-xs text-slate-600 italic">No races recorded yet</span>-->
-<!--                        </div>-->
-<!--                        <div v-else class="grid grid-cols-5 gap-2">-->
-<!--                          <div v-for="(result, idx) in results.groups" :key="'g'+idx" class="flex flex-col items-center gap-1">-->
-<!--                            <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110"-->
-<!--                                 :class="getPositionStyle(result.position, 'groups')">-->
-<!--                              {{ result.position || '-' }}-->
-<!--                            </div>-->
-<!--                            <span class="text-[10px] font-mono text-slate-500">-->
-<!--                            {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}-->
-<!--                          </span>-->
-<!--                          </div>-->
-<!--                        </div>-->
-<!--                      </div>-->
-<!--                    </div>-->
-
-<!--                    <div v-if="!playerEliminated(player.id) || results.finals.length > 0">-->
-<!--                      <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 mt-1 flex items-center gap-2">-->
-<!--                        <span class="text-amber-500">Finals</span>-->
-<!--                        <div class="h-px bg-slate-700 flex-1"></div>-->
-<!--                        <span class="font-mono text-slate-400">{{ getPhaseTotal(results.finals) }} pts</span>-->
-<!--                      </div>-->
-
-<!--                      <div class="min-h-[60px] flex flex-col justify-center">-->
-<!--                        <div v-if="results.finals.length === 0" class="flex items-center justify-center">-->
-<!--                          <span class="text-xs text-slate-600 italic">No races recorded yet</span>-->
-<!--                        </div>-->
-<!--                        <div v-else class="grid grid-cols-5 gap-2">-->
-<!--                          <div v-for="(result, idx) in results.finals" :key="'f'+idx" class="flex flex-col items-center gap-1">-->
-<!--                            <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110"-->
-<!--                                 :class="getPositionStyle(result.position, 'finals')">-->
-<!--                              {{ result.position || '-' }}-->
-<!--                            </div>-->
-<!--                            <span class="text-[10px] font-mono text-slate-500">-->
-<!--                            {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}-->
-<!--                          </span>-->
-<!--                          </div>-->
-<!--                        </div>-->
-<!--                      </div>-->
-<!--                    </div>-->
-
-<!--                    <div v-else-if="playerEliminated(player.id)" class="mt-auto">-->
-<!--                      <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 mt-1 flex items-center gap-2">-->
-<!--                        <span class="text-amber-500">Finals</span>-->
-<!--                        <div class="h-px bg-slate-700 flex-1"></div>-->
-<!--                        <span class="font-mono text-slate-400">{{ getPhaseTotal(results.finals) }} pts</span>-->
-<!--                      </div>-->
-<!--                      <div class="min-h-[60px] flex flex-col justify-center">-->
-<!--                        <div class="bg-slate-900/50 rounded-lg border border-slate-700 border-dashed p-3 text-center">-->
-<!--                          <span class="text-xs text-slate-500 italic">Did not qualify for finals</span>-->
-<!--                        </div>-->
-<!--                      </div>-->
-<!--                    </div>-->
-<!--                  </div>-->
-<!--                </template>-->
-<!--              </div>-->
-
-<!--            </div>-->
-<!--          </div>-->
-<!--        </div>-->
-<!--      </div>-->
-<!--    </div>-->
     <PlayerStatsBoard
         :tournament="tournament"
         :current-view="currentView"
         :is-admin="isAdminRef"
         :secure-update="secureUpdate"
     />
-
-<!--    RACE HISTORY LOG-->
-    <div class="mt-12 pt-8 border-t border-slate-700" v-if="isDev">
-      <h3 class="text-2xl font-bold text-white mb-6">Race History Log</h3>
-
-      <div v-if="sortedRaces.length === 0" class="text-center py-8 text-slate-500 italic bg-slate-800/50 rounded-lg">
-        No races recorded yet.
-      </div>
-
-      <div class="space-y-4">
-        <div v-for="race in sortedRaces" :key="race.id" class="bg-slate-800 rounded-lg p-5 border border-slate-700 hover:border-indigo-500/30 transition-colors">
-          <div class="flex justify-between items-start mb-4">
-            <div class="flex items-center gap-3">
-                    <span class="px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wider shadow-sm"
-                          :class="race.stage === 'finals' ? 'bg-amber-900/50 text-amber-200 border border-amber-700/50' : 'bg-indigo-900/50 text-indigo-200 border border-indigo-700/50'">
-                        {{ race.stage === 'finals' ? 'Grand Finals' : (tournament?.teams.length >= 6 ? 'Group ' + race.group : 'Main Event') }}
-                    </span>
-              <span class="text-slate-400 text-sm flex items-center gap-1">
-                      <i class="ph-bold ph-clock"></i>
-                      {{ new Date(race.timestamp).toLocaleString() }}
-                    </span>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-            <div v-for="result in getRaceResults(race)" :key="result.playerId"
-                 class="text-sm rounded px-2 py-1.5 flex items-center gap-2 border"
-                 :class="result.position === 1 ? 'bg-amber-500/10 border-amber-500/50 text-amber-100' : 'bg-slate-900 border-slate-700 text-slate-300'">
-              <span class="font-mono w-5 font-bold" :class="result.position === 1 ? 'text-amber-400' : 'text-slate-500'">{{ result.position }}</span>
-              <span class="truncate" :style="{ color: getPlayerColor(result.playerId) }">{{ result.name }} - {{ result.uma }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <div v-if="showAdjustmentModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
 
@@ -1401,76 +1218,69 @@ const sortedTeamsForModal = computed(() => {
 
   </div>
 
-  <Teleport to="body">
-    <Transition
-        enter-active-class="transition duration-300 ease-out"
-        enter-from-class="translate-x-full"
-        enter-to-class="translate-x-0"
-        leave-active-class="transition duration-200 ease-in"
-        leave-from-class="translate-x-0"
-        leave-to-class="translate-x-full"
-    >
-      <div v-if="showBans" class="fixed inset-y-0 right-0 z-[100] w-full max-w-2xl bg-slate-900 shadow-2xl border-l border-red-500/20 flex flex-col">
-        
-        <!-- Header -->
-        <div class="p-6 border-b border-slate-800 flex items-center justify-between bg-red-950/10">
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20">
-              <i class="ph-bold ph-prohibit text-2xl"></i>
-            </div>
-            <div>
-              <h3 class="text-xl font-black text-white uppercase tracking-tighter">Banned Characters</h3>
-              <p class="text-xs text-red-400/70 font-bold uppercase tracking-widest">{{ tournament.bans?.length }} restricted from entries</p>
-            </div>
-          </div>
-          <button @click="showBans = false" class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
-            <i class="ph-bold ph-x text-xl"></i>
-          </button>
-        </div>
+<!--  <Teleport to="body">-->
+<!--    <Transition-->
+<!--        enter-active-class="transition duration-300 ease-out"-->
+<!--        enter-from-class="translate-x-full"-->
+<!--        enter-to-class="translate-x-0"-->
+<!--        leave-active-class="transition duration-200 ease-in"-->
+<!--        leave-from-class="translate-x-0"-->
+<!--        leave-to-class="translate-x-full"-->
+<!--    >-->
+<!--      <div v-if="showBans" class="fixed inset-y-0 right-0 z-[100] w-full max-w-2xl bg-slate-900 shadow-2xl border-l border-red-500/20 flex flex-col">-->
+<!--        -->
+<!--        &lt;!&ndash; Header &ndash;&gt;-->
+<!--        <div class="p-6 border-b border-slate-800 flex items-center justify-between bg-red-950/10">-->
+<!--          <div class="flex items-center gap-4">-->
+<!--            <div class="w-12 h-12 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20">-->
+<!--              <i class="ph-bold ph-prohibit text-2xl"></i>-->
+<!--            </div>-->
+<!--            <div>-->
+<!--              <h3 class="text-xl font-black text-white uppercase tracking-tighter">Banned Characters</h3>-->
+<!--              <p class="text-xs text-red-400/70 font-bold uppercase tracking-widest">{{ tournament.bans?.length }} restricted from entries</p>-->
+<!--            </div>-->
+<!--          </div>-->
+<!--          <button @click="showBans = false" class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">-->
+<!--            <i class="ph-bold ph-x text-xl"></i>-->
+<!--          </button>-->
+<!--        </div>-->
 
-        <!-- Body -->
-        <div class="flex-1 overflow-y-auto p-6 relative">
-          <!-- Background decorative stripes -->
-          <div class="absolute inset-0 opacity-[0.02] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgNDBMNDAgME0tMTAgMTBMMTAgLTEwTTMwIDUwTDUwIDMwIiBzdHJva2U9IiNmZjAwMDAiIHN0cm9rZS13aWR0aD0iNSIvPjwvc3ZnPg==')]"></div>
+<!--        &lt;!&ndash; Body &ndash;&gt;-->
+<!--        <div class="flex-1 overflow-y-auto p-6 relative">-->
+<!--          &lt;!&ndash; Background decorative stripes &ndash;&gt;-->
+<!--          <div class="absolute inset-0 opacity-[0.02] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgNDBMNDAgME0tMTAgMTBMMTAgLTEwTTMwIDUwTDUwIDMwIiBzdHJva2U9IiNmZjAwMDAiIHN0cm9rZS13aWR0aD0iNSIvPjwvc3ZnPg==')]"></div>-->
 
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 relative z-10">
-            <div v-for="uma in tournament.bans" :key="uma"
-                 class="group/uma flex flex-col items-center gap-2 p-3 bg-slate-800/40 border border-slate-700/50 rounded-xl hover:border-red-500/40 hover:bg-red-950/20 transition-all duration-500">
-              <div class="relative">
-                <div class="w-20 h-20 rounded-2xl overflow-hidden border-2 border-slate-700 group-hover/uma:border-red-500/40 transition-colors shadow-inner bg-slate-900">
-                  <img :src="getUmaImagePath(uma)" :alt="uma"
-                       class="w-full h-full object-cover grayscale brightness-75 group-hover/uma:grayscale-0 group-hover/uma:brightness-100 transition-all duration-700" />
-                </div>
-                <div class="absolute -top-2 -right-2 w-7 h-7 bg-red-600 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg animate-pulse">
-                  <i class="ph-fill ph-prohibit text-white text-xs"></i>
-                </div>
-              </div>
-              <span class="text-[11px] font-black uppercase tracking-tighter text-slate-400 group-hover/uma:text-red-200 transition-colors text-center leading-normal w-full px-1">
-                {{ uma }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="p-6 border-t border-slate-800 bg-slate-950/50">
-          <button @click="showBans = false" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg transition-colors uppercase tracking-widest text-sm">
-            Close Panel
-          </button>
-        </div>
-      </div>
-    </Transition>
+<!--          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 relative z-10">-->
+<!--            <div v-for="uma in tournament.bans" :key="uma"-->
+<!--                 class="group/uma flex flex-col items-center gap-2 p-3 bg-slate-800/40 border border-slate-700/50 rounded-xl hover:border-red-500/40 hover:bg-red-950/20 transition-all duration-500">-->
+<!--              <div class="relative">-->
+<!--                <div class="w-20 h-20 rounded-2xl overflow-hidden border-2 border-slate-700 group-hover/uma:border-red-500/40 transition-colors shadow-inner bg-slate-900">-->
+<!--                  <img :src="getUmaImagePath(uma)" :alt="uma"-->
+<!--                       class="w-full h-full object-cover grayscale brightness-75 group-hover/uma:grayscale-0 group-hover/uma:brightness-100 transition-all duration-700" />-->
+<!--                </div>-->
+<!--                <div class="absolute -top-2 -right-2 w-7 h-7 bg-red-600 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg animate-pulse">-->
+<!--                  <i class="ph-fill ph-prohibit text-white text-xs"></i>-->
+<!--                </div>-->
+<!--              </div>-->
+<!--              <span class="text-[11px] font-black uppercase tracking-tighter text-slate-400 group-hover/uma:text-red-200 transition-colors text-center leading-normal w-full px-1">-->
+<!--                {{ uma }}-->
+<!--              </span>-->
+<!--            </div>-->
+<!--          </div>-->
+<!--        </div>-->
+<!--      </div>-->
+<!--    </Transition>-->
 
     <!-- Backdrop -->
-    <Transition
-        enter-active-class="transition duration-300 ease-out"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition duration-200 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-    >
-      <div v-if="showBans" @click="showBans = false" class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm"></div>
-    </Transition>
-  </Teleport>
+<!--    <Transition-->
+<!--        enter-active-class="transition duration-300 ease-out"-->
+<!--        enter-from-class="opacity-0"-->
+<!--        enter-to-class="opacity-100"-->
+<!--        leave-active-class="transition duration-200 ease-in"-->
+<!--        leave-from-class="opacity-100"-->
+<!--        leave-to-class="opacity-0"-->
+<!--    >-->
+<!--      <div v-if="showBans" @click="showBans = false" class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm"></div>-->
+<!--    </Transition>-->
+<!--  </Teleport>-->
 </template>
