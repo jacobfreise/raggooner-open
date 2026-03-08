@@ -20,6 +20,7 @@ export const changelogData: ChangeLogEntry[] = [
             { type: 'new', text: 'The app will now attempt to save you from making silly captain choices.' },
             { type: 'improvement', text: 'New design for Team Points Displays.' },
             { type: 'improvement', text: 'New design for banned list.' },
+            { type: 'improvement', text: 'New design for track viewer.' },
         ]
     },
     {
