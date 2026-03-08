@@ -59,7 +59,7 @@ export function useDiagrams(
 
   const diagramSortedTournaments = computed(() =>
     [...filteredTournaments.value].sort((a, b) =>
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      new Date(a.playedAt ?? a.createdAt).getTime() - new Date(b.playedAt ?? b.createdAt).getTime()
     )
   );
 

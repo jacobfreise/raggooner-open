@@ -78,7 +78,7 @@ const sortedTournaments = computed(() => {
       case 'players':
         valA = Object.keys(a.players).length; valB = Object.keys(b.players).length; break;
       default: // 'date'
-        valA = new Date(a.createdAt).getTime(); valB = new Date(b.createdAt).getTime();
+        valA = new Date(a.playedAt ?? a.createdAt).getTime(); valB = new Date(b.playedAt ?? b.createdAt).getTime();
     }
     if (valA < valB) return -1 * mod;
     if (valA > valB) return 1 * mod;
@@ -1209,7 +1209,7 @@ const getRankIcon = (index: number) => {
               <tbody class="divide-y divide-slate-700">
               <tr v-for="t in sortedTournaments" :key="t.id" class="hover:bg-slate-750 transition-colors">
                 <td class="px-4 py-3 text-sm text-slate-400 font-mono">
-                  {{ new Date(t.createdAt).toLocaleDateString() }}
+                  {{ new Date(t.playedAt ?? t.createdAt).toLocaleDateString() }}
                 </td>
                 <td class="px-4 py-3 text-sm font-bold text-white">
                   <router-link :to="'/t/' + t.id" class="hover:text-indigo-400 transition-colors">

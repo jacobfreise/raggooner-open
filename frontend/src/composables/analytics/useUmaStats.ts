@@ -163,7 +163,7 @@ export function useUmaStats(
       let availablePicksCount = 0;
 
       filteredTournaments.value.forEach(t => {
-        const tTime = new Date(t.createdAt).getTime();
+        const tTime = new Date(t.playedAt ?? t.createdAt).getTime();
         if (tTime >= releaseTime) {
           availableTournamentsCount++;
           availablePicksCount += (picksByTournament.get(t.id)?.size || 0);
