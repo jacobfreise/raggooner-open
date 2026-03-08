@@ -2,6 +2,114 @@
 import { ref, watch, type Ref } from 'vue';
 import type { Tournament, EggConfig } from '../types';
 
+// --- REGISTRATION JOKES ---
+export interface JokeConfig {
+    jokes: string[];
+    shouldMove: boolean;
+}
+
+export const JOKE_PLAYERS: Record<string, JokeConfig> = {
+    'Sumpfranze': {
+        jokes: [
+            "Are you absolutely sure? This choice is... questionable.",
+            "Sumpfranze? Really? There are better players out there, you know.",
+            "System warning: Selecting Sumpfranze may lead to immediate loss.",
+            "Netanyahu will find your house if you click confirm",
+            "Final warning: Click the button to seal your fate. If you can catch it!"
+        ],
+        shouldMove: true
+    },
+    // Add more players here
+};
+
+export function useJokeConfirmation() {
+    const isShowing = ref(false);
+    const currentStep = ref(0);
+    const position = ref({ top: '50%', left: '50%' });
+    const timeLeft = ref(4);
+    const activeConfig = ref<JokeConfig | null>(null);
+    const targetPlayerId = ref<string | null>(null);
+    
+    let timerInterval: any = null;
+    let moveInterval: any = null;
+
+    const reset = () => {
+        isShowing.value = false;
+        currentStep.value = 0;
+        activeConfig.value = null;
+        targetPlayerId.value = null;
+        clearInterval(timerInterval);
+        clearInterval(moveInterval);
+    };
+
+    const nextStep = (onComplete: () => void) => {
+        if (!activeConfig.value) return;
+
+        if (currentStep.value < activeConfig.value.jokes.length - 1) {
+            currentStep.value++;
+            timeLeft.value = 4;
+            updatePosition();
+            if (currentStep.value === activeConfig.value.jokes.length - 1 && activeConfig.value.shouldMove) {
+                startMoving();
+            }
+        } else {
+            const pid = targetPlayerId.value;
+            reset();
+            if (pid) onComplete();
+        }
+    };
+
+    const updatePosition = () => {
+        const top = Math.random() * 60 + 20;
+        const left = Math.random() * 60 + 20;
+        position.value = { top: `${top}%`, left: `${left}%` };
+    };
+
+    const startMoving = () => {
+        moveInterval = setInterval(() => {
+            const top = parseFloat(position.value.top) + (Math.random() * 10 - 5);
+            const left = parseFloat(position.value.left) + (Math.random() * 10 - 5);
+            position.value = { 
+                top: `${Math.max(10, Math.min(90, top))}%`, 
+                left: `${Math.max(10, Math.min(90, left))}%` 
+            };
+        }, 100);
+    };
+
+    const triggerJoke = (playerId: string, config: JokeConfig, onFail: () => void) => {
+        // Reset everything first
+        clearInterval(timerInterval);
+        clearInterval(moveInterval);
+        
+        targetPlayerId.value = playerId;
+        activeConfig.value = config;
+        currentStep.value = 0;
+        timeLeft.value = 4;
+        isShowing.value = true;
+        updatePosition();
+
+        timerInterval = setInterval(() => {
+            timeLeft.value -= 0.1;
+            if (timeLeft.value <= 0) {
+                reset();
+                onFail();
+            }
+        }, 100);
+    };
+
+    return {
+        isShowing,
+        currentStep,
+        position,
+        timeLeft,
+        activeConfig,
+        targetPlayerId,
+        triggerJoke,
+        nextStep,
+        reset
+    };
+}
+
 // --- CONFIGURATION ---
 const EGG_LIST: EggConfig[] = [
     {
@@ -135,115 +243,6 @@ const EGG_LIST: EggConfig[] = [
         }
     }
 ];
-
-
-
-// --- HELPERS ---
-// Helper: Calculate total participants for a specific race context
-// const getRacerCount = (race: any, t: Tournament): number => {
-//     // 1. Filter teams based on the race stage/group
-//     let relevantTeams = [];
-//
-//     if (race.stage === 'finals') {
-//         relevantTeams = t.teams.filter(team => team.inFinals);
-//     } else {
-//         // Groups A, B, C
-//         relevantTeams = t.teams.filter(team => team.group === race.group);
-//     }
-//
-//     // 2. Sum Players (1 Captain + N Members per team)
-//     const teamPlayerCount = relevantTeams.reduce((sum, team) => {
-//         return sum + 1 + (team.memberIds?.length || 0);
-//     }, 0);
-//
-//     // 3. Add Wildcards for this specific group
-//     // Note: Ensure your wildcard group names match your race group names ('A', 'B', 'Finals')
-//     const targetGroup = race.stage === 'finals' ? 'Finals' : race.group;
-//     const wildcardCount = t.wildcards?.filter(w => w.group === targetGroup).length || 0;
-//
-//     return teamPlayerCount + wildcardCount;
-// };
-
-export function useSumpfranzeEgg() {
-    const isShowingSumpfranzeEgg = ref(false);
-    const currentStep = ref(0);
-    const position = ref({ top: '50%', left: '50%' });
-    const timeLeft = ref(4);
-    let timerInterval: any = null;
-    let moveInterval: any = null;
-
-    const jokes = [
-        "Are you absolutely sure? This choice is... questionable.",
-        "Sumpfranze? Really? There are better players out there, you know.",
-        "System warning: Selecting Sumpfranze may lead to immediate loss.",
-        "Netanyahu will find your house if you click confirm",
-        "Final warning: Click the button to seal your fate. If you can catch it!"
-    ];
-
-    const reset = () => {
-        isShowingSumpfranzeEgg.value = false;
-        currentStep.value = 0;
-        clearInterval(timerInterval);
-        clearInterval(moveInterval);
-    };
-
-    const nextStep = (onComplete: () => void) => {
-        if (currentStep.value < jokes.length - 1) {
-            currentStep.value++;
-            timeLeft.value = 4;
-            updatePosition();
-            if (currentStep.value === jokes.length - 1) {
-                startMoving();
-            }
-        } else {
-            reset();
-            onComplete();
-        }
-    };
-
-    const updatePosition = () => {
-        const top = Math.random() * 60 + 20; // 20% to 80%
-        const left = Math.random() * 60 + 20; // 20% to 80%
-        position.value = { top: `${top}%`, left: `${left}%` };
-    };
-
-    const startMoving = () => {
-        moveInterval = setInterval(() => {
-            const top = parseFloat(position.value.top) + (Math.random() * 16 - 8);
-            const left = parseFloat(position.value.left) + (Math.random() * 16 - 8);
-            position.value = { 
-                top: `${Math.max(10, Math.min(90, top))}%`, 
-                left: `${Math.max(10, Math.min(90, left))}%` 
-            };
-        }, 100);
-    };
-
-    const triggerSumpfranzeEgg = (onFail: () => void) => {
-        isShowingSumpfranzeEgg.value = true;
-        currentStep.value = 0;
-        timeLeft.value = 4;
-        updatePosition();
-
-        timerInterval = setInterval(() => {
-            timeLeft.value -= 0.1;
-            if (timeLeft.value <= 0) {
-                reset();
-                onFail();
-            }
-        }, 100);
-    };
-
-    return {
-        isShowingSumpfranzeEgg,
-        currentStep,
-        position,
-        timeLeft,
-        jokes,
-        triggerSumpfranzeEgg,
-        nextStep,
-        reset
-    };
-}
 
 export function useEasterEgg(tournament: Ref<Tournament | null>) {
     // --- STATE ---

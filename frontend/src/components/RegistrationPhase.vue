@@ -3,7 +3,7 @@ import { ref, toRef, computed } from 'vue';
 import type { Tournament, FirestoreUpdate, GlobalPlayer, Season } from '../types';
 import { useRoster } from '../composables/useRoster';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
-import { useSumpfranzeEgg } from '../composables/useEasterEgg';
+import { useJokeConfirmation, JOKE_PLAYERS } from '../composables/useEasterEgg';
 import PlayerSelector from './PlayerSelector.vue';
 import { arrayUnion, deleteField } from 'firebase/firestore';
 import { TRACK_DICT } from '../utils/trackData';
@@ -67,32 +67,42 @@ const {
 
 // Easter Egg Logic
 const {
-  isShowingSumpfranzeEgg,
+  isShowing: isShowingJoke,
   currentStep,
   position,
   timeLeft,
-  jokes,
-  triggerSumpfranzeEgg,
+  activeConfig,
+  targetPlayerId,
+  triggerJoke,
   nextStep
-} = useSumpfranzeEgg();
+} = useJokeConfirmation();
+
+const currentJoke = computed(() => {
+  if (!activeConfig.value) return '';
+  return activeConfig.value.jokes[currentStep.value] || '';
+});
+
+const isLastJokeStep = computed(() => {
+  if (!activeConfig.value) return false;
+  return currentStep.value === activeConfig.value.jokes.length - 1;
+});
 
 const interceptToggleCaptain = (playerId: string) => {
   if (!props.isAdmin) return;
   const player = props.tournament.players[playerId];
-  if (player && player.name === 'Sumpfranze' && !player.isCaptain) {
-    triggerSumpfranzeEgg(() => {
-      console.log('Failed to select Sumpfranze');
+  if (player && !player.isCaptain && JOKE_PLAYERS[player.name]) {
+    triggerJoke(playerId, JOKE_PLAYERS[player.name], () => {
+      console.log(`Failed to select ${player.name}`);
     });
   } else {
     toggleCaptain(playerId);
   }
 };
 
-const confirmSumpfranze = () => {
-  const sumpfranzeId = Object.values(props.tournament.players).find(p => p.name === 'Sumpfranze')?.id;
-  if (sumpfranzeId) {
-    nextStep(() => toggleCaptain(sumpfranzeId));
-  }
+const confirmJokeStep = () => {
+  const pid = targetPlayerId.value;
+  if (!pid) return;
+  nextStep(() => toggleCaptain(pid));
 };
 
 // Initialize Tournament Flow (for phase transitions)
@@ -359,14 +369,6 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
             </div>
 
             <!-- Remove Button -->
-<!--            <button-->
-<!--                v-if="isAdmin"-->
-<!--                @click.stop="removePlayer(player.id)"-->
-<!--                class="opacity-0 group-hover:opacity-100 items-center justify-center text-rose-400 hover:text-rose-300 transition-all p-2 rounded hover:bg-slate-900/50"-->
-<!--                title="Remove player"-->
-<!--            >-->
-<!--              <i class="ph-bold ph-x text-lg"></i>-->
-<!--            </button>-->
             <button @click.stop="removePlayer(player.id)"
                     :disabled="!isAdmin"
                     title="Remove Player"
@@ -379,7 +381,8 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
     </div>
   </div>
   <Teleport to="body">
-    <div v-if="isShowingSumpfranzeEgg"
+    <!-- JOKE CONFIRMATION OVERLAY -->
+    <div v-if="isShowingJoke"
          class="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-[2px] pointer-events-auto">
       <div class="absolute glass-panel p-6 rounded-2xl border-2 border-indigo-500 shadow-2xl transition-all duration-300 w-80"
            :style="{ top: position.top, left: position.left, transform: 'translate(-50%, -50%)' }">
@@ -389,7 +392,7 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
         </div>
         
         <p class="text-white font-medium leading-tight mb-6">
-          {{ jokes[currentStep] }}
+          {{ currentJoke }}
         </p>
 
         <div class="relative h-1 bg-slate-800 rounded-full overflow-hidden mb-4">
@@ -397,9 +400,9 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
                :style="{ width: `${(timeLeft / 4) * 100}%` }"></div>
         </div>
 
-        <button @click="confirmSumpfranze"
+        <button @click="confirmJokeStep"
                 class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-colors">
-          {{ currentStep === jokes.length - 1 ? 'SEAL FATE' : 'Confirm Selection' }}
+          {{ isLastJokeStep ? 'SEAL FATE' : 'Confirm Selection' }}
         </button>
       </div>
     </div>
