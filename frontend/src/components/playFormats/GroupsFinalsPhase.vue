@@ -225,13 +225,27 @@ const sortedTeamsForModal = computed(() => {
              :class="showBans ? 'rotate-180' : ''"></i>
         </button>
 
-        <div v-show="showBans" class="border-t border-red-500/10 bg-red-950/10 p-4">
-          <div class="flex flex-wrap gap-2">
-                  <span v-for="uma in tournament.bans" :key="uma"
-                        class="px-3 py-1 bg-red-900/40 border border-red-500/30 rounded text-red-200 text-sm flex items-center gap-2">
-                      <i class="ph-fill ph-prohibit text-xs opacity-50"></i>
-                      {{ uma }}
-                  </span>
+        <div v-show="showBans" class="border-t border-red-500/10 bg-red-950/20 p-6 relative overflow-hidden">
+          <!-- Background decorative stripes -->
+          <div class="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgNDBMNDAgME0tMTAgMTBMMTAgLTEwTTMwIDUwTDUwIDMwIiBzdHJva2U9IiNmZjAwMDAiIHN0cm9rZS13aWR0aD0iNSIvPjwvc3ZnPg==')]"></div>
+          
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 relative z-10">
+            <div v-for="uma in tournament.bans" :key="uma"
+                 class="group/uma flex flex-col items-center gap-2 p-3 bg-slate-900/60 border border-red-500/20 rounded-xl hover:border-red-500/50 hover:bg-red-950/30 transition-all duration-500 hover:-translate-y-1 hover:shadow-lg hover:shadow-red-900/20">
+              <div class="relative">
+                <div class="w-16 h-16 rounded-2xl overflow-hidden border-2 border-red-500/20 group-hover/uma:border-red-500/50 transition-colors shadow-inner bg-slate-800">
+                  <img :src="getUmaImagePath(uma)" :alt="uma"
+                       class="w-full h-full object-cover grayscale brightness-75 group-hover/uma:grayscale-0 group-hover/uma:brightness-100 transition-all duration-700" />
+                </div>
+                <!-- Banned Badge -->
+                <div class="absolute -top-2 -right-2 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg animate-pulse">
+                  <i class="ph-fill ph-prohibit text-white text-[10px]"></i>
+                </div>
+              </div>
+              <span class="text-[10px] font-black uppercase tracking-tighter text-red-400 group-hover/uma:text-red-200 transition-colors text-center leading-tight drop-shadow-sm truncate w-full px-1">
+                {{ uma }}
+              </span>
+            </div>
           </div>
         </div>
       </div>
