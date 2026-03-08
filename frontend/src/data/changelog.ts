@@ -17,7 +17,7 @@ export const changelogData: ChangeLogEntry[] = [
         date: '2026-03-07',
         title: 'Captain Choices',
         changes: [
-            { type: 'new', text: 'The app will now try to save you from making silly captain choices.' },
+            { type: 'new', text: 'The app will now attempt to save you from making silly captain choices.' },
         ]
     },
     {
