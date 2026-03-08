@@ -205,52 +205,6 @@ const sortedTeamsForModal = computed(() => {
 <template>
   <div class="space-y-6">
 
-<!--    BAN DISPLAY-->
-    <div v-if="tournament.bans && tournament.bans.length > 0" class="mb-8">
-      <div class="bg-red-900/10 border border-red-500/20 rounded-xl overflow-hidden transition-all duration-300"
-           :class="showBans ? 'shadow-lg shadow-red-900/10' : ''">
-
-        <button @click="showBans = !showBans"
-                class="w-full px-4 py-3 flex items-center justify-between hover:bg-red-500/5 transition-colors group">
-          <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20 group-hover:bg-red-500/20 transition-colors">
-              <i class="ph-bold ph-prohibit text-lg"></i>
-            </div>
-            <div class="text-left">
-              <span class="block text-red-200 font-bold uppercase tracking-wider text-sm">Banned List</span>
-              <span class="text-xs text-red-400/70">{{ tournament.bans?.length }} characters restricted</span>
-            </div>
-          </div>
-          <i class="ph-bold ph-caret-down text-red-400 transition-transform duration-300"
-             :class="showBans ? 'rotate-180' : ''"></i>
-        </button>
-
-        <div v-show="showBans" class="border-t border-red-500/10 bg-red-950/20 p-6 relative overflow-hidden">
-          <!-- Background decorative stripes -->
-          <div class="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgNDBMNDAgME0tMTAgMTBMMTAgLTEwTTMwIDUwTDUwIDMwIiBzdHJva2U9IiNmZjAwMDAiIHN0cm9rZS13aWR0aD0iNSIvPjwvc3ZnPg==')]"></div>
-          
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 relative z-10">
-            <div v-for="uma in tournament.bans" :key="uma"
-                 class="group/uma flex flex-col items-center gap-2 p-3 bg-slate-900/60 border border-red-500/20 rounded-xl hover:border-red-500/50 hover:bg-red-950/30 transition-all duration-500 hover:-translate-y-1 hover:shadow-lg hover:shadow-red-900/20">
-              <div class="relative">
-                <div class="w-16 h-16 rounded-2xl overflow-hidden border-2 border-red-500/20 group-hover/uma:border-red-500/50 transition-colors shadow-inner bg-slate-800">
-                  <img :src="getUmaImagePath(uma)" :alt="uma"
-                       class="w-full h-full object-cover grayscale brightness-75 group-hover/uma:grayscale-0 group-hover/uma:brightness-100 transition-all duration-700" />
-                </div>
-                <!-- Banned Badge -->
-                <div class="absolute -top-2 -right-2 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg animate-pulse">
-                  <i class="ph-fill ph-prohibit text-white text-[10px]"></i>
-                </div>
-              </div>
-              <span class="text-[10px] font-black uppercase tracking-tighter text-red-400 group-hover/uma:text-red-200 transition-colors text-center leading-normal w-full px-1">
-                {{ uma }}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
 <!--    ACTIVE PHASE TIMER -->
     <div v-if="tournament.activeTimerStart && tournament.status === 'active'">
       <!-- Collapsed state: minimal pill -->
@@ -314,6 +268,16 @@ const sortedTeamsForModal = computed(() => {
       </div>
 
       <div class="flex-1 pb-3 flex justify-center md:justify-end w-full md:w-auto gap-2 shrink-0">
+        <!-- Banned List Toggle -->
+        <button v-if="tournament.bans && tournament.bans.length > 0"
+                @click="showBans = true"
+                class="relative group/ban px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center gap-2"
+                title="View Banned Umas">
+          <i class="ph-bold ph-prohibit text-lg"></i>
+          <span class="text-xs font-bold uppercase tracking-wider hidden sm:inline">Bans</span>
+          <span class="bg-red-500 text-white text-[10px] px-1.5 rounded-full font-mono">{{ tournament.bans.length }}</span>
+        </button>
+
         <button v-if="isAdminRef" @click="showUmaModal = true"
                 class="text-slate-500 hover:text-indigo-400 px-2 transition-colors">
           <i class="ph-bold ph-gear text-xl"></i>
@@ -1436,4 +1400,77 @@ const sortedTeamsForModal = computed(() => {
     </div>
 
   </div>
+
+  <Teleport to="body">
+    <Transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-x-0"
+        leave-to-class="translate-x-full"
+    >
+      <div v-if="showBans" class="fixed inset-y-0 right-0 z-[100] w-full max-w-2xl bg-slate-900 shadow-2xl border-l border-red-500/20 flex flex-col">
+        
+        <!-- Header -->
+        <div class="p-6 border-b border-slate-800 flex items-center justify-between bg-red-950/10">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20">
+              <i class="ph-bold ph-prohibit text-2xl"></i>
+            </div>
+            <div>
+              <h3 class="text-xl font-black text-white uppercase tracking-tighter">Banned Characters</h3>
+              <p class="text-xs text-red-400/70 font-bold uppercase tracking-widest">{{ tournament.bans?.length }} restricted from entries</p>
+            </div>
+          </div>
+          <button @click="showBans = false" class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
+            <i class="ph-bold ph-x text-xl"></i>
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="flex-1 overflow-y-auto p-6 relative">
+          <!-- Background decorative stripes -->
+          <div class="absolute inset-0 opacity-[0.02] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgNDBMNDAgME0tMTAgMTBMMTAgLTEwTTMwIDUwTDUwIDMwIiBzdHJva2U9IiNmZjAwMDAiIHN0cm9rZS13aWR0aD0iNSIvPjwvc3ZnPg==')]"></div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 relative z-10">
+            <div v-for="uma in tournament.bans" :key="uma"
+                 class="group/uma flex flex-col items-center gap-2 p-3 bg-slate-800/40 border border-slate-700/50 rounded-xl hover:border-red-500/40 hover:bg-red-950/20 transition-all duration-500">
+              <div class="relative">
+                <div class="w-20 h-20 rounded-2xl overflow-hidden border-2 border-slate-700 group-hover/uma:border-red-500/40 transition-colors shadow-inner bg-slate-900">
+                  <img :src="getUmaImagePath(uma)" :alt="uma"
+                       class="w-full h-full object-cover grayscale brightness-75 group-hover/uma:grayscale-0 group-hover/uma:brightness-100 transition-all duration-700" />
+                </div>
+                <div class="absolute -top-2 -right-2 w-7 h-7 bg-red-600 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg animate-pulse">
+                  <i class="ph-fill ph-prohibit text-white text-xs"></i>
+                </div>
+              </div>
+              <span class="text-[11px] font-black uppercase tracking-tighter text-slate-400 group-hover/uma:text-red-200 transition-colors text-center leading-normal w-full px-1">
+                {{ uma }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-6 border-t border-slate-800 bg-slate-950/50">
+          <button @click="showBans = false" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg transition-colors uppercase tracking-widest text-sm">
+            Close Panel
+          </button>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Backdrop -->
+    <Transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+    >
+      <div v-if="showBans" @click="showBans = false" class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm"></div>
+    </Transition>
+  </Teleport>
 </template>

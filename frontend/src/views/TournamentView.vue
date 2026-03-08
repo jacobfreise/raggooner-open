@@ -396,9 +396,12 @@ const savePointsSystem = async () => {
          class="fixed top-1/2 -translate-y-1/2 z-[100] transition-all duration-300"
          :class="isTrackPanelOpen ? 'right-full md:right-2/3' : 'right-0'">
       <button
-          @click="isTrackPanelOpen = !isTrackPanelOpen"
-          class="bg-indigo-600 w-0.5 hover:bg-indigo-500 text-white p-2 rounded-l-lg shadow-lg border-y border-l border-indigo-400 flex items-center justify-center">
-        <i class="ph-bold ph-map-trifold transition-transform duration-300" :class="isTrackPanelOpen ? 'rotate-180' : ''"></i>
+          @click="isTrackPanelOpen = true"
+          class="bg-indigo-600 w-0.5 hover:bg-indigo-500 text-white p-2 rounded-l-lg shadow-lg border-y border-l border-indigo-400/50 flex items-center justify-center transition-all hover:pl-4 group">
+        <i class="ph-bold ph-map-trifold"></i>
+        <div class="absolute right-full mr-2 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-[10px] font-bold text-white uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+          View Track
+        </div>
       </button>
     </div>
 
