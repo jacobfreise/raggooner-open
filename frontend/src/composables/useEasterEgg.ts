@@ -209,8 +209,8 @@ export function useSumpfranzeEgg() {
 
     const startMoving = () => {
         moveInterval = setInterval(() => {
-            const top = parseFloat(position.value.top) + (Math.random() * 10 - 5);
-            const left = parseFloat(position.value.left) + (Math.random() * 10 - 5);
+            const top = parseFloat(position.value.top) + (Math.random() * 16 - 8);
+            const left = parseFloat(position.value.left) + (Math.random() * 16 - 8);
             position.value = { 
                 top: `${Math.max(10, Math.min(90, top))}%`, 
                 left: `${Math.max(10, Math.min(90, left))}%` 
