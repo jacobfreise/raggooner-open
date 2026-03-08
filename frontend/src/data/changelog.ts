@@ -9,9 +9,17 @@ export interface ChangeLogEntry {
     }[];
 }
 
-export const APP_VERSION = '2.3.2'; // Update this manually when you deploy
+export const APP_VERSION = '2.3.3'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '2.3.3',
+        date: '2026-03-07',
+        title: 'Captain Choices',
+        changes: [
+            { type: 'new', text: 'The app will now try to save you from making silly captain choices.' },
+        ]
+    },
     {
         version: '2.3.2',
         date: '2026-03-07',
