@@ -233,6 +233,96 @@ const selectForMerge = (player: any, type: 'keeper' | 'duplicate') => {
   playerSearchQuery.value = '';
 };
 
+// --- Switch Captain State (Tournament-Specific) ---
+const showSwitchCaptainTool = ref(false);
+const switchOldCaptain = ref<any | null>(null);
+const switchNewCaptain = ref<any | null>(null);
+const switchOldSearch = ref('');
+const switchNewSearch = ref('');
+const isSwitching = ref(false);
+
+const tournamentCaptains = computed(() =>
+    Object.values(activeTournament.value?.players ?? {})
+        .filter(p => p.isCaptain)
+        .map(p => ({ id: p.id, name: p.name }))
+);
+
+const tournamentNonCaptains = computed(() =>
+    Object.values(activeTournament.value?.players ?? {})
+        .filter(p => !p.isCaptain)
+        .map(p => ({ id: p.id, name: p.name }))
+);
+
+const executeSwitchCaptain = async () => {
+  const t = activeTournament.value;
+  if (!t || !switchOldCaptain.value || !switchNewCaptain.value) return;
+
+  const oldId = switchOldCaptain.value.id;
+  const newId = switchNewCaptain.value.id;
+  const oldName = t.players[oldId]?.name ?? switchOldCaptain.value.name;
+  const newName = t.players[newId]?.name ?? switchNewCaptain.value.name;
+
+  if (!confirm(`Make "${newName}" the captain instead of "${oldName}"?\n\nThis cannot be undone.`)) return;
+
+  isSwitching.value = true;
+  const appId = 'default-app';
+
+  try {
+    const updates: Record<string, any> = {};
+
+    // Flip isCaptain flags
+    const players = { ...t.players };
+    players[oldId] = { ...players[oldId]!, isCaptain: false };
+    players[newId] = { ...players[newId]!, isCaptain: true };
+    updates.players = players;
+
+    // Was the new captain already drafted into a team as a member?
+    const newCaptainWasDrafted = t.teams.some(team => team.memberIds.includes(newId));
+
+    // Update teams
+    const teams = t.teams.map(team => {
+      if (team.captainId === oldId) {
+        // This is the old captain's team — new captain takes over
+        let memberIds = [...team.memberIds];
+        if (memberIds.includes(newId)) {
+          // New captain was a member of this same team: swap positions
+          memberIds = memberIds.map(id => id === newId ? oldId : id);
+        } else if (newCaptainWasDrafted) {
+          // New captain was a member of a different team: old captain joins as member
+          memberIds = [...memberIds, oldId];
+        }
+        // else: new captain was undrafted — old captain returns to undrafted pool (no change)
+        const teamName = team.name === `Team ${oldName}` ? `Team ${newName}` : team.name;
+        return { ...team, captainId: newId, memberIds, name: teamName };
+      }
+      // Remove new captain from any other team they were a member of
+      if (team.memberIds.includes(newId)) {
+        return { ...team, memberIds: team.memberIds.filter(id => id !== newId) };
+      }
+      return team;
+    });
+    updates.teams = teams;
+
+    // Update draft order if present
+    if (t.draft?.order?.includes(oldId)) {
+      updates['draft.order'] = t.draft.order.map(id => id === oldId ? newId : id);
+    }
+
+    const tRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', t.id);
+    await updateDoc(tRef, updates);
+
+    alert(`Done! "${newName}" is now the captain of Team ${newName}.`);
+    switchOldCaptain.value = null;
+    switchNewCaptain.value = null;
+    showSwitchCaptainTool.value = false;
+  } catch (e: any) {
+    console.error(e);
+    alert('Switch Failed: ' + e.message);
+  } finally {
+    isSwitching.value = false;
+  }
+};
+
 // --- Swap Player State (Tournament-Specific) ---
 const showSwapTool = ref(false);
 const swapOldPlayer = ref<any | null>(null);
@@ -634,6 +724,13 @@ const executeMerge = async () => {
               <i class="ph-bold ph-swap text-xl text-amber-400 group-hover:scale-110 transition-transform"></i>
               <span class="text-sm font-bold">Swap Player</span>
             </button>
+            <button
+                @click="showSwitchCaptainTool = true"
+                class="flex items-center gap-3 w-full p-3 bg-slate-800 hover:bg-amber-600/20 border border-slate-700 hover:border-amber-500/50 rounded-xl text-white transition-all group"
+            >
+              <i class="ph-bold ph-crown-simple text-xl text-amber-400 group-hover:scale-110 transition-transform"></i>
+              <span class="text-sm font-bold">Switch Captain</span>
+            </button>
           </div>
         </section>
       </div>
@@ -829,6 +926,69 @@ const executeMerge = async () => {
           >
             <i v-if="isSwapping" class="ph-bold ph-circle-notch animate-spin"></i>
             {{ isSwapping ? 'Swapping...' : 'Confirm Swap' }}
+          </button>
+        </div>
+      </section>
+
+      <section v-if="showSwitchCaptainTool" class="space-y-4 animate-in slide-in-from-right-4 duration-200">
+        <div class="flex items-center justify-between px-2">
+          <h3 class="text-xs font-bold text-amber-400 uppercase tracking-widest">Switch Captain</h3>
+          <button @click="showSwitchCaptainTool = false; switchOldCaptain = null; switchNewCaptain = null" class="text-[10px] text-slate-500 font-bold uppercase hover:text-white">Cancel</button>
+        </div>
+
+        <div class="bg-slate-800/30 p-4 rounded-xl border border-slate-800 space-y-4">
+          <!-- Current Captain -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Current Captain (to replace)</label>
+            <div v-if="!switchOldCaptain">
+              <input v-model="switchOldSearch" type="text" placeholder="Search captains..."
+                     class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" />
+              <div v-if="switchOldSearch" class="max-h-40 overflow-y-auto bg-slate-900 border border-slate-700 rounded-lg shadow-xl mt-1">
+                <button v-for="p in tournamentCaptains.filter(p => p.name.toLowerCase().includes(switchOldSearch.toLowerCase()))"
+                        :key="p.id" @click="switchOldCaptain = p; switchOldSearch = ''"
+                        class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-amber-600 hover:text-white border-b border-slate-800 last:border-0">
+                  <i class="ph-fill ph-crown text-amber-400 mr-1"></i>{{ p.name }}
+                </button>
+              </div>
+            </div>
+            <div v-else class="p-3 bg-slate-900 rounded-lg border border-slate-700">
+              <div class="text-[9px] font-black text-amber-400 uppercase mb-1">Stepping Down</div>
+              <div class="text-xs font-bold text-white">{{ switchOldCaptain.name }}</div>
+              <button @click="switchOldCaptain = null" class="text-[9px] text-rose-400 mt-1 hover:underline">Change</button>
+            </div>
+          </div>
+
+          <!-- Arrow -->
+          <div class="flex justify-center text-slate-600">
+            <i class="ph-bold ph-arrow-down text-lg"></i>
+          </div>
+
+          <!-- New Captain -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">New Captain (member or undrafted)</label>
+            <div v-if="!switchNewCaptain">
+              <input v-model="switchNewSearch" type="text" placeholder="Search players..."
+                     class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" />
+              <div v-if="switchNewSearch" class="max-h-40 overflow-y-auto bg-slate-900 border border-slate-700 rounded-lg shadow-xl mt-1">
+                <button v-for="p in tournamentNonCaptains.filter(p => p.name.toLowerCase().includes(switchNewSearch.toLowerCase()))"
+                        :key="p.id" @click="switchNewCaptain = p; switchNewSearch = ''"
+                        class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-amber-600 hover:text-white border-b border-slate-800 last:border-0">
+                  {{ p.name }}
+                </button>
+              </div>
+            </div>
+            <div v-else class="p-3 bg-slate-900 rounded-lg border border-slate-700">
+              <div class="text-[9px] font-black text-emerald-400 uppercase mb-1">New Captain</div>
+              <div class="text-xs font-bold text-white">{{ switchNewCaptain.name }}</div>
+              <button @click="switchNewCaptain = null" class="text-[9px] text-rose-400 mt-1 hover:underline">Change</button>
+            </div>
+          </div>
+
+          <button @click="executeSwitchCaptain"
+                  :disabled="!switchOldCaptain || !switchNewCaptain || isSwitching"
+                  class="w-full py-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-30 disabled:grayscale text-white rounded-xl font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2">
+            <i v-if="isSwitching" class="ph-bold ph-circle-notch animate-spin"></i>
+            {{ isSwitching ? 'Switching...' : 'Confirm Switch' }}
           </button>
         </div>
       </section>
