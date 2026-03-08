@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {computed, ref, toRef, onMounted, onUnmounted} from 'vue';
+import { getUmaImagePath } from '../../utils/umaData';
 import type { Tournament, FirestoreUpdate, Team } from '../../types.ts';
 import { useGameLogic } from '../../composables/useGameLogic.ts';
 import { useTournamentFlow } from '../../composables/useTournamentFlow.ts';
@@ -81,7 +82,6 @@ const {
 const {
   showUmaModal,
   getPlayerColor,
-  getPlayerNameOrUma,
   submitUmaForPlayer,
   closeUmaModal,
   getUmaList,
@@ -103,7 +103,6 @@ const tournamentPlayerIds = computed(() => {
 
 const showBans = ref(false);
 const showUmaPools = ref(false);
-const showPlayerOrUmaName = ref(true);
 
 // --- ACTIVE PHASE TIMER ---
 const now = ref(Date.now());
@@ -301,17 +300,6 @@ const sortedTeamsForModal = computed(() => {
       </div>
 
       <div class="flex-1 pb-3 flex justify-center md:justify-end w-full md:w-auto gap-2 shrink-0">
-        <div class="bg-slate-800 p-1 rounded-lg flex text-xs font-bold">
-          <button @click="showPlayerOrUmaName = true"
-                  class="px-3 py-1 rounded transition-colors"
-                  :class="showPlayerOrUmaName ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-slate-300'">Name
-          </button>
-          <button @click="showPlayerOrUmaName = false"
-                  class="px-3 py-1 rounded transition-colors"
-                  :class="!showPlayerOrUmaName ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-slate-300'">Uma
-          </button>
-        </div>
-
         <button v-if="isAdminRef" @click="showUmaModal = true"
                 class="text-slate-500 hover:text-indigo-400 px-2 transition-colors">
           <i class="ph-bold ph-gear text-xl"></i>
@@ -362,17 +350,31 @@ const sortedTeamsForModal = computed(() => {
               <div v-else-if="getProgressionStatus(team.id) === 'tied'" class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl select-none rotate-12">?</div>
             </div>
 
-            <div class="relative z-10">
+            <div class="relative z-10 flex-1 min-w-0 mr-3">
               <div>
-                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament.players[member]?.name).join(' ') }}</span>
+                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name }}</span>
               </div>
-              <div class="text-xs text-slate-400 flex gap-2 mt-1">
-            <span :style="{ color: team.color }"
-                  v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                  :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">
-              {{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}
-            </span>
+              <div class="flex flex-col sm:flex-row gap-1.5 mt-2">
+                <div v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                     :key="pid"
+                     class="flex items-center gap-1.5 bg-slate-900/80 rounded-md px-2 py-1.5 min-w-0 flex-1 overflow-hidden">
+                  <img v-if="tournament.players[pid]?.uma"
+                       :src="getUmaImagePath(tournament.players[pid]!.uma)"
+                       :alt="tournament.players[pid]!.uma"
+                       class="w-6 h-6 rounded-full object-cover shrink-0 bg-slate-700" />
+                  <i v-else class="ph-fill ph-horse text-base shrink-0 text-slate-500"></i>
+                  <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
+                    <span class="text-[11px] font-semibold truncate leading-tight" :style="{ color: team.color }">
+                      {{ tournament.players[pid]?.name || pid }}
+                    </span>
+                    <span class="text-[10px] text-slate-500 truncate leading-tight">
+                      {{ tournament.players[pid]?.uma || '—' }}
+                    </span>
+                  </div>
+                  <span class="text-xs font-bold tabular-nums shrink-0 ml-0.5" :style="{ color: team.color }">
+                    {{ getRoundPoints(pid) }}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -459,17 +461,31 @@ const sortedTeamsForModal = computed(() => {
               <div v-else-if="getProgressionStatus(team.id) === 'tied'" class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl select-none rotate-12">?</div>
             </div>
 
-            <div class="relative z-10">
+            <div class="relative z-10 flex-1 min-w-0 mr-3">
               <div>
-                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament.players[member]?.name).join(' ') }}</span>
+                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name }}</span>
               </div>
-              <div class="text-xs text-slate-400 flex gap-2 mt-1">
-             <span :style="{ color: team.color }"
-                   v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                   :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">
-               {{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}
-             </span>
+              <div class="flex flex-col sm:flex-row gap-1.5 mt-2">
+                <div v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                     :key="pid"
+                     class="flex items-center gap-1.5 bg-slate-900/80 rounded-md px-2 py-1.5 min-w-0 flex-1 overflow-hidden">
+                  <img v-if="tournament.players[pid]?.uma"
+                       :src="getUmaImagePath(tournament.players[pid]!.uma)"
+                       :alt="tournament.players[pid]!.uma"
+                       class="w-6 h-6 rounded-full object-cover shrink-0 bg-slate-700" />
+                  <i v-else class="ph-fill ph-horse text-base shrink-0 text-slate-500"></i>
+                  <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
+                    <span class="text-[11px] font-semibold truncate leading-tight" :style="{ color: team.color }">
+                      {{ tournament.players[pid]?.name || pid }}
+                    </span>
+                    <span class="text-[10px] text-slate-500 truncate leading-tight">
+                      {{ tournament.players[pid]?.uma || '—' }}
+                    </span>
+                  </div>
+                  <span class="text-xs font-bold tabular-nums shrink-0 ml-0.5" :style="{ color: team.color }">
+                    {{ getRoundPoints(pid) }}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -554,17 +570,31 @@ const sortedTeamsForModal = computed(() => {
               <div v-else-if="getProgressionStatus(team.id) === 'tied'" class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl select-none rotate-12">?</div>
             </div>
 
-            <div class="relative z-10">
+            <div class="relative z-10 flex-1 min-w-0 mr-3">
               <div>
-                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                <span class="font-light text-sm">{{ team.memberIds.map((member) => tournament.players[member]?.name).join(' ') }}</span>
+                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name }}</span>
               </div>
-              <div class="text-xs text-slate-400 flex gap-2 mt-1">
-             <span :style="{ color: team.color }"
-                   v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                   :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">
-               {{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}
-             </span>
+              <div class="flex flex-col sm:flex-row gap-1.5 mt-2">
+                <div v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                     :key="pid"
+                     class="flex items-center gap-1.5 bg-slate-900/80 rounded-md px-2 py-1.5 min-w-0 flex-1 overflow-hidden">
+                  <img v-if="tournament.players[pid]?.uma"
+                       :src="getUmaImagePath(tournament.players[pid]!.uma)"
+                       :alt="tournament.players[pid]!.uma"
+                       class="w-6 h-6 rounded-full object-cover shrink-0 bg-slate-700" />
+                  <i v-else class="ph-fill ph-horse text-base shrink-0 text-slate-500"></i>
+                  <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
+                    <span class="text-[11px] font-semibold truncate leading-tight" :style="{ color: team.color }">
+                      {{ tournament.players[pid]?.name || pid }}
+                    </span>
+                    <span class="text-[10px] text-slate-500 truncate leading-tight">
+                      {{ tournament.players[pid]?.uma || '—' }}
+                    </span>
+                  </div>
+                  <span class="text-xs font-bold tabular-nums shrink-0 ml-0.5" :style="{ color: team.color }">
+                    {{ getRoundPoints(pid) }}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -641,17 +671,31 @@ const sortedTeamsForModal = computed(() => {
                class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center hover:z-30 relative"
                :class="getRankColor(getVisualRankIndex(idx, sortedFinalsTeams))"
           >
-            <div class="relative z-10">
+            <div class="relative z-10 flex-1 min-w-0 mr-3">
               <div>
-                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name + ' ' }} </span>
-                <span class="font-light text-sm">
-                  {{ team.memberIds.map((member) => tournament.players[member]?.name).join(' ') }}
-                </span>
+                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name }}</span>
               </div>
-              <div class="text-sm text-slate-400 flex gap-2 mt-1">
-                <span :style="{ color: team.color }"
-                      v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                      :key="pid" class="bg-slate-900 px-2 py-0.5 rounded">{{ getPlayerNameOrUma(pid, showPlayerOrUmaName) + ' (' + getRoundPoints(pid) + ')'}}</span>
+              <div class="flex flex-col sm:flex-row gap-1.5 mt-2">
+                <div v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
+                     :key="pid"
+                     class="flex items-center gap-1.5 bg-slate-900/80 rounded-md px-2 py-1.5 min-w-0 flex-1 overflow-hidden">
+                  <img v-if="tournament.players[pid]?.uma"
+                       :src="getUmaImagePath(tournament.players[pid]!.uma)"
+                       :alt="tournament.players[pid]!.uma"
+                       class="w-6 h-6 rounded-full object-cover shrink-0 bg-slate-700" />
+                  <i v-else class="ph-fill ph-horse text-base shrink-0 text-slate-500"></i>
+                  <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
+                    <span class="text-[11px] font-semibold truncate leading-tight" :style="{ color: team.color }">
+                      {{ tournament.players[pid]?.name || pid }}
+                    </span>
+                    <span class="text-[10px] text-slate-500 truncate leading-tight">
+                      {{ tournament.players[pid]?.uma || '—' }}
+                    </span>
+                  </div>
+                  <span class="text-xs font-bold tabular-nums shrink-0 ml-0.5" :style="{ color: team.color }">
+                    {{ getRoundPoints(pid) }}
+                  </span>
+                </div>
               </div>
             </div>
 
