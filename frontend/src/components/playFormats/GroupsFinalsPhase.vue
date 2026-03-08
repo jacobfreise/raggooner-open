@@ -242,7 +242,7 @@ const sortedTeamsForModal = computed(() => {
                   <i class="ph-fill ph-prohibit text-white text-[10px]"></i>
                 </div>
               </div>
-              <span class="text-[10px] font-black uppercase tracking-tighter text-red-400 group-hover/uma:text-red-200 transition-colors text-center leading-tight drop-shadow-sm truncate w-full px-1">
+              <span class="text-[10px] font-black uppercase tracking-tighter text-red-400 group-hover/uma:text-red-200 transition-colors text-center leading-normal w-full px-1">
                 {{ uma }}
               </span>
             </div>
