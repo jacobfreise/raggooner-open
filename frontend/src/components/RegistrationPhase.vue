@@ -72,7 +72,6 @@ const {
   position,
   timeLeft,
   activeConfig,
-  targetPlayerId,
   toastMessage,
   triggerJoke,
   triggerDelayedToast,
@@ -98,9 +97,11 @@ const interceptToggleCaptain = (playerId: string) => {
       toggleCaptain(playerId);
       if (jokeConfig.postToast) triggerDelayedToast(jokeConfig.postToast);
     } else {
-      triggerJoke(playerId, jokeConfig, () => {
-        console.log(`Failed to select ${player.name}`);
-      });
+      triggerJoke(
+        jokeConfig,
+        () => toggleCaptain(playerId),
+        () => console.log(`Failed to select ${player.name}`)
+      );
     }
   } else {
     toggleCaptain(playerId);
@@ -108,9 +109,7 @@ const interceptToggleCaptain = (playerId: string) => {
 };
 
 const confirmJokeStep = () => {
-  const pid = targetPlayerId.value;
-  if (!pid) return;
-  nextStep(() => toggleCaptain(pid));
+  nextStep();
 };
 
 // Initialize Tournament Flow (for phase transitions)

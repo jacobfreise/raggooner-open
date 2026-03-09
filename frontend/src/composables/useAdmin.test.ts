@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {describe, it, expect, vi, beforeEach, Mock} from 'vitest';
 
 vi.mock('firebase/firestore', () => ({
   doc: vi.fn(() => ({})),
@@ -26,7 +26,7 @@ import { useAdmin } from './useAdmin';
 import { setDoc, deleteDoc } from 'firebase/firestore';
 import { auth } from '../firebase';
 import { claimAndUnsyncMetadata } from '../utils/metadataSync';
-import type { Tournament } from '../types';
+import type {FirestoreUpdate, Tournament} from '../types';
 
 const makeTournament = (overrides: Partial<Tournament> = {}): Tournament => ({
   id: 't1',
@@ -42,8 +42,8 @@ const makeTournament = (overrides: Partial<Tournament> = {}): Tournament => ({
 });
 
 describe('useAdmin', () => {
-  let secureUpdate: ReturnType<typeof vi.fn>;
-  let fetchPublicTournaments: ReturnType<typeof vi.fn>;
+  let secureUpdate: Mock<(data: FirestoreUpdate<Tournament>) => Promise<void>>;
+  let fetchPublicTournaments: Mock<() => Promise<void>>;
   const appId = 'test-app';
 
   beforeEach(() => {
