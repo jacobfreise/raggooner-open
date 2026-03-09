@@ -20,7 +20,7 @@ export interface JokeConfig {
 
 export const JOKE_PLAYERS: Record<string, JokeConfig> = {
     'Sumpfranze': {
-        showPopup: false,
+        showPopup: true,
         jokes: [
             "Are you absolutely sure? This choice is... questionable.",
             "Sumpfranze? Really? There are better players out there, you know.",
@@ -44,17 +44,19 @@ export function useJokeConfirmation() {
     const position = ref({ top: '50%', left: '50%' });
     const timeLeft = ref(4);
     const activeConfig = ref<JokeConfig | null>(null);
-    const targetPlayerId = ref<string | null>(null);
     const toastMessage = ref<string | null>(null);
-    
+
     let timerInterval: any = null;
     let moveInterval: any = null;
+    let onCompleteCallback: (() => void) | null = null;
+    let onFailCallback: (() => void) | null = null;
 
     const reset = () => {
         isShowing.value = false;
         currentStep.value = 0;
         activeConfig.value = null;
-        targetPlayerId.value = null;
+        onCompleteCallback = null;
+        onFailCallback = null;
         clearInterval(timerInterval);
         clearInterval(moveInterval);
     };
@@ -68,7 +70,7 @@ export function useJokeConfirmation() {
         }, config.delayMs ?? 10000);
     };
 
-    const nextStep = (onComplete: () => void) => {
+    const nextStep = () => {
         if (!activeConfig.value) return;
 
         if (currentStep.value < activeConfig.value.jokes.length - 1) {
@@ -79,15 +81,11 @@ export function useJokeConfirmation() {
                 startMoving();
             }
         } else {
-            const pid = targetPlayerId.value;
             const config = activeConfig.value;
+            const onComplete = onCompleteCallback;
             reset();
-            if (pid) {
-                onComplete();
-                if (config.postToast) {
-                    triggerDelayedToast(config.postToast);
-                }
-            }
+            onComplete?.();
+            if (config.postToast) triggerDelayedToast(config.postToast);
         }
     };
 
@@ -101,19 +99,19 @@ export function useJokeConfirmation() {
         moveInterval = setInterval(() => {
             const top = parseFloat(position.value.top) + (Math.random() * 10 - 5);
             const left = parseFloat(position.value.left) + (Math.random() * 10 - 5);
-            position.value = { 
-                top: `${Math.max(10, Math.min(90, top))}%`, 
-                left: `${Math.max(10, Math.min(90, left))}%` 
+            position.value = {
+                top: `${Math.max(10, Math.min(90, top))}%`,
+                left: `${Math.max(10, Math.min(90, left))}%`
             };
         }, 100);
     };
 
-    const triggerJoke = (playerId: string, config: JokeConfig, onFail: () => void) => {
-        // Reset everything first
+    const triggerJoke = (config: JokeConfig, onComplete: () => void, onFail: () => void) => {
         clearInterval(timerInterval);
         clearInterval(moveInterval);
-        
-        targetPlayerId.value = playerId;
+
+        onCompleteCallback = onComplete;
+        onFailCallback = onFail;
         activeConfig.value = config;
         currentStep.value = 0;
         timeLeft.value = 4;
@@ -123,8 +121,9 @@ export function useJokeConfirmation() {
         timerInterval = setInterval(() => {
             timeLeft.value -= 0.1;
             if (timeLeft.value <= 0) {
+                const onFailCb = onFailCallback;
                 reset();
-                onFail();
+                onFailCb?.();
             }
         }, 100);
     };
@@ -135,7 +134,6 @@ export function useJokeConfirmation() {
         position,
         timeLeft,
         activeConfig,
-        targetPlayerId,
         toastMessage,
         triggerJoke,
         triggerDelayedToast,
