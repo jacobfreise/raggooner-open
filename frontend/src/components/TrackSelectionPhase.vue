@@ -493,8 +493,7 @@ const rollRandom = () => {
       season: combo.season as Condition['season'],
     };
     rollerSettled.value = true;
-    // Final satisfying click
-    playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3');
+    playLocalSfx('/assets/sound-effects/pling.mp3');
   }, duration + 500);
 };
 
