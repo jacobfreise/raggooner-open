@@ -73,7 +73,9 @@ const {
   timeLeft,
   activeConfig,
   targetPlayerId,
+  toastMessage,
   triggerJoke,
+  triggerDelayedToast,
   nextStep
 } = useJokeConfirmation();
 
@@ -92,9 +94,14 @@ const interceptToggleCaptain = (playerId: string) => {
   const player = props.tournament.players[playerId];
   const jokeConfig = player ? JOKE_PLAYERS[player.name] : null;
   if (player && !player.isCaptain && jokeConfig) {
-    triggerJoke(playerId, jokeConfig, () => {
-      console.log(`Failed to select ${player.name}`);
-    });
+    if (jokeConfig.showPopup === false || jokeConfig.jokes.length === 0) {
+      toggleCaptain(playerId);
+      if (jokeConfig.postToast) triggerDelayedToast(jokeConfig.postToast);
+    } else {
+      triggerJoke(playerId, jokeConfig, () => {
+        console.log(`Failed to select ${player.name}`);
+      });
+    }
   } else {
     toggleCaptain(playerId);
   }
@@ -215,17 +222,25 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-      <div>
+  <div class="space-y-3">
+    <div class="grid md:grid-cols-3 gap-6 items-end">
+      <div class="md:col-span-1">
         <h2 class="text-3xl font-bold text-white">{{ tournament.name }}</h2>
         <p class="text-slate-400">Phase: <span class="text-indigo-400 font-semibold">Registration</span></p>
       </div>
-      <div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700">
-        <div class="text-sm text-slate-400">Total Players</div>
-        <div class="text-2xl font-bold text-white font-mono">
-          {{ Object.keys(tournament.players).length }}
-          <span class="text-sm font-normal text-slate-500">/ 27 max</span>
+      <div class="md:col-span-2 flex items-end justify-between gap-3">
+        <select v-if="Object.keys(tournament.players).length > 0"
+                v-model="selectedSeasonId"
+                class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-indigo-500">
+          <option value="all">All Time</option>
+          <option v-for="season in seasons" :key="season.id" :value="season.id">{{ season.name }}</option>
+        </select>
+        <div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 ml-auto">
+          <div class="text-sm text-slate-400">Total Players</div>
+          <div class="text-2xl font-bold text-white font-mono">
+            {{ Object.keys(tournament.players).length }}
+            <span class="text-sm font-normal text-slate-500">/ 27 max</span>
+          </div>
         </div>
       </div>
     </div>
@@ -302,15 +317,7 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
       </div>
 
       <!-- Right Panel: Player List -->
-      <div class="md:col-span-2 space-y-4">
-        <div v-if="Object.keys(tournament.players).length > 0" class="flex items-center justify-end">
-          <select v-model="selectedSeasonId"
-                  class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-indigo-500">
-            <option value="all">All Time</option>
-            <option v-for="season in seasons" :key="season.id" :value="season.id">{{ season.name }}</option>
-          </select>
-        </div>
-
+      <div class="md:col-span-2">
         <div v-if="Object.keys(tournament.players).length === 0"
              class="text-center py-20 text-slate-600 border-2 border-dashed border-slate-800 rounded-xl">
           <i class="ph ph-users text-6xl mb-4 opacity-30"></i>
@@ -495,6 +502,17 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
 
       </div>
     </div>
+    <!-- DELAYED TOAST -->
+    <Transition
+        enter-from-class="opacity-0 -translate-y-3"
+        enter-active-class="transition-all duration-300"
+        leave-to-class="opacity-0 -translate-y-3"
+        leave-active-class="transition-all duration-300">
+      <div v-if="toastMessage"
+           class="fixed top-6 right-6 z-[1002] px-5 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm font-medium shadow-2xl max-w-sm text-center pointer-events-none">
+        {{ toastMessage }}
+      </div>
+    </Transition>
   </Teleport>
 </template>
 
