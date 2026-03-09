@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import type { Tournament, FirestoreUpdate, Track, Condition } from '../types';
 import { TRACK_DICT } from '../utils/trackData';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
+import { playLocalSfx } from '../composables/useVoicelines';
 
 const props = defineProps<{
   tournament: Tournament;
@@ -405,6 +406,32 @@ const rollerTrack = ref<Track | null>(null);
 const rollerCondition = ref<Condition | null>(null);
 const rollerSettled = ref(false);
 
+const showRandomModal = ref(false);
+const slotReel = ref<string[]>([]);
+const slotTranslateY = ref(80);
+
+const getTrackDisplayString = (t: Track) => {
+  const parts = [t.location, `${t.distance}m`];
+  if (t.surface === 'Dirt') parts.push('Dirt');
+  if (t.id.includes('inner')) parts.push('Inner');
+  if (t.id.includes('outer')) parts.push('Outer');
+  return parts.join(' ');
+};
+
+// Given a target visual progress (0–1), returns the normalized time (0–1)
+// at which cubic-bezier(x1, y1, x2, y2) reaches that progress.
+// Solves By(u) = yTarget via binary search, then evaluates Bx(u).
+const invertCubicBezier = (yTarget: number, x1: number, y1: number, x2: number, y2: number): number => {
+  let lo = 0, hi = 1;
+  for (let iter = 0; iter < 60; iter++) {
+    const u = (lo + hi) / 2;
+    const by = 3 * (1 - u) * (1 - u) * u * y1 + 3 * (1 - u) * u * u * y2 + u * u * u;
+    if (by < yTarget) lo = u; else hi = u;
+  }
+  const u = (lo + hi) / 2;
+  return 3 * (1 - u) * (1 - u) * u * x1 + 3 * (1 - u) * u * u * x2 + u * u * u;
+};
+
 const rollRandom = () => {
   const candidates = filteredTracks.value;
   const combos = validConditionCombos.value;
@@ -413,32 +440,62 @@ const rollRandom = () => {
   isRolling.value = true;
   rollerSettled.value = false;
 
-  const totalDuration = 3500;
-  const totalFlips = 20;
-  let flipCount = 0;
+  // 1. Pick the actual winner
+  const winner = rollTrack();
+  const combo = rollCondition();
+  
+  // 2. Build visual reel (40 items)
+  const targetIndex = 40;
+  const reel: string[] = [];
+  for (let i = 0; i < targetIndex; i++) {
+    reel.push(getTrackDisplayString(candidates[Math.floor(Math.random() * candidates.length)]!));
+  }
+  reel.push(getTrackDisplayString(winner));
+  for (let i = 0; i < 5; i++) {
+    reel.push(getTrackDisplayString(candidates[Math.floor(Math.random() * candidates.length)]!));
+  }
 
-  const tick = () => {
-    flipCount++;
-    rollerTrack.value = rollTrack();
-    const combo = rollCondition();
+  slotReel.value = reel;
+  slotTranslateY.value = 80;
+  showRandomModal.value = true;
+
+  // 3. Sync Sound with Bezier Animation
+  // CSS: cubic-bezier(0.15, 0.85, 0.15, 1) over 4000ms, triggered after 100ms.
+  // For each slot boundary crossing, numerically invert the bezier to get the
+  // exact time the reel reaches that position, then add the animation start offset.
+  const animStartDelay = 100;
+  const duration = 4000;
+  const totalTicks = targetIndex;
+
+  for (let i = 1; i <= totalTicks; i++) {
+    const normalizedTime = invertCubicBezier(i / totalTicks, 0.15, 0.85, 0.15, 1);
+    setTimeout(() => {
+      if (showRandomModal.value) {
+        playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3');
+      }
+    }, normalizedTime * duration + animStartDelay);
+  }
+
+  // 4. Trigger visual transition
+  setTimeout(() => {
+    slotTranslateY.value = 80 - (targetIndex * 80);
+  }, animStartDelay);
+
+  // 5. Wait for animation to finish
+  setTimeout(() => {
+    showRandomModal.value = false;
+    isRolling.value = false;
+    rollerTrack.value = winner;
     rollerCondition.value = {
       id: '',
       ground: combo.ground as Condition['ground'],
       weather: combo.weather as Condition['weather'],
       season: combo.season as Condition['season'],
     };
-
-    if (flipCount < totalFlips) {
-      const progress = flipCount / totalFlips;
-      const delay = 80 + progress * progress * (totalDuration / totalFlips * 3);
-      setTimeout(tick, delay);
-    } else {
-      isRolling.value = false;
-      rollerSettled.value = true;
-    }
-  };
-
-  tick();
+    rollerSettled.value = true;
+    // Final satisfying click
+    playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3');
+  }, duration + 500);
 };
 
 const confirmRolledTrack = async () => {
@@ -1035,8 +1092,31 @@ const getSeasonIcon = (s: string) => {
     </div>
   </div>
 
-  <!-- Roll Weights Modal -->
+  <!-- Random Drum Roll Modal -->
   <Teleport to="body">
+    <div v-if="showRandomModal" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md">
+      <h2 class="text-3xl font-bold text-white mb-8 animate-pulse text-center">
+        Rolling <span class="text-indigo-400">Track</span>...
+      </h2>
+
+      <div class="relative w-80 h-[240px] bg-slate-900 border-4 border-slate-700 rounded-xl overflow-hidden shadow-[0_0_50px_rgba(99,102,241,0.3)]">
+
+        <div class="absolute top-[80px] left-0 w-full h-[80px] border-y-2 border-indigo-500 bg-indigo-500/20 z-20 shadow-[inset_0_0_20px_rgba(99,102,241,0.5)] pointer-events-none"></div>
+
+        <div class="w-full flex flex-col transition-transform duration-[4000ms] ease-[cubic-bezier(0.15,0.85,0.15,1)]"
+             :style="{ transform: `translateY(${slotTranslateY}px)` }">
+          <div v-for="(trackStr, idx) in slotReel" :key="idx"
+               class="h-[80px] flex items-center justify-center text-xl font-black text-white uppercase tracking-widest text-center px-4 shrink-0">
+            {{ trackStr }}
+          </div>
+        </div>
+
+        <div class="absolute top-0 left-0 w-full h-[80px] bg-gradient-to-b from-slate-950 to-transparent z-10 pointer-events-none"></div>
+        <div class="absolute bottom-0 left-0 w-full h-[80px] bg-gradient-to-t from-slate-950 to-transparent z-10 pointer-events-none"></div>
+      </div>
+    </div>
+
+    <!-- Roll Weights Modal -->
     <div v-if="showWeightsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showWeightsModal = false">
       <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-96 flex flex-col max-h-[80vh]">
         <!-- Header -->
