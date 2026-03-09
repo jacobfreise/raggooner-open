@@ -1,3 +1,4 @@
+-- Uma Blind Pick Tournament Format --
 Season Two Racc Open 30 <--- tournament name
 Sonntag, 8. März 2026 um 11:00 <--- this is supposed to be a discord timestamp, so each user sees the time in their timezone
 🏆 TRACK: Tokyo Turf 2500m (Left)

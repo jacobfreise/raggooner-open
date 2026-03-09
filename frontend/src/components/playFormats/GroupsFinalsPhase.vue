@@ -9,6 +9,7 @@ import {
   getRankColor,
   getPlayerName,
 } from '../../utils/utils.ts';
+import { getTournamentRules } from '../../utils/rulesData.ts';
 import HallOfFame from "../HallOfFame.vue";
 import DiscordExportPreview from "../DiscordExportPreview.vue";
 import PlayerSelector from "../PlayerSelector.vue";
@@ -98,7 +99,10 @@ const tournamentPlayerIds = computed(() => {
 });
 
 const showBans = ref(false);
+const showRules = ref(false);
 const showUmaPools = ref(false);
+
+const rules = computed(() => getTournamentRules(props.tournamentProp.format));
 
 // --- ACTIVE PHASE TIMER ---
 const now = ref(Date.now());
@@ -310,6 +314,24 @@ const sortedTeamsForModal = computed(() => {
       </div>
 
       <div class="flex-1 pb-3 flex justify-center md:justify-end w-full md:w-auto gap-2 shrink-0">
+        <!-- Rules Toggle -->
+        <button @click="showRules = true"
+                class="relative px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 transition-all flex items-center gap-2"
+                title="Tournament Rules">
+          <i class="ph-bold ph-info text-lg"></i>
+          <span class="text-xs font-bold uppercase tracking-wider hidden sm:inline">Rules</span>
+        </button>
+
+        <!-- Banned List Toggle -->
+<!--        <button v-if="tournament.bans && tournament.bans.length > 0"-->
+<!--                @click="showBans = true"-->
+<!--                class="relative group/ban px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center gap-2"-->
+<!--                title="View Banned Umas">-->
+<!--          <i class="ph-bold ph-prohibit text-lg"></i>-->
+<!--          <span class="text-xs font-bold uppercase tracking-wider hidden sm:inline">Bans</span>-->
+<!--          <span class="bg-red-500 text-white text-[10px] px-1.5 rounded-full font-mono">{{ tournament.bans.length }}</span>-->
+<!--        </button>-->
+
         <button v-if="isAdminRef" @click="showUmaModal = true"
                 class="text-slate-500 hover:text-indigo-400 px-2 transition-colors">
           <i class="ph-bold ph-gear text-xl"></i>
@@ -317,25 +339,6 @@ const sortedTeamsForModal = computed(() => {
       </div>
 
     </div>
-
-<!--    <div v-if="tournament.bans && tournament.bans.length > 0"-->
-<!--         class="flex flex-wrap gap-2">-->
-<!--      <div v-for="uma in tournament.bans" :key="uma"-->
-<!--           class="group/uma flex flex-col items-center gap-1.5 p-2 bg-slate-900/60 border border-red-500/20 rounded-xl hover:border-red-500/50 hover:bg-red-950/30 transition-all duration-300 w-16">-->
-<!--        <div class="relative shrink-0">-->
-<!--          <div class="w-11 h-11 rounded-xl overflow-hidden border border-red-500/20 group-hover/uma:border-red-500/50 transition-colors bg-slate-800">-->
-<!--            <img :src="getUmaImagePath(uma)" :alt="uma"-->
-<!--                 class="w-full h-full object-cover grayscale brightness-75 group-hover/uma:grayscale-0 group-hover/uma:brightness-100 transition-all duration-500" />-->
-<!--          </div>-->
-<!--          <div class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center border-2 border-slate-900">-->
-<!--            <i class="ph-fill ph-prohibit text-white text-[9px]"></i>-->
-<!--          </div>-->
-<!--        </div>-->
-<!--        <span class="text-[9px] font-black uppercase tracking-tighter text-red-400/80 group-hover/uma:text-red-300 transition-colors text-center leading-tight w-full truncate px-0.5">-->
-<!--          {{ uma }}-->
-<!--        </span>-->
-<!--      </div>-->
-<!--    </div>-->
 
     <div v-if="currentView === 'groups' && tournament.teams.length >= 6"
          class="mb-6 bg-indigo-900/20 border border-indigo-500/20 p-3 rounded-lg flex items-center gap-3 text-sm text-indigo-200">
@@ -1223,4 +1226,122 @@ const sortedTeamsForModal = computed(() => {
 
   </div>
 
+  <Teleport to="body">
+    <!-- BANNED LIST DRAWER -->
+<!--    <Transition-->
+<!--        enter-active-class="transition duration-300 ease-out"-->
+<!--        enter-from-class="translate-x-full"-->
+<!--        enter-to-class="translate-x-0"-->
+<!--        leave-active-class="transition duration-200 ease-in"-->
+<!--        leave-from-class="translate-x-0"-->
+<!--        leave-to-class="translate-x-full"-->
+<!--    >-->
+<!--      <div v-if="showBans" class="fixed inset-y-0 right-0 z-[100] w-full max-w-2xl bg-slate-900 shadow-2xl border-l border-red-500/20 flex flex-col">-->
+<!--        &lt;!&ndash; Header &ndash;&gt;-->
+<!--        <div class="p-6 border-b border-slate-800 flex items-center justify-between bg-red-950/10">-->
+<!--          <div class="flex items-center gap-4">-->
+<!--            <div class="w-12 h-12 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20">-->
+<!--              <i class="ph-bold ph-prohibit text-2xl"></i>-->
+<!--            </div>-->
+<!--            <div>-->
+<!--              <h3 class="text-xl font-black text-white uppercase tracking-tighter">Banned Characters</h3>-->
+<!--              <p class="text-xs text-red-400/70 font-bold uppercase tracking-widest">{{ tournament.bans?.length }} restricted from entries</p>-->
+<!--            </div>-->
+<!--          </div>-->
+<!--          <button @click="showBans = false" class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">-->
+<!--            <i class="ph-bold ph-x text-xl"></i>-->
+<!--          </button>-->
+<!--        </div>-->
+
+<!--        &lt;!&ndash; Body &ndash;&gt;-->
+<!--        <div class="flex-1 overflow-y-auto p-6 relative">-->
+<!--          <div class="absolute inset-0 opacity-[0.02] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgNDBMNDAgME0tMTAgMTBMMTAgLTEwTTMwIDUwTDUwIDMwIiBzdHJva2U9IiNmZjAwMDAiIHN0cm9rZS13aWR0aD0iNSIvPjwvc3ZnPg==')]"></div>-->
+<!--          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 relative z-10">-->
+<!--            <div v-for="uma in tournament.bans" :key="uma"-->
+<!--                 class="group/uma flex flex-col items-center gap-2 p-3 bg-slate-800/40 border border-slate-700/50 rounded-xl hover:border-red-500/40 hover:bg-red-950/20 transition-all duration-500">-->
+<!--              <div class="relative">-->
+<!--                <div class="w-20 h-20 rounded-2xl overflow-hidden border-2 border-slate-700 group-hover/uma:border-red-500/40 transition-colors bg-slate-900">-->
+<!--                  <img :src="getUmaImagePath(uma)" :alt="uma" class="w-full h-full object-cover grayscale brightness-75 group-hover/uma:grayscale-0 group-hover/uma:brightness-100" />-->
+<!--                </div>-->
+<!--                <div class="absolute -top-2 -right-2 w-7 h-7 bg-red-600 rounded-full flex items-center justify-center border-2 border-slate-900 animate-pulse">-->
+<!--                  <i class="ph-fill ph-prohibit text-white text-xs"></i>-->
+<!--                </div>-->
+<!--              </div>-->
+<!--              <span class="text-[11px] font-black uppercase tracking-tighter text-slate-400 group-hover/uma:text-red-200 text-center leading-normal">{{ uma }}</span>-->
+<!--            </div>-->
+<!--          </div>-->
+<!--        </div>-->
+<!--      </div>-->
+<!--    </Transition>-->
+
+    <!-- RULES DRAWER -->
+    <Transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-x-0"
+        leave-to-class="translate-x-full"
+    >
+      <div v-if="showRules" class="fixed inset-y-0 right-0 z-[100] w-full max-w-2xl bg-slate-900 shadow-2xl border-l border-indigo-500/20 flex flex-col">
+        <!-- Header -->
+        <div class="p-6 border-b border-slate-800 flex items-center justify-between bg-indigo-950/10">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
+              <i class="ph-bold ph-info text-2xl"></i>
+            </div>
+            <div>
+              <h3 class="text-xl font-black text-white uppercase tracking-tighter">Tournament Rules</h3>
+              <p class="text-xs text-indigo-400/70 font-bold uppercase tracking-widest">Format: {{ tournament.format || 'uma-ban' }}</p>
+            </div>
+          </div>
+          <button @click="showRules = false" class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
+            <i class="ph-bold ph-x text-xl"></i>
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="flex-1 overflow-y-auto p-8 space-y-8">
+          <!-- Unique Rules -->
+          <section v-if="rules.unique.length > 0">
+            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-indigo-400 mb-4 flex items-center gap-2">
+              <i class="ph-fill ph-star text-lg"></i> Format-Specific Rules
+            </h4>
+            <div class="space-y-3">
+              <div v-for="(rule, idx) in rules.unique" :key="idx"
+                   class="p-4 bg-indigo-500/5 border-l-4 border-indigo-500 rounded-r-xl text-sm text-slate-300 leading-relaxed shadow-sm">
+                {{ rule.text }}
+              </div>
+            </div>
+          </section>
+
+          <!-- General Rules -->
+          <section>
+            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-4 flex items-center gap-2">
+              <i class="ph-bold ph-list-checks text-lg"></i> General Regulations
+            </h4>
+            <div class="grid gap-3">
+              <div v-for="(rule, idx) in rules.general" :key="idx"
+                   class="flex items-start gap-3 p-3 bg-slate-800/40 rounded-lg border border-slate-700/50 group hover:border-slate-600 transition-colors">
+                <i class="ph-bold ph-check text-emerald-500 mt-0.5"></i>
+                <span class="text-sm text-slate-400 group-hover:text-slate-200 transition-colors">{{ rule.text }}</span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Backdrop -->
+    <Transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+    >
+      <div v-if="showRules" @click="showRules = false" class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm"></div>
+    </Transition>
+  </Teleport>
 </template>
