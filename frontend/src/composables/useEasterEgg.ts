@@ -20,7 +20,7 @@ export interface JokeConfig {
 
 export const JOKE_PLAYERS: Record<string, JokeConfig> = {
     'Sumpfranze': {
-        showPopup: true,
+        showPopup: false,
         jokes: [
             "Are you absolutely sure? This choice is... questionable.",
             "Sumpfranze? Really? There are better players out there, you know.",
