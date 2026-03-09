@@ -3,13 +3,24 @@ import { ref, watch, type Ref } from 'vue';
 import type { Tournament, EggConfig } from '../types';
 
 // --- REGISTRATION JOKES ---
+export const USE_JOKES = true;
+
+export interface PostToastConfig {
+    message: string;
+    delayMs?: number;   // default 10000
+    durationMs?: number; // default 5000
+}
+
 export interface JokeConfig {
     jokes: string[];
     shouldMove: boolean;
+    showPopup?: boolean;  // default true; set false to skip popup but still fire postToast
+    postToast?: PostToastConfig;
 }
 
 export const JOKE_PLAYERS: Record<string, JokeConfig> = {
     'Sumpfranze': {
+        showPopup: false,
         jokes: [
             "Are you absolutely sure? This choice is... questionable.",
             "Sumpfranze? Really? There are better players out there, you know.",
@@ -17,7 +28,12 @@ export const JOKE_PLAYERS: Record<string, JokeConfig> = {
             "Netanyahu will find your house if you click confirm",
             "Final warning: Click the button to seal your fate. If you can catch it!"
         ],
-        shouldMove: true
+        shouldMove: true,
+        postToast: {
+            message: "Did you expect something to happen? Are you disappointed now?",
+            delayMs: 3000,
+            durationMs: 8000
+        }
     },
     // Add more players here
 };
@@ -29,6 +45,7 @@ export function useJokeConfirmation() {
     const timeLeft = ref(4);
     const activeConfig = ref<JokeConfig | null>(null);
     const targetPlayerId = ref<string | null>(null);
+    const toastMessage = ref<string | null>(null);
     
     let timerInterval: any = null;
     let moveInterval: any = null;
@@ -40,6 +57,15 @@ export function useJokeConfirmation() {
         targetPlayerId.value = null;
         clearInterval(timerInterval);
         clearInterval(moveInterval);
+    };
+
+    const triggerDelayedToast = (config: PostToastConfig) => {
+        setTimeout(() => {
+            toastMessage.value = config.message;
+            setTimeout(() => {
+                toastMessage.value = null;
+            }, config.durationMs ?? 5000);
+        }, config.delayMs ?? 10000);
     };
 
     const nextStep = (onComplete: () => void) => {
@@ -54,8 +80,14 @@ export function useJokeConfirmation() {
             }
         } else {
             const pid = targetPlayerId.value;
+            const config = activeConfig.value;
             reset();
-            if (pid) onComplete();
+            if (pid) {
+                onComplete();
+                if (config.postToast) {
+                    triggerDelayedToast(config.postToast);
+                }
+            }
         }
     };
 
@@ -104,7 +136,9 @@ export function useJokeConfirmation() {
         timeLeft,
         activeConfig,
         targetPlayerId,
+        toastMessage,
         triggerJoke,
+        triggerDelayedToast,
         nextStep,
         reset
     };
