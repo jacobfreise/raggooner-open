@@ -134,10 +134,16 @@ const announcementText = computed(() => {
     );
 });
 
+const fmtLocalDatetime = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const setScheduleToNow = () => { scheduledTimeInput.value = fmtLocalDatetime(new Date()); };
+
 const openScheduleModal = () => {
     if (!props.isAdmin) return;
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const fmt = fmtLocalDatetime;
     if (props.tournament.scheduledTime) {
         scheduledTimeInput.value = fmt(new Date(props.tournament.scheduledTime));
     } else {
@@ -428,9 +434,15 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
         <div class="flex-1 overflow-y-auto p-5 space-y-4">
           <div>
             <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Date & Time</label>
-            <input type="datetime-local"
-                   v-model="scheduledTimeInput"
-                   class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-indigo-500 transition-colors" />
+            <div class="flex gap-2">
+              <input type="datetime-local"
+                     v-model="scheduledTimeInput"
+                     class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-indigo-500 transition-colors" />
+              <button @click="setScheduleToNow"
+                      class="px-3 py-2.5 rounded-lg text-xs font-bold bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-colors whitespace-nowrap">
+                Now
+              </button>
+            </div>
           </div>
 
           <div>
