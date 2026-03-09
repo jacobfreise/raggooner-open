@@ -721,6 +721,13 @@ const getRankIcon = (index: number) => {
                                   <i v-else class="ph-bold ph-caret-down opacity-0 group-hover:opacity-50"></i>
                                 </div>
                               </th>
+                              <th @click="togglePlayerTournamentSort('playedAt')" class="px-3 py-2 text-left text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors group select-none whitespace-nowrap">
+                                <div class="flex items-center gap-1">
+                                  Date
+                                  <i v-if="playerTournamentSortKey === 'playedAt'" class="ph-bold text-indigo-400" :class="playerTournamentSortDesc ? 'ph-caret-down' : 'ph-caret-up'"></i>
+                                  <i v-else class="ph-bold ph-caret-down opacity-0 group-hover:opacity-50"></i>
+                                </div>
+                              </th>
                               <th v-for="col in [
                                     { key: 'uma', label: 'Uma' },
                                     { key: 'finalsStatus', label: 'Perf.' },
@@ -752,6 +759,7 @@ const getRankIcon = (index: number) => {
                                 {{ t.tournamentName }}
                                 <span v-if="t.status === 'active'" class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold uppercase">Live</span>
                               </td>
+                              <td class="px-3 py-2 text-sm text-slate-400 whitespace-nowrap">{{ t.playedAt ? new Date(t.playedAt).toLocaleDateString() : '—' }}</td>
                               <td class="px-3 py-2 text-sm text-left text-slate-300">
                                 <div class="flex items-center justify-start gap-1.5">
                                   <img :src="getUmaImagePath(t.uma)" :alt="t.uma" class="w-5 h-5 rounded-full object-cover shrink-0 bg-slate-700" />
@@ -976,6 +984,7 @@ const getRankIcon = (index: number) => {
                               <th class="px-3 py-2 text-left text-xs font-bold text-slate-400 uppercase tracking-wider w-8">#</th>
                               <th v-for="col in [
                                     { key: 'tournamentName', label: 'Tournament' },
+                                    { key: 'playedAt', label: 'Date' },
                                     { key: 'playerName', label: 'Player' },
                                     { key: 'races', label: 'Races' },
                                     { key: 'wins', label: 'Wins' },
@@ -988,9 +997,9 @@ const getRankIcon = (index: number) => {
                                   :key="col.key"
                                   @click="toggleUmaTournamentSort(col.key)"
                                   class="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors group select-none whitespace-nowrap"
-                                  :class="col.key === 'tournamentName' || col.key === 'playerName' ? 'text-left' : 'text-right'"
+                                  :class="col.key === 'tournamentName' || col.key === 'playedAt' || col.key === 'playerName' ? 'text-left' : 'text-right'"
                               >
-                                <div class="flex items-center gap-1" :class="col.key === 'tournamentName' || col.key === 'playerName' ? '' : 'justify-end'">
+                                <div class="flex items-center gap-1" :class="col.key === 'tournamentName' || col.key === 'playedAt' || col.key === 'playerName' ? '' : 'justify-end'">
                                   {{ col.label }}
                                   <i v-if="umaTournamentSortKey === col.key" class="ph-bold text-indigo-400" :class="umaTournamentSortDesc ? 'ph-caret-down' : 'ph-caret-up'"></i>
                                   <i v-else class="ph-bold ph-caret-down opacity-0 group-hover:opacity-50"></i>
@@ -1003,6 +1012,7 @@ const getRankIcon = (index: number) => {
                             <tr v-for="(row, rIdx) in expandedUmaTournaments" :key="row.tournamentId + '_' + row.playerId" class="hover:bg-slate-700/50 transition-colors">
                               <td class="px-3 py-2 text-xs text-slate-500">{{ rIdx + 1 }}</td>
                               <td class="px-3 py-2 text-sm font-bold text-white">{{ row.tournamentName }}</td>
+                              <td class="px-3 py-2 text-sm text-slate-400 whitespace-nowrap">{{ row.playedAt ? new Date(row.playedAt).toLocaleDateString() : '—' }}</td>
                               <td class="px-3 py-2 text-sm text-slate-300">{{ row.playerName }}</td>
                               <td class="px-3 py-2 text-sm text-right text-slate-400">{{ row.races }}</td>
                               <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ row.wins }}</td>

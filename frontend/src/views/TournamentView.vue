@@ -146,8 +146,19 @@ onUnmounted(() => { cleanupSubscription(); });
 // Replace exitTournament with router navigation
 const exitTournament = () => { router.push('/'); };
 
-const copyId = () => { navigator.clipboard.writeText(tournament.value?.id || ''); alert("ID Copied!"); };
-const copyLink = () => { navigator.clipboard.writeText(window.location.href); alert("Link Copied!"); };
+const showCopyIdSuccess = ref(false);
+const showCopyLinkSuccess = ref(false);
+
+const copyId = async () => {
+  await navigator.clipboard.writeText(tournament.value?.id || '');
+  showCopyIdSuccess.value = true;
+  setTimeout(() => { showCopyIdSuccess.value = false; }, 2500);
+};
+const copyLink = async () => {
+  await navigator.clipboard.writeText(window.location.href);
+  showCopyLinkSuccess.value = true;
+  setTimeout(() => { showCopyLinkSuccess.value = false; }, 2500);
+};
 const tData = computed(() => tournament.value as Tournament);
 
 // Admin Point Editing Logic (Your existing setup)
@@ -195,12 +206,22 @@ const savePointsSystem = async () => {
                 {{ isAdmin ? 'Admin' : 'Viewer' }}
               </button>
 
-              <div class="hidden md:flex flex-col items-end">
-                <button @click="copyId" class="text-sm font-mono text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
-                  Tournament ID <i class="ph ph-copy"></i>
+              <div class="hidden md:flex items-center gap-1.5">
+                <button @click="copyId"
+                        class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-all"
+                        :class="showCopyIdSuccess
+                          ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
+                          : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'">
+                  <i :class="showCopyIdSuccess ? 'ph-bold ph-check' : 'ph-bold ph-copy'" class="text-xs"></i>
+                  {{ showCopyIdSuccess ? 'Copied!' : 'ID' }}
                 </button>
-                <button @click="copyLink" class="text-sm font-mono text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
-                  Link <i class="ph ph-share"></i>
+                <button @click="copyLink"
+                        class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-all"
+                        :class="showCopyLinkSuccess
+                          ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
+                          : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'">
+                  <i :class="showCopyLinkSuccess ? 'ph-bold ph-check' : 'ph-bold ph-share'" class="text-xs"></i>
+                  {{ showCopyLinkSuccess ? 'Copied!' : 'Link' }}
                 </button>
               </div>
 

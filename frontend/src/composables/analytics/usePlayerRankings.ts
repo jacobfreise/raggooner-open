@@ -276,7 +276,7 @@ export function usePlayerRankings(
     const buildRow = (part: any, rowKey: string, stats: any, overrides: any) => {
       const t = filteredTournaments.value.find(tourney => tourney.id === part.tournamentId);
       return {
-        rowKey, tournamentId: part.tournamentId, tournamentName: t?.name || part.tournamentId, status: t?.status || 'unknown',
+        rowKey, tournamentId: part.tournamentId, tournamentName: t?.name || part.tournamentId, playedAt: t?.playedAt ?? t?.createdAt ?? '', status: t?.status || 'unknown',
         uma: part.uma || '-', isWildcard: overrides.isWildcard, wildcardGroup: overrides.wildcardGroup || null,
         finalsStatus: overrides.finalsStatus, teamRank: overrides.teamRank ?? null,
         races: stats.races, wins: stats.wins, winRate: stats.races > 0 ? Math.round((stats.wins / stats.races) * 100 * 10) / 10 : 0,
