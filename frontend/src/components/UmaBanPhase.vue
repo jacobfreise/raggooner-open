@@ -203,10 +203,10 @@ const resetBanTimer = async () => {
             <div class="flex items-center gap-2 text-sm text-amber-400">
               <i class="ph-fill ph-crown"></i> {{ getPlayerName(tournament, team.captainId) }}
             </div>
-            <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ml-2">
+            <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300">
               <i class="ph-fill ph-user"></i> {{ getPlayerName(tournament, memberId) }}
             </div>
-            <div v-for="n in (2 - team.memberIds.length)" :key="n" class="flex items-center gap-2 text-sm text-slate-700 ml-2 border-dashed border border-slate-800 p-1 rounded">
+            <div v-for="n in (2 - team.memberIds.length)" :key="n" class="flex items-center gap-2 text-sm text-slate-700 border-dashed border border-slate-800 p-1 rounded">
               <span class="text-xs">Empty Slot</span>
             </div>
           </div>
