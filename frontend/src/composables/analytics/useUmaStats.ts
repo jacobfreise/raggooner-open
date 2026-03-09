@@ -229,7 +229,7 @@ export function useUmaStats(
       });
 
       return {
-        tournamentId: part.tournamentId, tournamentName: tName, playerId: part.playerId, playerName,
+        tournamentId: part.tournamentId, tournamentName: tName, playedAt: t?.playedAt ?? t?.createdAt ?? '', playerId: part.playerId, playerName,
         races, wins, winRate: races > 0 ? Math.round((wins / races) * 100 * 10) / 10 : 0,
         totalPoints, avgPoints: races > 0 ? Math.round((totalPoints / races) * 10) / 10 : 0,
         dominance: opponentsFaced > 0 ? Math.round((opponentsBeaten / opponentsFaced) * 100 * 10) / 10 : 0,
