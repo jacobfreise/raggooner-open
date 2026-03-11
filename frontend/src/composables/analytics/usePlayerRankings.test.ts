@@ -48,7 +48,7 @@ describe('usePlayerRankings', () => {
 
   it('calculates player rankings correctly', () => {
     const { playerRankings } = usePlayerRankings(
-      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion
+      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
 
     expect(playerRankings.value).toHaveLength(2);
@@ -60,14 +60,14 @@ describe('usePlayerRankings', () => {
   it('filters by minTournaments', () => {
     minTournaments.value = 2;
     const { playerRankings } = usePlayerRankings(
-      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion
+      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
     expect(playerRankings.value).toHaveLength(0);
   });
 
   it('handles expanded player details', () => {
     const { expandedPlayerId, togglePlayerExpand, expandedPlayerUmas, expandedPlayerTournaments } = usePlayerRankings(
-      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion
+      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
 
     togglePlayerExpand('p1');
@@ -78,7 +78,7 @@ describe('usePlayerRankings', () => {
 
   it('assigns tiers correctly', () => {
     const { playerTierList } = usePlayerRankings(
-      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion
+      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
     const sTier = playerTierList.value.find(t => t.tier === 'S');
     expect(sTier?.entries).toContainEqual(expect.objectContaining({ player: expect.objectContaining({ id: 'p1' }) }));
@@ -86,7 +86,7 @@ describe('usePlayerRankings', () => {
 
   it('sorts players correctly', () => {
     const { playerRankings, playerSortKey, playerSortDesc, togglePlayerSort } = usePlayerRankings(
-      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion
+      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
 
     playerSortKey.value = 'totalPoints';
@@ -99,7 +99,7 @@ describe('usePlayerRankings', () => {
 
   it('handles topPlayerCriterion correctly', () => {
     const { topPlayers, topPlayerCriterion } = usePlayerRankings(
-      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion
+      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
     topPlayerCriterion.value = 'totalPoints';
     expect(topPlayers.value[0].player.id).toBe('p1');
@@ -107,7 +107,7 @@ describe('usePlayerRankings', () => {
 
   it('sorts by name correctly', () => {
     const { playerRankings, playerSortKey, playerSortDesc, togglePlayerSort } = usePlayerRankings(
-      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion
+      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
     playerSortKey.value = 'name';
     playerSortDesc.value = false; 
@@ -118,7 +118,7 @@ describe('usePlayerRankings', () => {
 
   it('toggles detail tabs correctly', () => {
     const { expandedDetailTab, togglePlayerExpand, expandedPlayerId } = usePlayerRankings(
-      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion
+      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
     togglePlayerExpand('p1');
     expandedDetailTab.value = 'umas';

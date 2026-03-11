@@ -26,14 +26,17 @@ const {
   loadData, forceRefreshAnalytics, toggleSeason, toggleFormat, toggleSurface, toggleDistanceType, toggleLocation
 } = useAnalyticsData();
 
+// Stage view (global)
+const stageView = ref<'total' | 'groups' | 'finals'>('total');
+
 // 2. Player Rankings Layer
 const {
   playerRankings, expandedPlayerTournaments, expandedPlayerUmas, topPlayers, playerTierList,
   playerSortKey, playerSortDesc, expandedPlayerId, expandedDetailTab,
   playerUmaSortKey, playerUmaSortDesc, playerTournamentSortKey, playerTournamentSortDesc,
   topPlayerCriterion,
-  togglePlayerSort, togglePlayerExpand, togglePlayerUmaSort, togglePlayerTournamentSort, getStatValue
-} = usePlayerRankings(players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion);
+  togglePlayerSort, togglePlayerExpand, togglePlayerUmaSort, togglePlayerTournamentSort
+} = usePlayerRankings(players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, stageView);
 
 // 3. Uma Stats Layer
 const {
@@ -42,7 +45,7 @@ const {
   umaPlayerSortKey, umaPlayerSortDesc, umaTournamentSortKey, umaTournamentSortDesc,
   topUmaCriterion,
   toggleUmaSort, toggleUmaExpand, toggleUmaPlayerSort, toggleUmaTournamentSort
-} = useUmaStats(players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion);
+} = useUmaStats(players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, stageView);
 
 // 4. Diagrams Layer
 const {
@@ -50,7 +53,7 @@ const {
   diagramMode, diagramMetric, diagramSubject, diagramColorMap, diagramUmaColorMap,
   playerTimelineData, diagramAvailableUmas, umaTimelineData,
   toggleDiagramPlayer, toggleDiagramUma
-} = useDiagrams(players, filteredTournaments, filteredRaces, playerRankings, activeTab);
+} = useDiagrams(players, filteredTournaments, filteredRaces, playerRankings, activeTab, stageView);
 
 onMounted(loadData);
 
@@ -122,6 +125,62 @@ const getRankIcon = (index: number) => {
   if (index === 2) return 'ph-fill ph-medal';
   return 'ph-fill ph-user-circle';
 };
+
+// ── Stage selector (global) ───────────────────────────────────────────────────
+function setStage(s: 'total' | 'groups' | 'finals') {
+  stageView.value = s;
+}
+
+const STAGE_KEY_MAP = {
+  groups: {
+    races: 'groupRaces', wins: 'groupWins', winRate: 'groupWinRate',
+    totalPoints: 'groupTotalPoints', avgPoints: 'avgGroupPoints',
+    dominance: 'groupDominance', avgPosition: 'groupAvgPosition',
+    timesPlayed: 'groupRaces', racesPlayed: 'groupRaces',
+  },
+  finals: {
+    races: 'finalsRaces', wins: 'finalsWins', winRate: 'finalsWinRate',
+    totalPoints: 'finalsTotalPoints', avgPoints: 'avgFinalsPoints',
+    dominance: 'finalsDominance', avgPosition: 'finalsAvgPosition',
+    timesPlayed: 'finalsRaces', racesPlayed: 'finalsRaces',
+  },
+} as const;
+
+function stageKey(col: string): string {
+  if (stageView.value === 'total') return col;
+  return (STAGE_KEY_MAP[stageView.value] as Record<string, string>)[col] ?? col;
+}
+
+function stageStatValue(item: any, criterion: string): number {
+  return item[stageKey(criterion)] || 0;
+}
+
+// ── Performance indicators (finals vs groups comparison) ──────────────────────
+type PerfLevel = 'much-better' | 'better' | 'same' | 'worse' | 'much-worse';
+
+const PERF_STYLES: Record<PerfLevel, { icon: string; color: string; label: string }> = {
+  'much-better': { icon: 'ph-fill ph-trend-up',    color: 'text-emerald-400', label: 'Much better in finals' },
+  'better':      { icon: 'ph-bold ph-arrow-up',    color: 'text-green-400',   label: 'Better in finals' },
+  'same':        { icon: 'ph-bold ph-minus',        color: 'text-slate-500',   label: 'Similar in finals' },
+  'worse':       { icon: 'ph-bold ph-arrow-down',  color: 'text-amber-400',   label: 'Worse in finals' },
+  'much-worse':  { icon: 'ph-fill ph-trend-down',  color: 'text-red-400',     label: 'Much worse in finals' },
+};
+
+function perfIndicator(
+  groupVal: number, finalsVal: number,
+  lowerIsBetter = false,
+  thresholds: [number, number, number, number] = [10, 3, -3, -10]
+): (typeof PERF_STYLES[PerfLevel] & { level: PerfLevel }) | null {
+  if (groupVal === 0 && finalsVal === 0) return null;
+  const diff = lowerIsBetter ? groupVal - finalsVal : finalsVal - groupVal;
+  let level: PerfLevel;
+  if (diff >= thresholds[0])      level = 'much-better';
+  else if (diff >= thresholds[1]) level = 'better';
+  else if (diff > thresholds[2])  level = 'same';
+  else if (diff > thresholds[3])  level = 'worse';
+  else                            level = 'much-worse';
+  return { ...PERF_STYLES[level], level };
+}
 </script>
 <template>
   <div class="w-full flex flex-col min-h-full">
@@ -376,6 +435,26 @@ const getRankIcon = (index: number) => {
             </button>
           </div>
         </div>
+
+        <div class="hidden lg:block w-px h-16 bg-slate-700"></div>
+        <div class="lg:hidden w-full h-px bg-slate-700"></div>
+
+        <div class="flex flex-col">
+          <label class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+            Stage
+          </label>
+          <div class="flex items-center gap-1 bg-slate-900 rounded-lg p-1">
+            <button v-for="s in [{ key: 'total', label: 'Total' }, { key: 'groups', label: 'Groups' }, { key: 'finals', label: 'Finals' }]"
+                    :key="s.key"
+                    @click="setStage(s.key as 'total' | 'groups' | 'finals')"
+                    class="px-3 py-1.5 text-xs font-bold rounded transition-colors"
+                    :class="stageView === s.key
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-slate-400 hover:text-white'">
+              {{ s.label }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="flex justify-center gap-2 border-b border-slate-700 overflow-x-auto hide-scrollbar">
@@ -468,7 +547,7 @@ const getRankIcon = (index: number) => {
                 </div>
 
                 <div class="text-right">
-                  <div class="text-lg font-bold text-white">{{ (player as any)[TOP5_CRITERIA[topPlayerCriterion].playerKey] }}{{ TOP5_CRITERIA[topPlayerCriterion].suffix }}</div>
+                  <div class="text-lg font-bold text-white">{{ (player as any)[stageKey(TOP5_CRITERIA[topPlayerCriterion].playerKey)] }}{{ TOP5_CRITERIA[topPlayerCriterion].suffix }}</div>
                   <div class="text-xs text-slate-400">{{ TOP5_CRITERIA[topPlayerCriterion].label.toLowerCase() }}</div>
                 </div>
               </div>
@@ -509,7 +588,7 @@ const getRankIcon = (index: number) => {
                 </div>
 
                 <div class="text-right">
-                  <div class="text-lg font-bold text-emerald-400">{{ (uma as any)[TOP5_CRITERIA[topUmaCriterion].umaKey] }}{{ TOP5_CRITERIA[topUmaCriterion].suffix }}</div>
+                  <div class="text-lg font-bold text-emerald-400">{{ (uma as any)[stageKey(TOP5_CRITERIA[topUmaCriterion].umaKey)] }}{{ TOP5_CRITERIA[topUmaCriterion].suffix }}</div>
                   <div class="text-xs text-slate-400">{{ TOP5_CRITERIA[topUmaCriterion].label.toLowerCase() }}</div>
                 </div>
               </div>
@@ -592,13 +671,41 @@ const getRankIcon = (index: number) => {
                   <td class="px-4 py-3 text-sm text-right font-bold text-amber-400">{{ player.tournamentWins }}</td>
                   <td class="px-4 py-3 text-sm text-right font-bold text-amber-400">{{ player.tournamentWinRate }}%</td>
 
-                  <td class="px-4 py-3 text-sm text-right text-slate-300">{{ player.races }}</td>
-                  <td class="px-4 py-3 text-sm text-right text-emerald-400">{{ player.wins }}</td>
-                  <td class="px-4 py-3 text-sm text-right font-bold text-emerald-400">{{ player.winRate }}%</td>
-                  <td class="px-4 py-3 text-sm text-right font-bold text-white">{{ player.totalPoints }}</td>
-                  <td class="px-4 py-3 text-sm text-right text-indigo-400">{{ player.avgPoints }}</td>
-                  <td class="px-4 py-3 text-sm text-right font-bold text-rose-400">{{ player.dominance }}%</td>
-                  <td class="px-4 py-3 text-sm text-right font-bold text-slate-400">{{ player.avgPosition }}</td>
+                  <td class="px-4 py-3 text-sm text-right text-slate-300">{{ (player as any)[stageKey('races')] }}</td>
+                  <td class="px-4 py-3 text-sm text-right text-emerald-400">{{ (player as any)[stageKey('wins')] }}</td>
+                  <td class="px-4 py-3 text-sm text-right font-bold text-emerald-400">
+                    <div class="flex items-center justify-end gap-1">
+                      {{ (player as any)[stageKey('winRate')] }}%
+                      <template v-for="pf in [perfIndicator(player.groupWinRate, player.finalsWinRate, false, [10, 3, -3, -10])]">
+                        <i v-if="pf" :class="[pf.icon, pf.color, 'text-[10px] shrink-0']" :title="pf.label"></i>
+                      </template>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-right font-bold text-white">{{ (player as any)[stageKey('totalPoints')] }}</td>
+                  <td class="px-4 py-3 text-sm text-right text-indigo-400">
+                    <div class="flex items-center justify-end gap-1">
+                      {{ (player as any)[stageKey('avgPoints')] }}
+                      <template v-for="pf in [perfIndicator(player.avgGroupPoints, player.avgFinalsPoints, false, [3, 1, -1, -3])]">
+                        <i v-if="pf" :class="[pf.icon, pf.color, 'text-[10px] shrink-0']" :title="pf.label"></i>
+                      </template>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-right font-bold text-rose-400">
+                    <div class="flex items-center justify-end gap-1">
+                      {{ (player as any)[stageKey('dominance')] }}%
+                      <template v-for="pf in [perfIndicator(player.groupDominance, player.finalsDominance, false, [10, 3, -3, -10])]">
+                        <i v-if="pf" :class="[pf.icon, pf.color, 'text-[10px] shrink-0']" :title="pf.label"></i>
+                      </template>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-right font-bold text-slate-400">
+                    <div class="flex items-center justify-end gap-1">
+                      {{ (player as any)[stageKey('avgPosition')] }}
+                      <template v-for="pf in [perfIndicator(player.groupAvgPosition, player.finalsAvgPosition, true, [0.5, 0.2, -0.2, -0.5])]">
+                        <i v-if="pf" :class="[pf.icon, pf.color, 'text-[10px] shrink-0']" :title="pf.label"></i>
+                      </template>
+                    </div>
+                  </td>
                 </tr>
 
                 <tr v-if="expandedPlayerId === player.player.id" class="bg-slate-900/50">
@@ -776,13 +883,41 @@ const getRankIcon = (index: number) => {
                                   <span v-else-if="!t.isWildcard" class="text-slate-600">-</span>
                                 </div>
                               </td>
-                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ t.races }}</td>
-                              <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ t.wins }}</td>
-                              <td class="px-3 py-2 text-sm text-right font-bold text-emerald-400">{{ t.winRate }}%</td>
-                              <td class="px-3 py-2 text-sm text-right font-bold text-white">{{ t.totalPoints }}</td>
-                              <td class="px-3 py-2 text-sm text-right text-indigo-400">{{ t.avgPoints }}</td>
-                              <td class="px-3 py-2 text-sm text-right font-bold text-purple-400">{{ t.dominance }}%</td>
-                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ t.avgPosition }}</td>
+                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ (t as any)[stageKey('races')] }}</td>
+                              <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ (t as any)[stageKey('wins')] }}</td>
+                              <td class="px-3 py-2 text-sm text-right font-bold text-emerald-400">
+                                <div class="flex items-center justify-end gap-1">
+                                  {{ (t as any)[stageKey('winRate')] }}%
+                                  <template v-for="pf in [perfIndicator(t.groupWinRate, t.finalsWinRate, false, [10, 3, -3, -10])]">
+                                    <i v-if="pf" :class="[pf.icon, pf.color, 'text-[10px] shrink-0']" :title="pf.label"></i>
+                                  </template>
+                                </div>
+                              </td>
+                              <td class="px-3 py-2 text-sm text-right font-bold text-white">{{ (t as any)[stageKey('totalPoints')] }}</td>
+                              <td class="px-3 py-2 text-sm text-right text-indigo-400">
+                                <div class="flex items-center justify-end gap-1">
+                                  {{ (t as any)[stageKey('avgPoints')] }}
+                                  <template v-for="pf in [perfIndicator(t.avgGroupPoints, t.avgFinalsPoints, false, [3, 1, -1, -3])]">
+                                    <i v-if="pf" :class="[pf.icon, pf.color, 'text-[10px] shrink-0']" :title="pf.label"></i>
+                                  </template>
+                                </div>
+                              </td>
+                              <td class="px-3 py-2 text-sm text-right font-bold text-purple-400">
+                                <div class="flex items-center justify-end gap-1">
+                                  {{ (t as any)[stageKey('dominance')] }}%
+                                  <template v-for="pf in [perfIndicator(t.groupDominance, t.finalsDominance, false, [10, 3, -3, -10])]">
+                                    <i v-if="pf" :class="[pf.icon, pf.color, 'text-[10px] shrink-0']" :title="pf.label"></i>
+                                  </template>
+                                </div>
+                              </td>
+                              <td class="px-3 py-2 text-sm text-right text-slate-400">
+                                <div class="flex items-center justify-end gap-1">
+                                  {{ (t as any)[stageKey('avgPosition')] }}
+                                  <template v-for="pf in [perfIndicator(t.groupAvgPosition, t.finalsAvgPosition, true, [0.5, 0.2, -0.2, -0.5])]">
+                                    <i v-if="pf" :class="[pf.icon, pf.color, 'text-[10px] shrink-0']" :title="pf.label"></i>
+                                  </template>
+                                </div>
+                              </td>
                               <td class="px-3 py-2 text-right">
                                 <router-link :to="'/t/' + t.tournamentId" class="text-indigo-400 hover:text-indigo-300 transition-colors">
                                   <i class="ph-bold ph-arrow-right"></i>
@@ -837,12 +972,12 @@ const getRankIcon = (index: number) => {
                                 </div>
                               </td>
                               <td class="px-3 py-2 text-sm text-right text-slate-300">{{ uma.picks }}</td>
-                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ uma.racesPlayed }}</td>
-                              <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ uma.wins }}</td>
-                              <td class="px-3 py-2 text-sm text-right font-bold text-emerald-400">{{ uma.winRate }}%</td>
-                              <td class="px-3 py-2 text-sm text-right text-indigo-400">{{ uma.avgPoints }}</td>
-                              <td class="px-3 py-2 text-sm text-right font-bold text-purple-400">{{ uma.dominance }}%</td>
-                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ uma.avgPosition }}</td>
+                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ (uma as any)[stageKey('racesPlayed')] }}</td>
+                              <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ (uma as any)[stageKey('wins')] }}</td>
+                              <td class="px-3 py-2 text-sm text-right font-bold text-emerald-400">{{ (uma as any)[stageKey('winRate')] }}%</td>
+                              <td class="px-3 py-2 text-sm text-right text-indigo-400">{{ (uma as any)[stageKey('avgPoints')] }}</td>
+                              <td class="px-3 py-2 text-sm text-right font-bold text-purple-400">{{ (uma as any)[stageKey('dominance')] }}%</td>
+                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ (uma as any)[stageKey('avgPosition')] }}</td>
                             </tr>
                             </tbody>
                           </table>
@@ -940,12 +1075,12 @@ const getRankIcon = (index: number) => {
                   <td class="px-4 py-3 text-sm text-right text-slate-300">{{ uma.tournamentCount }}/{{ uma.availableTournaments }}</td>
                   <td class="px-4 py-3 text-sm text-right font-bold text-amber-400">{{ uma.presence }}%</td>
 
-                  <td class="px-4 py-3 text-sm text-right text-slate-400">{{ uma.timesPlayed }}</td>
-                  <td class="px-4 py-3 text-sm text-right text-emerald-400">{{ uma.wins }}</td>
-                  <td class="px-4 py-3 text-sm text-right font-bold text-emerald-400">{{ uma.winRate }}%</td>
-                  <td class="px-4 py-3 text-sm text-right text-indigo-400">{{ uma.avgPoints }}</td>
-                  <td class="px-4 py-3 text-sm text-right font-bold text-purple-400">{{ uma.dominance }}%</td>
-                  <td class="px-4 py-3 text-sm text-right text-slate-400">{{ uma.avgPosition }}</td>
+                  <td class="px-4 py-3 text-sm text-right text-slate-400">{{ (uma as any)[stageKey('timesPlayed')] }}</td>
+                  <td class="px-4 py-3 text-sm text-right text-emerald-400">{{ (uma as any)[stageKey('wins')] }}</td>
+                  <td class="px-4 py-3 text-sm text-right font-bold text-emerald-400">{{ (uma as any)[stageKey('winRate')] }}%</td>
+                  <td class="px-4 py-3 text-sm text-right text-indigo-400">{{ (uma as any)[stageKey('avgPoints')] }}</td>
+                  <td class="px-4 py-3 text-sm text-right font-bold text-purple-400">{{ (uma as any)[stageKey('dominance')] }}%</td>
+                  <td class="px-4 py-3 text-sm text-right text-slate-400">{{ (uma as any)[stageKey('avgPosition')] }}</td>
                 </tr>
 
                 <tr v-if="expandedUmaName === uma.name">
@@ -1014,13 +1149,13 @@ const getRankIcon = (index: number) => {
                               <td class="px-3 py-2 text-sm font-bold text-white">{{ row.tournamentName }}</td>
                               <td class="px-3 py-2 text-sm text-slate-400 whitespace-nowrap">{{ row.playedAt ? new Date(row.playedAt).toLocaleDateString() : '—' }}</td>
                               <td class="px-3 py-2 text-sm text-slate-300">{{ row.playerName }}</td>
-                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ row.races }}</td>
-                              <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ row.wins }}</td>
-                              <td class="px-3 py-2 text-sm text-right font-bold text-emerald-400">{{ row.winRate }}%</td>
-                              <td class="px-3 py-2 text-sm text-right font-bold text-white">{{ row.totalPoints }}</td>
-                              <td class="px-3 py-2 text-sm text-right text-indigo-400">{{ row.avgPoints }}</td>
-                              <td class="px-3 py-2 text-sm text-right font-bold text-purple-400">{{ row.dominance }}%</td>
-                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ row.avgPosition }}</td>
+                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ (row as any)[stageKey('races')] }}</td>
+                              <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ (row as any)[stageKey('wins')] }}</td>
+                              <td class="px-3 py-2 text-sm text-right font-bold text-emerald-400">{{ (row as any)[stageKey('winRate')] }}%</td>
+                              <td class="px-3 py-2 text-sm text-right font-bold text-white">{{ (row as any)[stageKey('totalPoints')] }}</td>
+                              <td class="px-3 py-2 text-sm text-right text-indigo-400">{{ (row as any)[stageKey('avgPoints')] }}</td>
+                              <td class="px-3 py-2 text-sm text-right font-bold text-purple-400">{{ (row as any)[stageKey('dominance')] }}%</td>
+                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ (row as any)[stageKey('avgPosition')] }}</td>
                               <td class="px-3 py-2 text-right">
                                 <router-link :to="'/t/' + row.tournamentId" class="text-indigo-400 hover:text-indigo-300 transition-colors">
                                   <i class="ph-bold ph-arrow-right"></i>
@@ -1066,13 +1201,13 @@ const getRankIcon = (index: number) => {
                               <td class="px-3 py-2 text-xs text-slate-500">{{ rIdx + 1 }}</td>
                               <td class="px-3 py-2 text-sm font-bold text-white">{{ row.playerName }}</td>
                               <td class="px-3 py-2 text-sm text-right text-slate-300">{{ row.tournaments }}</td>
-                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ row.racesPlayed }}</td>
-                              <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ row.wins }}</td>
-                              <td class="px-3 py-2 text-sm text-right font-bold text-emerald-400">{{ row.winRate }}%</td>
-                              <td class="px-3 py-2 text-sm text-right font-bold text-white">{{ row.totalPoints }}</td>
-                              <td class="px-3 py-2 text-sm text-right text-indigo-400">{{ row.avgPoints }}</td>
-                              <td class="px-3 py-2 text-sm text-right font-bold text-purple-400">{{ row.dominance }}%</td>
-                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ row.avgPosition }}</td>
+                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ (row as any)[stageKey('racesPlayed')] }}</td>
+                              <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ (row as any)[stageKey('wins')] }}</td>
+                              <td class="px-3 py-2 text-sm text-right font-bold text-emerald-400">{{ (row as any)[stageKey('winRate')] }}%</td>
+                              <td class="px-3 py-2 text-sm text-right font-bold text-white">{{ (row as any)[stageKey('totalPoints')] }}</td>
+                              <td class="px-3 py-2 text-sm text-right text-indigo-400">{{ (row as any)[stageKey('avgPoints')] }}</td>
+                              <td class="px-3 py-2 text-sm text-right font-bold text-purple-400">{{ (row as any)[stageKey('dominance')] }}%</td>
+                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ (row as any)[stageKey('avgPosition')] }}</td>
                             </tr>
                             </tbody>
                           </table>
@@ -1133,7 +1268,7 @@ const getRankIcon = (index: number) => {
                         class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 flex items-center gap-2 hover:border-slate-500 transition-colors"
                     >
                       <span class="font-bold text-white text-sm">{{ p.player.name }}</span>
-                      <span class="text-xs px-1.5 py-0.5 rounded font-bold" :class="tier.text + ' bg-slate-900'">{{ getStatValue(p, tierCriterion) }}{{ TIER_CRITERIA[tierCriterion].suffix }}</span>
+                      <span class="text-xs px-1.5 py-0.5 rounded font-bold" :class="tier.text + ' bg-slate-900'">{{ stageStatValue(p, tierCriterion) }}{{ TIER_CRITERIA[tierCriterion].suffix }}</span>
                     </div>
                   </div>
                 </div>
@@ -1170,7 +1305,7 @@ const getRankIcon = (index: number) => {
                     >
                       <img :src="getUmaImagePath(u.name)" :alt="u.name" class="w-6 h-6 rounded-full object-cover shrink-0 bg-slate-700" />
                       <span class="font-bold text-white text-sm">{{ u.name }}</span>
-                      <span class="text-xs px-1.5 py-0.5 rounded font-bold" :class="tier.text + ' bg-slate-900'">{{ getStatValue(u, tierCriterion) }}{{ TIER_CRITERIA[tierCriterion].suffix }}</span>
+                      <span class="text-xs px-1.5 py-0.5 rounded font-bold" :class="tier.text + ' bg-slate-900'">{{ stageStatValue(u, tierCriterion) }}{{ TIER_CRITERIA[tierCriterion].suffix }}</span>
                     </div>
                   </div>
                 </div>
@@ -1241,12 +1376,6 @@ const getRankIcon = (index: number) => {
 
       <!-- ==================== DIAGRAMS TAB ==================== -->
       <div v-if="activeTab === 'diagrams'" class="space-y-4">
-
-        <!-- Disclaimer -->
-        <div class="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 text-amber-300 text-sm">
-          <i class="ph-bold ph-warning shrink-0 mt-0.5 text-base"></i>
-          <span>This is a new feature currently in development — data shown may contain errors.</span>
-        </div>
 
         <!-- Shared controls: subject + metric + mode -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 flex flex-wrap gap-3 items-center justify-between">

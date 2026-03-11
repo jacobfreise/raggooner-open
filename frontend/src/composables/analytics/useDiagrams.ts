@@ -3,6 +3,7 @@ import type { GlobalPlayer, Tournament } from '../../types';
 import { POINTS_SYSTEM } from "../../utils/constants.ts";
 import type { DerivedRace } from '../../utils/analyticsUtils';
 
+
 export interface ChartDataset {
   label: string;
   color: string;
@@ -22,7 +23,8 @@ export function useDiagrams(
   filteredTournaments: Ref<Tournament[]>,
   filteredRaces: Ref<DerivedRace[]>,
   playerRankings: Ref<any[]>,
-  activeTab: Ref<string>
+  activeTab: Ref<string>,
+  stageView: Ref<'total' | 'groups' | 'finals'>
 ) {
   const diagramSelectedPlayerIds = ref<string[]>([]);
   const diagramSelectedUmaNames = ref<string[]>([]);
@@ -62,6 +64,15 @@ export function useDiagrams(
       new Date(a.playedAt ?? a.createdAt).getTime() - new Date(b.playedAt ?? b.createdAt).getTime()
     )
   );
+
+  const tournamentHasGroupsMap = computed(() => {
+    const map = new Map<string, boolean>();
+    filteredTournaments.value.forEach(t => {
+      const uniqueGroups = new Set((t.teams ?? []).map(tm => tm.group));
+      map.set(t.id, uniqueGroups.size > 1);
+    });
+    return map;
+  });
 
   const tournamentPointSystemMap = computed(() => {
     const map = new Map<string, Record<number, number>>();
@@ -108,8 +119,13 @@ export function useDiagrams(
       const meta: (string | null)[] = [];
       const points: (number | null)[] = sortedT.map(t => {
         const psys = tournamentPointSystemMap.value.get(t.id) ?? POINTS_SYSTEM;
-        const tRaces = filteredRaces.value.filter(r => r.tournamentId === t.id);
-        const uma = tRaces.find(r => r.umaMapping[playerId])?.umaMapping[playerId] ?? null;
+        const hasGroups = tournamentHasGroupsMap.value.get(t.id) ?? false;
+        const allTRaces = filteredRaces.value.filter(r => r.tournamentId === t.id);
+        const tRaces = stageView.value === 'total' ? allTRaces : allTRaces.filter(r => {
+          const isFinalsRace = r.stage === 'finals' || !hasGroups;
+          return stageView.value === 'finals' ? isFinalsRace : !isFinalsRace;
+        });
+        const uma = allTRaces.find(r => r.umaMapping[playerId])?.umaMapping[playerId] ?? null;
         meta.push(uma);
 
         if (metric === 'avg-points') {
@@ -185,7 +201,12 @@ export function useDiagrams(
 
       const points: (number | null)[] = sortedT.map(t => {
         const psys = tournamentPointSystemMap.value.get(t.id) ?? POINTS_SYSTEM;
-        const tRaces = filteredRaces.value.filter(r => r.tournamentId === t.id);
+        const hasGroups = tournamentHasGroupsMap.value.get(t.id) ?? false;
+        const allTRaces = filteredRaces.value.filter(r => r.tournamentId === t.id);
+        const tRaces = stageView.value === 'total' ? allTRaces : allTRaces.filter(r => {
+          const isFinalsRace = r.stage === 'finals' || !hasGroups;
+          return stageView.value === 'finals' ? isFinalsRace : !isFinalsRace;
+        });
 
         if (metric === 'avg-points') {
           let totalPts = 0, raceCount = 0;

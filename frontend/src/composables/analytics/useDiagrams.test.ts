@@ -31,7 +31,7 @@ describe('useDiagrams', () => {
 
   it('initializes with correct defaults', () => {
     const { diagramMode, diagramMetric, diagramSubject } = useDiagrams(
-      players, filteredTournaments, filteredRaces, playerRankings, activeTab
+      players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
     expect(diagramMode.value).toBe('per-tournament');
     expect(diagramMetric.value).toBe('dominance');
@@ -40,7 +40,7 @@ describe('useDiagrams', () => {
 
   it('toggles selected players correctly', () => {
     const { diagramSelectedPlayerIds, toggleDiagramPlayer } = useDiagrams(
-      players, filteredTournaments, filteredRaces, playerRankings, activeTab
+      players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
     
     toggleDiagramPlayer('p1');
@@ -52,7 +52,7 @@ describe('useDiagrams', () => {
 
   it('calculates player timeline data correctly', () => {
     const { diagramSelectedPlayerIds, playerTimelineData } = useDiagrams(
-      players, filteredTournaments, filteredRaces, playerRankings, activeTab
+      players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
     
     diagramSelectedPlayerIds.value = ['p1'];
@@ -69,7 +69,7 @@ describe('useDiagrams', () => {
 
   it('calculates uma timeline data correctly', () => {
     const { diagramSelectedUmaNames, umaTimelineData } = useDiagrams(
-      players, filteredTournaments, filteredRaces, playerRankings, activeTab
+      players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
     
     diagramSelectedUmaNames.value = ['Special Week'];
@@ -84,7 +84,7 @@ describe('useDiagrams', () => {
 
   it('handles cumulative mode correctly', () => {
     const { diagramSelectedPlayerIds, diagramMode, playerTimelineData } = useDiagrams(
-      players, filteredTournaments, filteredRaces, playerRankings, activeTab
+      players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
     
     diagramSelectedPlayerIds.value = ['p1'];
@@ -97,7 +97,7 @@ describe('useDiagrams', () => {
 
   it('handles avg-points metric correctly', () => {
     const { diagramSelectedPlayerIds, diagramMetric, playerTimelineData } = useDiagrams(
-      players, filteredTournaments, filteredRaces, playerRankings, activeTab
+      players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
     
     diagramSelectedPlayerIds.value = ['p1'];
@@ -112,7 +112,7 @@ describe('useDiagrams', () => {
 
   it('calculates diagramAvailableUmas correctly', () => {
     const { diagramAvailableUmas } = useDiagrams(
-      players, filteredTournaments, filteredRaces, playerRankings, activeTab
+      players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
     
     expect(diagramAvailableUmas.value).toEqual(['Silence Suzuka', 'Special Week']);
@@ -120,7 +120,7 @@ describe('useDiagrams', () => {
 
   it('enforces player and uma selection limits', () => {
     const { diagramSelectedPlayerIds, toggleDiagramPlayer, diagramSelectedUmaNames, toggleDiagramUma, MAX_DIAGRAM_PLAYERS, MAX_DIAGRAM_UMAS } = useDiagrams(
-      players, filteredTournaments, filteredRaces, playerRankings, activeTab
+      players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
     
     for (let i = 0; i < MAX_DIAGRAM_PLAYERS + 2; i++) {
@@ -136,7 +136,7 @@ describe('useDiagrams', () => {
 
   it('handles umaTimelineData with avg-points metric', () => {
     const { diagramSelectedUmaNames, diagramMetric, umaTimelineData } = useDiagrams(
-      players, filteredTournaments, filteredRaces, playerRankings, activeTab
+      players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
     
     diagramSelectedUmaNames.value = ['Special Week'];
@@ -149,7 +149,7 @@ describe('useDiagrams', () => {
 
   it('auto-selects top 5 players when diagrams tab is opened', async () => {
     const { diagramSelectedPlayerIds } = useDiagrams(
-      players, filteredTournaments, filteredRaces, playerRankings, activeTab
+      players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
     
     diagramSelectedPlayerIds.value = [];
@@ -165,7 +165,7 @@ describe('useDiagrams', () => {
     ] as any);
     
     const { playerTimelineData: ptd2, diagramSelectedPlayerIds: dsids2 } = useDiagrams(
-      players, filteredTournaments, mixedRaces2, playerRankings, activeTab
+      players, filteredTournaments, mixedRaces2, playerRankings, activeTab, ref('total' as any)
     );
     
     dsids2.value = ['p1', 'p2'];
@@ -182,7 +182,7 @@ describe('useDiagrams', () => {
     ] as any);
     
     const { playerTimelineData, diagramSelectedPlayerIds, diagramMode } = useDiagrams(
-      players, filteredTournaments, mixedRaces, playerRankings, activeTab
+      players, filteredTournaments, mixedRaces, playerRankings, activeTab, ref('total' as any)
     );
     
     diagramSelectedPlayerIds.value = ['p1', 'p2'];

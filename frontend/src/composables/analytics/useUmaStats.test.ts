@@ -35,7 +35,7 @@ describe('useUmaStats', () => {
 
   it('calculates uma stats correctly', () => {
     const { umaStats } = useUmaStats(
-      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion
+      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
     expect(umaStats.value.length).toBeGreaterThanOrEqual(2);
     const specialWeek = umaStats.value.find(u => u.name === 'Special Week');
@@ -44,7 +44,7 @@ describe('useUmaStats', () => {
 
   it('handles expanded uma details', () => {
     const { expandedUmaName, toggleUmaExpand, expandedUmaPlayers, expandedUmaTournaments } = useUmaStats(
-      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion
+      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
     toggleUmaExpand('Special Week');
     expect(expandedUmaName.value).toBe('Special Week');
@@ -54,7 +54,7 @@ describe('useUmaStats', () => {
 
   it('calculates top umas correctly', () => {
     const { topUmas, topUmaCriterion } = useUmaStats(
-      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion
+      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
     topUmaCriterion.value = 'winRate';
     expect(topUmas.value[0].name).toBe('Special Week');
@@ -62,7 +62,7 @@ describe('useUmaStats', () => {
 
   it('calculates ban rates correctly', () => {
     const { umaStats } = useUmaStats(
-      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion
+      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
     const akebono = umaStats.value.find(u => u.name === 'Hishi Akebono');
     expect(akebono?.bans).toBe(1);
@@ -97,7 +97,7 @@ describe('useUmaStats', () => {
 
   it('sorts Umas correctly', () => {
     const { umaStats, umaSortKey, umaSortDesc, toggleUmaSort } = useUmaStats(
-      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion
+      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
     umaSortKey.value = 'name';
     umaSortDesc.value = false; // Asc
@@ -108,7 +108,7 @@ describe('useUmaStats', () => {
 
   it('handles expanded view toggling and sorting', () => {
     const { expandedUmaName, toggleUmaExpand, expandedUmaPlayers, umaPlayerSortKey, toggleUmaPlayerSort } = useUmaStats(
-      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion
+      players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
     toggleUmaExpand('Special Week');
     toggleUmaExpand('Silence Suzuka');

@@ -21,16 +21,40 @@ export interface PlayerStats {
   completedTournaments: number;
   tournamentWins: number;
   tournamentWinRate: number;
+  // Total stats
   races: number;
+  wins: number;
   totalPoints: number;
   avgPoints: number;
   totalPosition: number;
   avgPosition: number;
-  wins: number;
   opponentsFaced: number;
   opponentsBeaten: number;
   dominance: number;
   winRate: number;
+  // Group stage stats
+  groupRaces: number;
+  groupWins: number;
+  groupTotalPoints: number;
+  avgGroupPoints: number;
+  groupTotalPosition: number;
+  groupAvgPosition: number;
+  groupOpponentsFaced: number;
+  groupOpponentsBeaten: number;
+  groupDominance: number;
+  groupWinRate: number;
+  // Finals stage stats
+  finalsRaces: number;
+  finalsWins: number;
+  finalsTotalPoints: number;
+  avgFinalsPoints: number;
+  finalsTotalPosition: number;
+  finalsAvgPosition: number;
+  finalsOpponentsFaced: number;
+  finalsOpponentsBeaten: number;
+  finalsDominance: number;
+  finalsWinRate: number;
+  // Meta
   tournamentsRecord: { tId: string; tName: string; points: number }[];
   umas: Map<string, any>;
   bestTournament: { tId: string; tName: string; points: number } | null;
@@ -38,19 +62,42 @@ export interface PlayerStats {
   mostWinningUmas: { name: string; count: number; wins: number; winRate: number }[];
 }
 
+const PLAYER_STAGE_KEY: Record<string, Record<string, string>> = {
+  groups: { totalPoints: 'groupTotalPoints', avgPoints: 'avgGroupPoints', winRate: 'groupWinRate', dominance: 'groupDominance', tournaments: 'tournaments', tournamentWinRate: 'tournamentWinRate' },
+  finals: { totalPoints: 'finalsTotalPoints', avgPoints: 'avgFinalsPoints', winRate: 'finalsWinRate', dominance: 'finalsDominance', tournaments: 'tournaments', tournamentWinRate: 'tournamentWinRate' },
+};
+
+const PLAYER_CRIT_KEY: Record<string, Record<string, string>> = {
+  groups: { dominance: 'groupDominance', winRate: 'groupWinRate', tournamentWinRate: 'tournamentWinRate' },
+  finals: { dominance: 'finalsDominance', winRate: 'finalsWinRate', tournamentWinRate: 'tournamentWinRate' },
+};
+
+const SORT_STAGE_KEY: Record<string, { groups: string; finals: string }> = {
+  races:       { groups: 'groupRaces',       finals: 'finalsRaces' },
+  wins:        { groups: 'groupWins',        finals: 'finalsWins' },
+  winRate:     { groups: 'groupWinRate',     finals: 'finalsWinRate' },
+  totalPoints: { groups: 'groupTotalPoints', finals: 'finalsTotalPoints' },
+  avgPoints:   { groups: 'avgGroupPoints',   finals: 'avgFinalsPoints' },
+  dominance:   { groups: 'groupDominance',   finals: 'finalsDominance' },
+  avgPosition: { groups: 'groupAvgPosition', finals: 'finalsAvgPosition' },
+  racesPlayed: { groups: 'groupRaces',       finals: 'finalsRaces' },
+};
+
 export function usePlayerRankings(
   players: Ref<GlobalPlayer[]>,
   filteredTournaments: Ref<Tournament[]>,
   filteredParticipations: Ref<DerivedParticipation[]>,
   filteredRaces: Ref<DerivedRace[]>,
   minTournaments: Ref<number>,
-  tierCriterion: Ref<TierCriterion>
+  tierCriterion: Ref<TierCriterion>,
+  stageView: Ref<'total' | 'groups' | 'finals'> = ref<'total' | 'groups' | 'finals'>('total')
 ) {
   // Sort states
   const playerSort = createSortState('dominance');
   const playerSortKey = playerSort.sortKey;
   const playerSortDesc = playerSort.sortDesc;
   const togglePlayerSort = playerSort.toggle;
+  const resetPlayerSort = playerSort.reset;
 
   const playerUmaSort = createSortState('racesPlayed');
   const playerUmaSortKey = playerUmaSort.sortKey;
@@ -61,6 +108,9 @@ export function usePlayerRankings(
   const playerTournamentSortKey = playerTournamentSort.sortKey;
   const playerTournamentSortDesc = playerTournamentSort.sortDesc;
   const togglePlayerTournamentSort = playerTournamentSort.toggle;
+
+  const resolveStageKey = (key: string) =>
+    stageView.value !== 'total' ? (SORT_STAGE_KEY[key]?.[stageView.value] ?? key) : key;
 
   const expandedPlayerId = ref<string | null>(null);
   const expandedDetailTab = ref<'umas' | 'tournaments'>('tournaments');
@@ -91,8 +141,14 @@ export function usePlayerRankings(
       if (!playerStats.has(p.playerId)) {
         playerStats.set(p.playerId, {
           player, tournaments: 0, completedTournaments: 0, tournamentWins: 0, tournamentWinRate: 0,
-          races: 0, totalPoints: 0, avgPoints: 0, totalPosition: 0, avgPosition: 0,
-          wins: 0, opponentsFaced: 0, opponentsBeaten: 0, dominance: 0, winRate: 0,
+          races: 0, wins: 0, totalPoints: 0, avgPoints: 0, totalPosition: 0, avgPosition: 0,
+          opponentsFaced: 0, opponentsBeaten: 0, dominance: 0, winRate: 0,
+          groupRaces: 0, groupWins: 0, groupTotalPoints: 0, avgGroupPoints: 0,
+          groupTotalPosition: 0, groupAvgPosition: 0, groupOpponentsFaced: 0, groupOpponentsBeaten: 0,
+          groupDominance: 0, groupWinRate: 0,
+          finalsRaces: 0, finalsWins: 0, finalsTotalPoints: 0, avgFinalsPoints: 0,
+          finalsTotalPosition: 0, finalsAvgPosition: 0, finalsOpponentsFaced: 0, finalsOpponentsBeaten: 0,
+          finalsDominance: 0, finalsWinRate: 0,
           tournamentsRecord: [], umas: new Map(), bestTournament: null,
           mostPickedUmas: [], mostWinningUmas: []
         });
@@ -122,10 +178,21 @@ export function usePlayerRankings(
           });
     });
 
-    // 3. Count races, wins, dominance
+    // 3. Count races, wins, dominance (total + per-stage)
+    const tournamentHasGroupsMap = new Map<string, boolean>();
+    filteredTournaments.value.forEach(t => {
+      const uniqueGroups = new Set(t.teams.map(tm => tm.group));
+      tournamentHasGroupsMap.set(t.id, uniqueGroups.size > 1);
+    });
+
     filteredRaces.value.forEach(race => {
       const playersInRace = Object.keys(race.placements).length;
       if (playersInRace <= 1) return;
+
+      const t = filteredTournaments.value.find(tourney => tourney.id === race.tournamentId);
+      const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
+      const hasGroups = tournamentHasGroupsMap.get(race.tournamentId) ?? false;
+      const isFinalsRace = race.stage === 'finals' || !hasGroups;
 
       Object.entries(race.placements).forEach(([playerId, position]) => {
         const stats = playerStats.get(playerId);
@@ -136,20 +203,54 @@ export function usePlayerRankings(
           stats.opponentsBeaten += (playersInRace - position);
           stats.totalPosition += position;
 
+          const pts = pointSystem[position] || 0;
+          if (isFinalsRace) {
+            stats.finalsRaces++;
+            if (position === 1) stats.finalsWins++;
+            stats.finalsTotalPoints += pts;
+            stats.finalsTotalPosition += position;
+            stats.finalsOpponentsFaced += (playersInRace - 1);
+            stats.finalsOpponentsBeaten += (playersInRace - position);
+          } else {
+            stats.groupRaces++;
+            if (position === 1) stats.groupWins++;
+            stats.groupTotalPoints += pts;
+            stats.groupTotalPosition += position;
+            stats.groupOpponentsFaced += (playersInRace - 1);
+            stats.groupOpponentsBeaten += (playersInRace - position);
+          }
+
           const umaName = race.umaMapping?.[playerId];
           if (umaName) {
             if (!stats.umas.has(umaName)) {
-              stats.umas.set(umaName, { tournamentIds: new Set(), racesPlayed: 0, wins: 0, totalPosition: 0, totalPoints: 0 });
+              stats.umas.set(umaName, {
+                tournamentIds: new Set(), racesPlayed: 0, wins: 0, totalPosition: 0, totalPoints: 0,
+                groupRaces: 0, groupTotalPoints: 0, finalsRaces: 0, finalsTotalPoints: 0,
+                groupWins: 0, finalsWins: 0, groupTotalPosition: 0, finalsTotalPosition: 0,
+                groupOpponentsFaced: 0, groupOpponentsBeaten: 0, finalsOpponentsFaced: 0, finalsOpponentsBeaten: 0,
+              });
             }
             const umaStat = stats.umas.get(umaName)!;
             if (race.tournamentId) umaStat.tournamentIds.add(race.tournamentId);
             umaStat.racesPlayed++;
             umaStat.totalPosition += position;
             if (position === 1) umaStat.wins++;
-
-            const t = filteredTournaments.value.find(tourney => tourney.id === race.tournamentId);
-            const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
-            umaStat.totalPoints += pointSystem[position] || 0;
+            umaStat.totalPoints += pts;
+            if (isFinalsRace) {
+              umaStat.finalsRaces++;
+              umaStat.finalsTotalPoints += pts;
+              if (position === 1) umaStat.finalsWins++;
+              umaStat.finalsTotalPosition += position;
+              umaStat.finalsOpponentsFaced += (playersInRace - 1);
+              umaStat.finalsOpponentsBeaten += (playersInRace - position);
+            } else {
+              umaStat.groupRaces++;
+              umaStat.groupTotalPoints += pts;
+              if (position === 1) umaStat.groupWins++;
+              umaStat.groupTotalPosition += position;
+              umaStat.groupOpponentsFaced += (playersInRace - 1);
+              umaStat.groupOpponentsBeaten += (playersInRace - position);
+            }
           }
         }
       });
@@ -162,6 +263,16 @@ export function usePlayerRankings(
       stats.winRate = stats.races > 0 ? Math.round((stats.wins / stats.races) * 100 * 10) / 10 : 0;
       stats.tournamentWinRate = stats.completedTournaments > 0 ? Math.round((stats.tournamentWins / stats.completedTournaments) * 100 * 10) / 10 : 0;
       stats.avgPosition = stats.races > 0 ? Math.round((stats.totalPosition / stats.races) * 10) / 10 : 0;
+      // Group stage
+      stats.avgGroupPoints = stats.groupRaces > 0 ? Math.round(stats.groupTotalPoints / stats.groupRaces * 10) / 10 : 0;
+      stats.groupWinRate = stats.groupRaces > 0 ? Math.round((stats.groupWins / stats.groupRaces) * 100 * 10) / 10 : 0;
+      stats.groupDominance = stats.groupOpponentsFaced > 0 ? Math.round((stats.groupOpponentsBeaten / stats.groupOpponentsFaced) * 100 * 10) / 10 : 0;
+      stats.groupAvgPosition = stats.groupRaces > 0 ? Math.round((stats.groupTotalPosition / stats.groupRaces) * 10) / 10 : 0;
+      // Finals stage
+      stats.avgFinalsPoints = stats.finalsRaces > 0 ? Math.round(stats.finalsTotalPoints / stats.finalsRaces * 10) / 10 : 0;
+      stats.finalsWinRate = stats.finalsRaces > 0 ? Math.round((stats.finalsWins / stats.finalsRaces) * 100 * 10) / 10 : 0;
+      stats.finalsDominance = stats.finalsOpponentsFaced > 0 ? Math.round((stats.finalsOpponentsBeaten / stats.finalsOpponentsFaced) * 100 * 10) / 10 : 0;
+      stats.finalsAvgPosition = stats.finalsRaces > 0 ? Math.round((stats.finalsTotalPosition / stats.finalsRaces) * 10) / 10 : 0;
 
       if (stats.tournamentsRecord.length > 0) {
         stats.bestTournament = [...stats.tournamentsRecord].sort((a, b) => b.points - a.points)[0] || null;
@@ -189,8 +300,9 @@ export function usePlayerRankings(
     return Array.from(playerStats.values())
         .filter(p => p.tournaments >= minTournaments.value)
         .sort((a, b) => {
-          let valA: any = playerSortKey.value === 'name' ? a.player.name.toLowerCase() : (a as any)[playerSortKey.value];
-          let valB: any = playerSortKey.value === 'name' ? b.player.name.toLowerCase() : (b as any)[playerSortKey.value];
+          const effectiveKey = resolveStageKey(playerSortKey.value);
+          let valA: any = playerSortKey.value === 'name' ? a.player.name.toLowerCase() : (a as any)[effectiveKey];
+          let valB: any = playerSortKey.value === 'name' ? b.player.name.toLowerCase() : (b as any)[effectiveKey];
           const modifier = playerSortDesc.value ? -1 : 1;
           if (valA < valB) return -1 * modifier;
           if (valA > valB) return 1 * modifier;
@@ -209,9 +321,25 @@ export function usePlayerRankings(
         name, picks: data.tournamentIds.size, racesPlayed: data.racesPlayed, wins: data.wins,
         winRate: data.racesPlayed > 0 ? Math.round((data.wins / data.racesPlayed) * 100 * 10) / 10 : 0,
         avgPoints: data.racesPlayed > 0 ? Math.round((data.totalPoints / data.racesPlayed) * 10) / 10 : 0,
+        avgGroupPoints: data.groupRaces > 0 ? Math.round((data.groupTotalPoints / data.groupRaces) * 10) / 10 : 0,
+        avgFinalsPoints: data.finalsRaces > 0 ? Math.round((data.finalsTotalPoints / data.finalsRaces) * 10) / 10 : 0,
         avgPosition: data.racesPlayed > 0 ? Math.round((data.totalPosition / data.racesPlayed) * 10) / 10 : 0,
         opponentsFaced: 0, opponentsBeaten: 0, dominance: 0,
+        groupRaces: data.groupRaces, finalsRaces: data.finalsRaces,
+        groupWins: data.groupWins, finalsWins: data.finalsWins,
+        groupWinRate: data.groupRaces > 0 ? Math.round((data.groupWins / data.groupRaces) * 100 * 10) / 10 : 0,
+        finalsWinRate: data.finalsRaces > 0 ? Math.round((data.finalsWins / data.finalsRaces) * 100 * 10) / 10 : 0,
+        groupAvgPosition: data.groupRaces > 0 ? Math.round((data.groupTotalPosition / data.groupRaces) * 10) / 10 : 0,
+        finalsAvgPosition: data.finalsRaces > 0 ? Math.round((data.finalsTotalPosition / data.finalsRaces) * 10) / 10 : 0,
+        groupOpponentsFaced: 0, groupOpponentsBeaten: 0, finalsOpponentsFaced: 0, finalsOpponentsBeaten: 0,
+        groupDominance: 0, finalsDominance: 0,
       };
+    });
+
+    const hasGroupsMap = new Map<string, boolean>();
+    filteredTournaments.value.forEach(t => {
+      const uniqueGroups = new Set(t.teams.map(tm => tm.group));
+      hasGroupsMap.set(t.id, uniqueGroups.size > 1);
     });
 
     filteredRaces.value.forEach(race => {
@@ -223,18 +351,30 @@ export function usePlayerRankings(
       if (!umaName) return;
       const row = umaRows.find(r => r.name === umaName);
       if (row) {
+        const hasGroups = hasGroupsMap.get(race.tournamentId) ?? false;
+        const isFinalsRace = race.stage === 'finals' || !hasGroups;
         row.opponentsFaced += (playersInRace - 1);
         row.opponentsBeaten += (playersInRace - position);
+        if (isFinalsRace) {
+          row.finalsOpponentsFaced += (playersInRace - 1);
+          row.finalsOpponentsBeaten += (playersInRace - position);
+        } else {
+          row.groupOpponentsFaced += (playersInRace - 1);
+          row.groupOpponentsBeaten += (playersInRace - position);
+        }
       }
     });
 
     umaRows.forEach(row => {
       row.dominance = row.opponentsFaced > 0 ? Math.round((row.opponentsBeaten / row.opponentsFaced) * 100 * 10) / 10 : 0;
+      row.groupDominance = row.groupOpponentsFaced > 0 ? Math.round((row.groupOpponentsBeaten / row.groupOpponentsFaced) * 100 * 10) / 10 : 0;
+      row.finalsDominance = row.finalsOpponentsFaced > 0 ? Math.round((row.finalsOpponentsBeaten / row.finalsOpponentsFaced) * 100 * 10) / 10 : 0;
     });
 
     umaRows.sort((a, b) => {
-      let valA: any = playerUmaSortKey.value === 'name' ? a.name.toLowerCase() : (a as any)[playerUmaSortKey.value];
-      let valB: any = playerUmaSortKey.value === 'name' ? b.name.toLowerCase() : (b as any)[playerUmaSortKey.value];
+      const effectiveKey = resolveStageKey(playerUmaSortKey.value);
+      let valA: any = playerUmaSortKey.value === 'name' ? a.name.toLowerCase() : (a as any)[effectiveKey];
+      let valB: any = playerUmaSortKey.value === 'name' ? b.name.toLowerCase() : (b as any)[effectiveKey];
       const modifier = playerUmaSortDesc.value ? -1 : 1;
       if (valA < valB) return -1 * modifier;
       if (valA > valB) return 1 * modifier;
@@ -257,9 +397,12 @@ export function usePlayerRankings(
       return true;
     });
 
-    const computeRaceStats = (tournamentId: string, pointSystem: Record<number, number>, groupFilter?: Set<string>) => {
+    const emptyStats = { races: 0, wins: 0, opponentsFaced: 0, opponentsBeaten: 0, totalPosition: 0, totalPoints: 0 };
+
+    const computeRaceStats = (tournamentId: string, pointSystem: Record<number, number>, groupFilter?: Set<string>, stageFilter?: string) => {
       let tournamentRaces = filteredRaces.value.filter(r => r.tournamentId === tournamentId);
       if (groupFilter) tournamentRaces = tournamentRaces.filter(r => groupFilter.has(r.group));
+      if (stageFilter) tournamentRaces = tournamentRaces.filter(r => r.stage === stageFilter);
       let races = 0, wins = 0, opponentsFaced = 0, opponentsBeaten = 0, totalPosition = 0, totalPoints = 0;
       tournamentRaces.forEach(race => {
         const position = race.placements[playerId];
@@ -275,14 +418,30 @@ export function usePlayerRankings(
 
     const buildRow = (part: any, rowKey: string, stats: any, overrides: any) => {
       const t = filteredTournaments.value.find(tourney => tourney.id === part.tournamentId);
+      const grp = overrides.groupRowStats ?? emptyStats;
+      const fin = overrides.finalsRowStats ?? emptyStats;
       return {
-        rowKey, tournamentId: part.tournamentId, tournamentName: t?.name || part.tournamentId, playedAt: t?.playedAt ?? t?.createdAt ?? '', status: t?.status || 'unknown',
+        rowKey, tournamentId: part.tournamentId, tournamentName: t?.name || part.tournamentId,
+        playedAt: t?.playedAt ?? t?.createdAt ?? '', status: t?.status || 'unknown',
         uma: part.uma || '-', isWildcard: overrides.isWildcard, wildcardGroup: overrides.wildcardGroup || null,
         finalsStatus: overrides.finalsStatus, teamRank: overrides.teamRank ?? null,
-        races: stats.races, wins: stats.wins, winRate: stats.races > 0 ? Math.round((stats.wins / stats.races) * 100 * 10) / 10 : 0,
-        totalPoints: stats.totalPoints, avgPoints: stats.races > 0 ? Math.round((stats.totalPoints / stats.races) * 10) / 10 : 0,
+        races: stats.races, wins: stats.wins,
+        winRate: stats.races > 0 ? Math.round((stats.wins / stats.races) * 100 * 10) / 10 : 0,
+        totalPoints: stats.totalPoints,
+        avgPoints: stats.races > 0 ? Math.round((stats.totalPoints / stats.races) * 10) / 10 : 0,
         dominance: stats.opponentsFaced > 0 ? Math.round((stats.opponentsBeaten / stats.opponentsFaced) * 100 * 10) / 10 : 0,
         avgPosition: stats.races > 0 ? Math.round((stats.totalPosition / stats.races) * 10) / 10 : 0,
+        // Per-stage
+        groupRaces: grp.races, groupWins: grp.wins,
+        groupWinRate: grp.races > 0 ? Math.round((grp.wins / grp.races) * 100 * 10) / 10 : 0,
+        avgGroupPoints: grp.races > 0 ? Math.round((grp.totalPoints / grp.races) * 10) / 10 : 0,
+        groupDominance: grp.opponentsFaced > 0 ? Math.round((grp.opponentsBeaten / grp.opponentsFaced) * 100 * 10) / 10 : 0,
+        groupAvgPosition: grp.races > 0 ? Math.round((grp.totalPosition / grp.races) * 10) / 10 : 0,
+        finalsRaces: fin.races, finalsWins: fin.wins,
+        finalsWinRate: fin.races > 0 ? Math.round((fin.wins / fin.races) * 100 * 10) / 10 : 0,
+        avgFinalsPoints: fin.races > 0 ? Math.round((fin.totalPoints / fin.races) * 10) / 10 : 0,
+        finalsDominance: fin.opponentsFaced > 0 ? Math.round((fin.opponentsBeaten / fin.opponentsFaced) * 100 * 10) / 10 : 0,
+        finalsAvgPosition: fin.races > 0 ? Math.round((fin.totalPosition / fin.races) * 10) / 10 : 0,
       };
     };
 
@@ -296,7 +455,7 @@ export function usePlayerRankings(
       const uniqueGroupSet = new Set(teams.map(tm => tm.group));
       const hasGroups = uniqueGroupSet.size > 1;
       const finalistTeams = teams.filter(tm => tm.inFinals);
-      
+
       const winningTeam = t ? (getWinningTeam(t) ?? null) : null;
 
       const wildcards = t?.wildcards || [];
@@ -332,23 +491,40 @@ export function usePlayerRankings(
         const teamGroups = new Set<string>([playerTeam.group]);
         if (playerTeam.inFinals) teamGroups.add('Finals');
         const stats = computeRaceStats(part.tournamentId, pointSystem, hasGroups ? teamGroups : undefined);
-        rows.push(buildRow(part, part.tournamentId, stats, { isWildcard: false, finalsStatus, teamRank }));
+        let groupRowStats = emptyStats, finalsRowStats = emptyStats;
+        if (hasGroups) {
+          groupRowStats = computeRaceStats(part.tournamentId, pointSystem, new Set([playerTeam.group]), 'groups');
+          finalsRowStats = computeRaceStats(part.tournamentId, pointSystem, undefined, 'finals');
+        } else {
+          finalsRowStats = stats;
+        }
+        rows.push(buildRow(part, part.tournamentId, stats, { isWildcard: false, finalsStatus, teamRank, groupRowStats, finalsRowStats }));
       }
 
       for (const wc of playerWildcards) {
         const stats = computeRaceStats(part.tournamentId, pointSystem, new Set([wc.group]));
-        rows.push(buildRow(part, `${part.tournamentId}_wc_${wc.group}`, stats, { isWildcard: true, wildcardGroup: wc.group, finalsStatus: '-' }));
+        const groupRowStats = computeRaceStats(part.tournamentId, pointSystem, new Set([wc.group]), 'groups');
+        const finalsRowStats = computeRaceStats(part.tournamentId, pointSystem, undefined, 'finals');
+        rows.push(buildRow(part, `${part.tournamentId}_wc_${wc.group}`, stats, { isWildcard: true, wildcardGroup: wc.group, finalsStatus: '-', groupRowStats, finalsRowStats }));
       }
 
       if (!playerTeam && playerWildcards.length === 0) {
         const stats = computeRaceStats(part.tournamentId, pointSystem);
-        rows.push(buildRow(part, part.tournamentId, stats, { isWildcard: false, finalsStatus: '-' }));
+        let groupRowStats = emptyStats, finalsRowStats = emptyStats;
+        if (hasGroups) {
+          groupRowStats = computeRaceStats(part.tournamentId, pointSystem, undefined, 'groups');
+          finalsRowStats = computeRaceStats(part.tournamentId, pointSystem, undefined, 'finals');
+        } else {
+          finalsRowStats = stats;
+        }
+        rows.push(buildRow(part, part.tournamentId, stats, { isWildcard: false, finalsStatus: '-', groupRowStats, finalsRowStats }));
       }
     }
 
     rows.sort((a, b) => {
-      let valA: any = playerTournamentSortKey.value === 'tournamentName' ? a.tournamentName.toLowerCase() : a[playerTournamentSortKey.value];
-      let valB: any = playerTournamentSortKey.value === 'tournamentName' ? b.tournamentName.toLowerCase() : b[playerTournamentSortKey.value];
+      const effectiveKey = resolveStageKey(playerTournamentSortKey.value);
+      let valA: any = playerTournamentSortKey.value === 'tournamentName' ? a.tournamentName.toLowerCase() : a[effectiveKey];
+      let valB: any = playerTournamentSortKey.value === 'tournamentName' ? b.tournamentName.toLowerCase() : b[effectiveKey];
       const modifier = playerTournamentSortDesc.value ? -1 : 1;
       if (valA < valB) return -1 * modifier;
       if (valA > valB) return 1 * modifier;
@@ -359,7 +535,8 @@ export function usePlayerRankings(
   });
 
   const topPlayers = computed(() => {
-    const key = TOP5_CRITERIA[topPlayerCriterion.value].playerKey;
+    const baseKey = TOP5_CRITERIA[topPlayerCriterion.value].playerKey;
+    const key = stageView.value !== 'total' ? (PLAYER_STAGE_KEY[stageView.value]?.[baseKey] ?? baseKey) : baseKey;
     return [...playerRankings.value]
         .sort((a, b) => (b as any)[key] - (a as any)[key])
         .slice(0, 5);
@@ -369,13 +546,18 @@ export function usePlayerRankings(
     const tiers = new Map<string, any>();
     for (const t of TIER_STYLES) tiers.set(t.tier, []);
 
+    const critKey = stageView.value !== 'total'
+      ? (PLAYER_CRIT_KEY[stageView.value]?.[tierCriterion.value] ?? tierCriterion.value)
+      : tierCriterion.value;
+
     for (const p of playerRankings.value) {
-      const tier = assignTier(getStatValue(p, tierCriterion.value), tierCriterion.value);
+      const val = (p as any)[critKey] || 0;
+      const tier = assignTier(val, tierCriterion.value);
       tiers.get(tier)!.push(p);
     }
 
     for (const [, entries] of tiers) {
-      entries.sort((a: any, b: any) => getStatValue(b, tierCriterion.value) - getStatValue(a, tierCriterion.value));
+      entries.sort((a: any, b: any) => ((b as any)[critKey] || 0) - ((a as any)[critKey] || 0));
     }
 
     return TIER_STYLES
@@ -389,7 +571,7 @@ export function usePlayerRankings(
     expandedPlayerUmas,
     topPlayers,
     playerTierList,
-    
+
     playerSortKey,
     playerSortDesc,
     expandedPlayerId,
@@ -401,6 +583,7 @@ export function usePlayerRankings(
     topPlayerCriterion,
 
     togglePlayerSort,
+    resetPlayerSort,
     togglePlayerExpand,
     togglePlayerUmaSort,
     togglePlayerTournamentSort,
