@@ -9,9 +9,17 @@ export interface ChangeLogEntry {
     }[];
 }
 
-export const APP_VERSION = '2.3.3'; // Update this manually when you deploy
+export const APP_VERSION = '2.3.4'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '2.3.4',
+        date: '2026-03-11',
+        title: 'Draft History',
+        changes: [
+            { type: 'new', text: 'Display a section to inspect player and uma draft picks.' },
+        ]
+    },
     {
         version: '2.3.3',
         date: '2026-03-07',
