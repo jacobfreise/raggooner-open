@@ -441,7 +441,7 @@ function perfIndicator(
 
         <div class="flex flex-col">
           <label class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-            Stage
+            Tournament Stage
           </label>
           <div class="flex items-center gap-1 bg-slate-900 rounded-lg p-1">
             <button v-for="s in [{ key: 'total', label: 'Total' }, { key: 'groups', label: 'Groups' }, { key: 'finals', label: 'Finals' }]"
