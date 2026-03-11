@@ -101,6 +101,63 @@ const tournamentPlayerIds = computed(() => {
 const showBans = ref(false);
 const showRules = ref(false);
 const showUmaPools = ref(false);
+const showDraftOrder = ref(false);
+const draftOrderTab = ref<'players' | 'umas'>('players');
+
+const getUnassignedUmaPool = (team: Team): string[] => {
+  const playerIds = [team.captainId, ...team.memberIds];
+  const assignedUmas = new Set(playerIds.map(pid => tournament.value.players[pid]?.uma).filter(Boolean) as string[]);
+  return (team.umaPool || []).filter(uma => !assignedUmas.has(uma));
+};
+
+// In uma-draft format, draft.order is overwritten with the uma draft order when the pick phase
+// starts (startUmaDraft rewrites the field). The uma draft order is generated as:
+//   [reversed_base, forward_base, reversed_base]
+// where forward_base = unique team IDs in first-appearance order from the player draft.
+// So: unique first-appearances of the stored uma order = reversed_base → reverse it → forward_base
+// → rebuild the 2-round player snake: [...fwd, ...fwd.reverse()]
+const getReconstructedPlayerDraftOrder = (): string[] => {
+  const order = tournament.value.draft?.order;
+  if (!order || order.length === 0) return [];
+  // uma-ban: draft.order is never overwritten, it IS the player draft order
+  if (tournament.value.format !== 'uma-draft') return order;
+  // uma-draft: extract unique first-appearances (= reversed_base), then reverse to recover forward_base
+  const seen = new Set<string>();
+  const reversedBase: string[] = [];
+  for (const teamId of order) {
+    if (!seen.has(teamId)) { seen.add(teamId); reversedBase.push(teamId); }
+  }
+  const fwd = [...reversedBase].reverse();
+  return [...fwd, ...[...fwd].reverse()];
+};
+
+const playerDraftOrder = computed(() => {
+  const order = getReconstructedPlayerDraftOrder();
+  const teamPickCount: Record<string, number> = {};
+  return order.map((teamId, idx) => {
+    const team = tournament.value.teams.find(t => t.id === teamId);
+    const pickIdx = teamPickCount[teamId] ?? 0;
+    teamPickCount[teamId] = pickIdx + 1;
+    const playerId = team?.memberIds[pickIdx];
+    const playerName = playerId ? (tournament.value.players[playerId]?.name || playerId) : '—';
+    return { pickNumber: idx + 1, teamId, teamName: team?.name || teamId, color: team?.color || '#fff', playerName };
+  });
+});
+
+const umaDraftOrder = computed(() => {
+  if (tournament.value.format !== 'uma-draft') return [];
+  // In active/completed phase, draft.order IS the uma draft order (written by startUmaDraft)
+  const order = tournament.value.draft?.order;
+  if (!order) return [];
+  const teamPickCount: Record<string, number> = {};
+  return order.map((teamId, idx) => {
+    const team = tournament.value.teams.find(t => t.id === teamId);
+    const pickIdx = teamPickCount[teamId] ?? 0;
+    teamPickCount[teamId] = pickIdx + 1;
+    const uma = team?.umaPool?.[pickIdx] || '—';
+    return { pickNumber: idx + 1, teamId, teamName: team?.name || teamId, color: team?.color || '#fff', uma };
+  });
+});
 
 const rules = computed(() => getTournamentRules(props.tournamentProp.format));
 
@@ -251,6 +308,68 @@ const sortedTeamsForModal = computed(() => {
       </div>
     </div>
 
+<!--    DRAFT ORDER SECTION -->
+    <div v-if="tournament.draft?.order?.length" class="mb-8">
+      <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+
+        <button @click="showDraftOrder = !showDraftOrder"
+                class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-700/20 transition-colors group">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-colors">
+              <i class="ph-bold ph-list-numbers text-lg"></i>
+            </div>
+            <span class="text-slate-200 font-bold uppercase tracking-wider text-sm">Draft Order</span>
+          </div>
+          <i class="ph-bold ph-caret-down text-slate-400 transition-transform duration-300"
+             :class="showDraftOrder ? 'rotate-180' : ''"></i>
+        </button>
+
+        <div v-show="showDraftOrder" class="border-t border-slate-700/30 p-4">
+
+          <!-- Tab switcher (only for uma-draft format) -->
+          <div v-if="tournament.format === 'uma-draft'" class="flex gap-1 bg-slate-900 rounded-lg p-1 mb-4 w-fit">
+            <button v-for="tab in [{ key: 'players', label: 'Player Draft' }, { key: 'umas', label: 'Uma Draft' }]"
+                    :key="tab.key"
+                    @click="draftOrderTab = tab.key as 'players' | 'umas'"
+                    class="px-3 py-1.5 text-xs font-bold rounded transition-colors"
+                    :class="draftOrderTab === tab.key ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'">
+              {{ tab.label }}
+            </button>
+          </div>
+
+          <!-- Player draft picks -->
+          <div v-if="draftOrderTab !== 'umas'" class="flex flex-wrap gap-2 items-center">
+            <template v-for="(pick, idx) in playerDraftOrder" :key="idx">
+              <div class="flex items-center gap-1.5 bg-slate-900/80 rounded-md px-2.5 py-1.5">
+                <span class="text-[10px] font-bold text-slate-500 tabular-nums w-4 text-right">{{ pick.pickNumber }}.</span>
+                <span class="text-xs font-bold" :style="{ color: pick.color }">{{ pick.teamName }}</span>
+                <span class="text-slate-600 text-[10px]">›</span>
+                <span class="text-xs text-slate-300">{{ pick.playerName }}</span>
+              </div>
+              <i v-if="idx < playerDraftOrder.length - 1" class="ph-bold ph-caret-right text-slate-700 text-xs"></i>
+            </template>
+          </div>
+
+          <!-- Uma draft picks -->
+          <div v-if="draftOrderTab === 'umas'" class="flex flex-wrap gap-2 items-center">
+            <template v-for="(pick, idx) in umaDraftOrder" :key="idx">
+              <div class="flex items-center gap-1.5 bg-slate-900/80 rounded-md px-2.5 py-1.5">
+                <span class="text-[10px] font-bold text-slate-500 tabular-nums w-4 text-right">{{ pick.pickNumber }}.</span>
+                <span class="text-xs font-bold" :style="{ color: pick.color }">{{ pick.teamName }}</span>
+                <span class="text-slate-600 text-[10px]">›</span>
+                <img :src="getUmaImagePath(pick.uma)" :alt="pick.uma"
+                     class="w-4 h-4 rounded-full object-cover bg-slate-700 shrink-0" />
+                <span class="text-xs text-slate-300">{{ pick.uma }}</span>
+              </div>
+              <i v-if="idx < umaDraftOrder.length - 1" class="ph-bold ph-caret-right text-slate-700 text-xs"></i>
+            </template>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
 <!--    ACTIVE PHASE TIMER -->
     <div v-if="tournament.activeTimerStart && tournament.status === 'active'">
       <!-- Collapsed state: minimal pill -->
@@ -383,8 +502,14 @@ const sortedTeamsForModal = computed(() => {
             </div>
 
             <div class="relative z-10 flex-1 min-w-0 mr-3">
-              <div>
-                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name }}</span>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-bold text-lg" :style="{ color: team.color }">{{ team.name }}</span>
+                <div v-if="tournament.format === 'uma-draft' && getUnassignedUmaPool(team).length > 0"
+                     class="flex items-center gap-1">
+                  <img v-for="uma in getUnassignedUmaPool(team)" :key="uma"
+                       :src="getUmaImagePath(uma)" :alt="uma" :title="uma"
+                       class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
+                </div>
               </div>
               <div class="flex flex-col sm:flex-row gap-1.5 mt-2">
                 <div v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
@@ -494,8 +619,14 @@ const sortedTeamsForModal = computed(() => {
             </div>
 
             <div class="relative z-10 flex-1 min-w-0 mr-3">
-              <div>
-                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name }}</span>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-bold text-lg" :style="{ color: team.color }">{{ team.name }}</span>
+                <div v-if="tournament.format === 'uma-draft' && getUnassignedUmaPool(team).length > 0"
+                     class="flex items-center gap-1">
+                  <img v-for="uma in getUnassignedUmaPool(team)" :key="uma"
+                       :src="getUmaImagePath(uma)" :alt="uma" :title="uma"
+                       class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
+                </div>
               </div>
               <div class="flex flex-col sm:flex-row gap-1.5 mt-2">
                 <div v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
@@ -603,8 +734,14 @@ const sortedTeamsForModal = computed(() => {
             </div>
 
             <div class="relative z-10 flex-1 min-w-0 mr-3">
-              <div>
-                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name }}</span>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-bold text-lg" :style="{ color: team.color }">{{ team.name }}</span>
+                <div v-if="tournament.format === 'uma-draft' && getUnassignedUmaPool(team).length > 0"
+                     class="flex items-center gap-1">
+                  <img v-for="uma in getUnassignedUmaPool(team)" :key="uma"
+                       :src="getUmaImagePath(uma)" :alt="uma" :title="uma"
+                       class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
+                </div>
               </div>
               <div class="flex flex-col sm:flex-row gap-1.5 mt-2">
                 <div v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
@@ -704,8 +841,14 @@ const sortedTeamsForModal = computed(() => {
                :class="getRankColor(getVisualRankIndex(idx, sortedFinalsTeams))"
           >
             <div class="relative z-10 flex-1 min-w-0 mr-3">
-              <div>
-                <span class="font-bold text-lg text-white" :style="{ color: team.color }">{{ team.name }}</span>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-bold text-lg" :style="{ color: team.color }">{{ team.name }}</span>
+                <div v-if="tournament.format === 'uma-draft' && getUnassignedUmaPool(team).length > 0"
+                     class="flex items-center gap-1">
+                  <img v-for="uma in getUnassignedUmaPool(team)" :key="uma"
+                       :src="getUmaImagePath(uma)" :alt="uma" :title="uma"
+                       class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
+                </div>
               </div>
               <div class="flex flex-col sm:flex-row gap-1.5 mt-2">
                 <div v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
