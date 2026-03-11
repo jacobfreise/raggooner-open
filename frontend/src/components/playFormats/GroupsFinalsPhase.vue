@@ -159,6 +159,19 @@ const umaDraftOrder = computed(() => {
   });
 });
 
+const getRounds = (picks: any[]) => {
+  if (!tournament.value.teams.length) return [];
+  const teamCount = tournament.value.teams.length;
+  const rounds = [];
+  for (let i = 0; i < picks.length; i += teamCount) {
+    rounds.push({
+      number: Math.floor(i / teamCount) + 1,
+      picks: picks.slice(i, i + teamCount)
+    });
+  }
+  return rounds;
+};
+
 const rules = computed(() => getTournamentRules(props.tournamentProp.format));
 
 // --- ACTIVE PHASE TIMER ---
@@ -308,68 +321,6 @@ const sortedTeamsForModal = computed(() => {
       </div>
     </div>
 
-<!--    DRAFT ORDER SECTION -->
-    <div v-if="tournament.draft?.order?.length" class="mb-8">
-      <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
-
-        <button @click="showDraftOrder = !showDraftOrder"
-                class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-700/20 transition-colors group">
-          <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-colors">
-              <i class="ph-bold ph-list-numbers text-lg"></i>
-            </div>
-            <span class="text-slate-200 font-bold uppercase tracking-wider text-sm">Draft Order</span>
-          </div>
-          <i class="ph-bold ph-caret-down text-slate-400 transition-transform duration-300"
-             :class="showDraftOrder ? 'rotate-180' : ''"></i>
-        </button>
-
-        <div v-show="showDraftOrder" class="border-t border-slate-700/30 p-4">
-
-          <!-- Tab switcher (only for uma-draft format) -->
-          <div v-if="tournament.format === 'uma-draft'" class="flex gap-1 bg-slate-900 rounded-lg p-1 mb-4 w-fit">
-            <button v-for="tab in [{ key: 'players', label: 'Player Draft' }, { key: 'umas', label: 'Uma Draft' }]"
-                    :key="tab.key"
-                    @click="draftOrderTab = tab.key as 'players' | 'umas'"
-                    class="px-3 py-1.5 text-xs font-bold rounded transition-colors"
-                    :class="draftOrderTab === tab.key ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'">
-              {{ tab.label }}
-            </button>
-          </div>
-
-          <!-- Player draft picks -->
-          <div v-if="draftOrderTab !== 'umas'" class="flex flex-wrap gap-2 items-center">
-            <template v-for="(pick, idx) in playerDraftOrder" :key="idx">
-              <div class="flex items-center gap-1.5 bg-slate-900/80 rounded-md px-2.5 py-1.5">
-                <span class="text-[10px] font-bold text-slate-500 tabular-nums w-4 text-right">{{ pick.pickNumber }}.</span>
-                <span class="text-xs font-bold" :style="{ color: pick.color }">{{ pick.teamName }}</span>
-                <span class="text-slate-600 text-[10px]">›</span>
-                <span class="text-xs text-slate-300">{{ pick.playerName }}</span>
-              </div>
-              <i v-if="idx < playerDraftOrder.length - 1" class="ph-bold ph-caret-right text-slate-700 text-xs"></i>
-            </template>
-          </div>
-
-          <!-- Uma draft picks -->
-          <div v-if="draftOrderTab === 'umas'" class="flex flex-wrap gap-2 items-center">
-            <template v-for="(pick, idx) in umaDraftOrder" :key="idx">
-              <div class="flex items-center gap-1.5 bg-slate-900/80 rounded-md px-2.5 py-1.5">
-                <span class="text-[10px] font-bold text-slate-500 tabular-nums w-4 text-right">{{ pick.pickNumber }}.</span>
-                <span class="text-xs font-bold" :style="{ color: pick.color }">{{ pick.teamName }}</span>
-                <span class="text-slate-600 text-[10px]">›</span>
-                <img :src="getUmaImagePath(pick.uma)" :alt="pick.uma"
-                     class="w-4 h-4 rounded-full object-cover bg-slate-700 shrink-0" />
-                <span class="text-xs text-slate-300">{{ pick.uma }}</span>
-              </div>
-              <i v-if="idx < umaDraftOrder.length - 1" class="ph-bold ph-caret-right text-slate-700 text-xs"></i>
-            </template>
-          </div>
-
-        </div>
-
-      </div>
-    </div>
-
 <!--    ACTIVE PHASE TIMER -->
     <div v-if="tournament.activeTimerStart && tournament.status === 'active'">
       <!-- Collapsed state: minimal pill -->
@@ -441,15 +392,14 @@ const sortedTeamsForModal = computed(() => {
           <span class="text-xs font-bold uppercase tracking-wider hidden sm:inline">Rules</span>
         </button>
 
-        <!-- Banned List Toggle -->
-<!--        <button v-if="tournament.bans && tournament.bans.length > 0"-->
-<!--                @click="showBans = true"-->
-<!--                class="relative group/ban px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center gap-2"-->
-<!--                title="View Banned Umas">-->
-<!--          <i class="ph-bold ph-prohibit text-lg"></i>-->
-<!--          <span class="text-xs font-bold uppercase tracking-wider hidden sm:inline">Bans</span>-->
-<!--          <span class="bg-red-500 text-white text-[10px] px-1.5 rounded-full font-mono">{{ tournament.bans.length }}</span>-->
-<!--        </button>-->
+        <!-- Draft Order Toggle -->
+        <button v-if="tournament.draft?.order?.length"
+                @click="showDraftOrder = true"
+                class="relative px-3 py-1.5 rounded-lg bg-slate-500/10 border border-slate-500/20 text-slate-400 hover:bg-slate-500/20 transition-all flex items-center gap-2"
+                title="View Draft Order">
+          <i class="ph-bold ph-list-numbers text-lg"></i>
+          <span class="text-xs font-bold uppercase tracking-wider hidden sm:inline">Draft</span>
+        </button>
 
         <button v-if="isAdminRef" @click="showUmaModal = true"
                 class="text-slate-500 hover:text-indigo-400 px-2 transition-colors">
@@ -1370,52 +1320,92 @@ const sortedTeamsForModal = computed(() => {
   </div>
 
   <Teleport to="body">
-    <!-- BANNED LIST DRAWER -->
-<!--    <Transition-->
-<!--        enter-active-class="transition duration-300 ease-out"-->
-<!--        enter-from-class="translate-x-full"-->
-<!--        enter-to-class="translate-x-0"-->
-<!--        leave-active-class="transition duration-200 ease-in"-->
-<!--        leave-from-class="translate-x-0"-->
-<!--        leave-to-class="translate-x-full"-->
-<!--    >-->
-<!--      <div v-if="showBans" class="fixed inset-y-0 right-0 z-[100] w-full max-w-2xl bg-slate-900 shadow-2xl border-l border-red-500/20 flex flex-col">-->
-<!--        &lt;!&ndash; Header &ndash;&gt;-->
-<!--        <div class="p-6 border-b border-slate-800 flex items-center justify-between bg-red-950/10">-->
-<!--          <div class="flex items-center gap-4">-->
-<!--            <div class="w-12 h-12 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20">-->
-<!--              <i class="ph-bold ph-prohibit text-2xl"></i>-->
-<!--            </div>-->
-<!--            <div>-->
-<!--              <h3 class="text-xl font-black text-white uppercase tracking-tighter">Banned Characters</h3>-->
-<!--              <p class="text-xs text-red-400/70 font-bold uppercase tracking-widest">{{ tournament.bans?.length }} restricted from entries</p>-->
-<!--            </div>-->
-<!--          </div>-->
-<!--          <button @click="showBans = false" class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">-->
-<!--            <i class="ph-bold ph-x text-xl"></i>-->
-<!--          </button>-->
-<!--        </div>-->
+    <!-- DRAFT ORDER DRAWER -->
+    <Transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-x-0"
+        leave-to-class="translate-x-full"
+    >
+      <div v-if="showDraftOrder" class="fixed inset-y-0 right-0 z-[100] w-full max-w-2xl bg-slate-900 shadow-2xl border-l border-slate-700 flex flex-col">
+        <!-- Header -->
+        <div class="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-800/30">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-slate-500/10 text-slate-400 flex items-center justify-center border border-slate-500/20">
+              <i class="ph-bold ph-list-numbers text-2xl"></i>
+            </div>
+            <div>
+              <h3 class="text-xl font-black text-white uppercase tracking-tighter">Draft History</h3>
+              <p class="text-xs text-slate-500 font-bold uppercase tracking-widest">Snake Draft Sequence</p>
+            </div>
+          </div>
+          <button @click="showDraftOrder = false" class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
+            <i class="ph-bold ph-x text-xl"></i>
+          </button>
+        </div>
 
-<!--        &lt;!&ndash; Body &ndash;&gt;-->
-<!--        <div class="flex-1 overflow-y-auto p-6 relative">-->
-<!--          <div class="absolute inset-0 opacity-[0.02] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgNDBMNDAgME0tMTAgMTBMMTAgLTEwTTMwIDUwTDUwIDMwIiBzdHJva2U9IiNmZjAwMDAiIHN0cm9rZS13aWR0aD0iNSIvPjwvc3ZnPg==')]"></div>-->
-<!--          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 relative z-10">-->
-<!--            <div v-for="uma in tournament.bans" :key="uma"-->
-<!--                 class="group/uma flex flex-col items-center gap-2 p-3 bg-slate-800/40 border border-slate-700/50 rounded-xl hover:border-red-500/40 hover:bg-red-950/20 transition-all duration-500">-->
-<!--              <div class="relative">-->
-<!--                <div class="w-20 h-20 rounded-2xl overflow-hidden border-2 border-slate-700 group-hover/uma:border-red-500/40 transition-colors bg-slate-900">-->
-<!--                  <img :src="getUmaImagePath(uma)" :alt="uma" class="w-full h-full object-cover grayscale brightness-75 group-hover/uma:grayscale-0 group-hover/uma:brightness-100" />-->
-<!--                </div>-->
-<!--                <div class="absolute -top-2 -right-2 w-7 h-7 bg-red-600 rounded-full flex items-center justify-center border-2 border-slate-900 animate-pulse">-->
-<!--                  <i class="ph-fill ph-prohibit text-white text-xs"></i>-->
-<!--                </div>-->
-<!--              </div>-->
-<!--              <span class="text-[11px] font-black uppercase tracking-tighter text-slate-400 group-hover/uma:text-red-200 text-center leading-normal">{{ uma }}</span>-->
-<!--            </div>-->
-<!--          </div>-->
-<!--        </div>-->
-<!--      </div>-->
-<!--    </Transition>-->
+        <!-- Body -->
+        <div class="flex-1 overflow-y-auto p-6 space-y-8">
+          <!-- Tab switcher (only for uma-draft format) -->
+          <div v-if="tournament.format === 'uma-draft'" class="flex bg-slate-950 p-1 rounded-xl border border-slate-800 w-full">
+            <button v-for="tab in [{ key: 'players', label: 'Player Draft', icon: 'ph-users' }, { key: 'umas', label: 'Uma Draft', icon: 'ph-horse' }]"
+                    :key="tab.key"
+                    @click="draftOrderTab = tab.key as 'players' | 'umas'"
+                    class="flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-black uppercase tracking-widest rounded-lg transition-all"
+                    :class="draftOrderTab === tab.key ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-500 hover:text-slate-300'">
+              <i class="ph-bold" :class="tab.icon"></i>
+              {{ tab.label }}
+            </button>
+          </div>
+
+          <div class="space-y-10">
+            <div v-for="round in (draftOrderTab === 'umas' ? getRounds(umaDraftOrder) : getRounds(playerDraftOrder))" :key="round.number"
+                 class="relative">
+              <!-- Round Badge -->
+              <div class="absolute -left-2 top-0 bottom-0 w-px bg-slate-800"></div>
+              <div class="relative pl-6">
+                <div class="flex items-center gap-3 mb-4">
+                  <div class="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Round {{ round.number }}
+                  </div>
+                  <div class="h-px flex-1 bg-slate-800"></div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div v-for="pick in round.picks" :key="pick.pickNumber"
+                       class="flex items-center justify-between p-3 bg-slate-800/40 border border-slate-700/50 rounded-xl group hover:border-slate-600 transition-colors">
+                    <div class="flex items-center gap-3 overflow-hidden">
+                      <span class="text-xs font-black text-slate-600 tabular-nums w-5 text-right">{{ pick.pickNumber }}.</span>
+                      <div class="flex flex-col min-w-0">
+                        <span class="text-[10px] font-black uppercase tracking-tighter truncate" :style="{ color: pick.color }">
+                          {{ pick.teamName }}
+                        </span>
+                        <div class="flex items-center gap-2 mt-0.5 min-w-0">
+                          <template v-if="draftOrderTab === 'umas'">
+                            <img :src="getUmaImagePath(pick.uma)" :alt="pick.uma"
+                                 class="w-5 h-5 rounded-full object-cover bg-slate-700 shrink-0 border border-slate-600" />
+                            <span class="text-xs font-bold text-slate-200 truncate">{{ pick.uma }}</span>
+                          </template>
+                          <template v-else>
+                            <div class="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0 uppercase">
+                              {{ pick.playerName.charAt(0) }}
+                            </div>
+                            <span class="text-xs font-bold text-slate-200 truncate">{{ pick.playerName }}</span>
+                          </template>
+                        </div>
+                      </div>
+                    </div>
+                    <i class="ph-bold ph-caret-right text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
     <!-- RULES DRAWER -->
     <Transition
@@ -1484,7 +1474,7 @@ const sortedTeamsForModal = computed(() => {
         leave-from-class="opacity-100"
         leave-to-class="opacity-0"
     >
-      <div v-if="showRules" @click="showRules = false" class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm"></div>
+      <div v-if="showRules || showDraftOrder" @click="showRules = false; showDraftOrder = false" class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm"></div>
     </Transition>
   </Teleport>
 </template>
