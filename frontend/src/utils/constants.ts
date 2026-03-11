@@ -42,17 +42,3 @@ export const SUPERADMIN_UIDS = [
     'JrBubSUpmlNqYV4Gi7TsYY7yRqzO',
     'mehTFP5BuqdrT6mw4xqnaNrHSMk1', 'j7kIBg1mIXO5m824GeBQmXYfb6q2', 'LCwXSR9TZUPqdpv8qM7qD3y7m0uh', 'JXs2aov8XqTfnB9XLOVHVNzw3psv'
 ];
-
-export const UMAS = [
-    'Mejiro Ardan',
-    'Valentine Mihono Bourbon', 'Valentine Eishin Flash', 'Sakura Chiyono O', 'New Year TM Opera O', 'New Year Haru Urara',
-    'Tamamo Cross', 'Fine Motion', 'Christmas Oguri Cap', 'Christmas Biwa Hayahide', 'Mejiro Dober', 'Tosen Jordan',
-    'Festival Symboli Rudolf', 'Festival Gold City', 'Manhattan Cafe', 'Kawakami Princess', 'Halloween Rice Shower',
-    'Halloween Super Creek', 'Agnes Digital', 'Hishi Akebono', 'Full Armor Matikanefukukitaru', 'Eishin Flash',
-    'Meisho Doto', 'Summer Special Week', 'Summer Maruzensky', 'Gold City', 'Fuji Kiseki', 'Fantasy Grass Wonder',
-    'Fantasy El Condor Pasa', 'Hishi Amazon', 'Seiun Sky', 'Wedding Air Groove', 'Wedding Mayano Top Gun', 'Narita Brian',
-    'Smart Falcon', 'Narita Taishin', 'Curren Chan', 'Anime Tokai Teio', 'Anime Mejiro McQueen', 'Biwa Hayahide',
-    'Mihono Bourbon', 'TM Opera O', 'Special Week', 'Silence Suzuka', 'Tokai Teio', 'Maruzensky', 'Oguri Cap',
-    'Taiki Shuttle', 'Mejiro McQueen', 'Symboli Rudolf', 'Rice Shower', 'Gold Ship', 'Vodka', 'Daiwa Scarlet',
-    'Grass Wonder', 'El Condor Pasa', 'Air Groove', 'Mayano Top Gun', 'Super Creek', 'Mejiro Ryan', 'Agnes Tachyon',
-    'Winning Ticket', 'Sakura Bakushin O', 'Haru Urara', 'Matikanefukukitaru', 'Nice Nature', 'King Halo'];
