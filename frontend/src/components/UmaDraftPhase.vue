@@ -5,7 +5,9 @@ import { useUmaDraft } from '../composables/useUmaDraft';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
 import { voicelineVolume, playLocalSfx } from '../composables/useVoicelines';
 import { getPlayerName } from '../utils/utils';
-import { UMA_DICT, getUmaImagePath } from '../utils/umaData';
+import { UMA_DICT } from '../utils/umaData';
+import { TRACK_DICT } from '../utils/trackData';
+import UmaCard from './UmaCard.vue';
 
 const props = defineProps<{
   tournament: Tournament;
@@ -42,17 +44,12 @@ function getAptitudeGrade(umaName: string, aptKey: string): string {
   const data = UMA_DICT[umaName];
   if (!data) return '?';
   const { surface, distance, style } = data.aptitudes;
-  if (aptKey in surface) return surface[aptKey as keyof typeof surface];
-  if (aptKey in distance) return distance[aptKey as keyof typeof distance];
-  if (aptKey in style) return style[aptKey as keyof typeof style];
+  
+  const key = aptKey.toLowerCase();
+  if (key in surface) return surface[key as keyof typeof surface];
+  if (key in distance) return distance[key as keyof typeof distance];
+  if (key in style) return style[key as keyof typeof style];
   return '?';
-}
-
-function gradeColor(grade: string): string {
-  if (grade === 'S' || grade === 'A') return 'bg-emerald-500/80 text-white';
-  if (grade === 'B' || grade === 'C') return 'bg-blue-500/80 text-white';
-  if (grade === 'D' || grade === 'E') return 'bg-amber-500/80 text-white';
-  return 'bg-red-500/80 text-white';
 }
 
 const filteredUmas = computed(() => {
@@ -72,6 +69,21 @@ const filteredUmas = computed(() => {
   }
 
   return list;
+});
+
+const selectedTrackData = computed(() => {
+  if (!props.tournament.selectedTrack) return null;
+  return TRACK_DICT[props.tournament.selectedTrack] || null;
+});
+
+const umaToTeamMap = computed(() => {
+  const map = new Map<string, Team>();
+  props.tournament.teams.forEach(t => {
+    t.umaPool?.forEach(uma => {
+      map.set(uma, t);
+    });
+  });
+  return map;
 });
 
 onMounted(async () => {
@@ -259,11 +271,11 @@ const sinceLastPick = computed(() => {
           <div v-if="filteredUmas.length === 0" class="text-center py-12 text-slate-500">
             No Umas found matching "{{ umaSearch }}"
           </div>
-          <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div v-else class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             <button @click="startRandomUma"
                     @mouseenter="isAdmin && playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3')"
                     :disabled="!isAdmin"
-                    class="col-span-2 sm:col-span-1 bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 p-4 rounded-lg shadow-lg border-2 border-indigo-400 flex items-center justify-between group relative overflow-hidden transition-all transform hover:scale-[1.02]">
+                    class="col-span-2 sm:col-span-2 bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 p-4 rounded-lg shadow-lg border-2 border-indigo-400 flex items-center justify-between group relative overflow-hidden transition-all transform hover:scale-[1.02]">
               <div class="relative z-10 text-left">
                 <div class="font-black text-white text-lg uppercase tracking-wider">Random</div>
                 <div class="text-indigo-100/80 text-xs font-bold">Spin the slot</div>
@@ -274,57 +286,17 @@ const sinceLastPick = computed(() => {
               <div class="absolute inset-0 bg-white/20 -skew-x-12 -translate-x-full shine-effect"></div>
             </button>
 
-            <button v-for="uma in filteredUmas" :key="uma"
-                    @click="!umaOwnerMap.has(uma) && !isBanned(uma) && pickUma(uma)"
-                    @mouseenter="isAdmin && !umaOwnerMap.has(uma) && !isBanned(uma) && playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3')"
-                    :disabled="!isAdmin || umaOwnerMap.has(uma) || isBanned(uma)"
-                    class="relative group p-4 rounded-lg border-2 text-left transition-all duration-200 overflow-hidden"
-                    :class="[
-                      umaOwnerMap.has(uma)
-                        ? 'cursor-default opacity-90'
-                        : isBanned(uma)
-                          ? 'bg-red-900/20 border-red-500/50 cursor-not-allowed opacity-80'
-                          : 'bg-slate-800 border-slate-700 hover:border-indigo-400 hover:bg-slate-750'
-                    ]"
-                    :style="umaOwnerMap.has(uma) ? {
-                      borderColor: umaOwnerMap.get(uma)!.teamColor,
-                      backgroundColor: umaOwnerMap.get(uma)!.teamColor + '15'
-                    } : {}">
-
-              <div v-if="isBanned(uma)" class="absolute inset-0 opacity-10 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8cGF0aCBkPSJNLTEgMUwyIC0xTTEgOUw5IDFNOSA5TDEgMSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+')]"></div>
-
-              <div v-if="umaOwnerMap.has(uma)"
-                   class="absolute top-4 -right-12 w-40 rotate-45 text-[10px] font-bold py-1 px-6 text-center shadow-md z-20 pointer-events-none tracking-wider uppercase"
-                   :style="{ backgroundColor: umaOwnerMap.get(uma)!.teamColor, color: '#ffffff' }">
-                <div class="truncate drop-shadow-md">
-                  {{ umaOwnerMap.get(uma)!.teamName }}
-                </div>
-              </div>
-
-              <div class="flex justify-between items-center relative z-10">
-                <div class="flex items-center gap-2 min-w-0 pr-8">
-                  <img :src="getUmaImagePath(uma)" :alt="uma" class="w-8 h-8 rounded-full object-cover shrink-0 bg-slate-700" />
-                  <span class="font-medium text-sm"
-                        :class="[
-                          umaOwnerMap.has(uma) ? 'text-white/80' :
-                          isBanned(uma) ? 'text-red-300 line-through decoration-red-500/50' :
-                          'text-slate-200 group-hover:text-white'
-                        ]">
-                    {{ uma }}
-                  </span>
-                  <span v-if="selectedAptitude"
-                        class="shrink-0 text-[10px] font-black w-5 h-5 rounded flex items-center justify-center leading-none"
-                        :class="gradeColor(getAptitudeGrade(uma, selectedAptitude))">
-                    {{ getAptitudeGrade(uma, selectedAptitude) }}
-                  </span>
-                </div>
-
-                <div v-if="!umaOwnerMap.has(uma)" class="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors"
-                     :class="isBanned(uma) ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-500 group-hover:bg-indigo-500 group-hover:text-white'">
-                  <i class="ph-bold" :class="isBanned(uma) ? 'ph-x' : 'ph-plus'"></i>
-                </div>
-              </div>
-            </button>
+            <UmaCard v-for="uma in filteredUmas" :key="uma"
+                     :uma-name="uma"
+                     :is-banned="isBanned(uma)"
+                     :owner-team="umaToTeamMap.get(uma)"
+                     :highlight-aptitude="selectedAptitude"
+                     :disabled="!isAdmin || umaOwnerMap.has(uma) || isBanned(uma)"
+                     action-type="pick"
+                     :surface-aptitude="selectedTrackData?.surface"
+                     :distance-aptitude="selectedTrackData?.distanceType"
+                     @click="!umaOwnerMap.has(uma) && !isBanned(uma) && pickUma(uma)"
+                     @mouseenter="isAdmin && !umaOwnerMap.has(uma) && !isBanned(uma) && playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3')" />
           </div>
         </div>
 

@@ -6,7 +6,9 @@ import { useGameLogic } from '../composables/useGameLogic';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
 import { voicelineVolume, playLocalSfx } from '../composables/useVoicelines';
 import { getPlayerName } from '../utils/utils';
-import { UMA_DICT, getUmaImagePath } from '../utils/umaData';
+import { UMA_DICT } from '../utils/umaData';
+import { TRACK_DICT } from '../utils/trackData';
+import UmaCard from './UmaCard.vue';
 
 const props = defineProps<{
   tournament: Tournament;
@@ -33,6 +35,11 @@ const banSearch = ref('');
 const filteredUmas = computed(() => {
   const query = banSearch.value.toLowerCase();
   return Object.keys(UMA_DICT).sort().filter(u => u.toLowerCase().includes(query));
+});
+
+const selectedTrackData = computed(() => {
+  if (!props.tournament.selectedTrack) return null;
+  return TRACK_DICT[props.tournament.selectedTrack] || null;
 });
 
 // --- TIMER LOGIC ---
@@ -169,24 +176,16 @@ const resetBanTimer = async () => {
         <div v-if="filteredUmas.length === 0" class="text-center py-12 text-slate-500">
           No Umas found matching "{{ banSearch }}"
         </div>
-        <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          <button v-for="uma in filteredUmas" :key="uma"
-                  @click="toggleBan(uma)"
-                  @mouseenter="isAdminRef && playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3')"
-                  :disabled="!isAdmin"
-                  class="relative group p-4 rounded-lg border-2 text-left transition-all duration-200 overflow-hidden"
-                  :class="isBanned(uma) ? 'bg-red-900/20 border-red-500/50' : 'bg-slate-800 border-slate-700 hover:border-indigo-400 hover:bg-slate-750'">
-            <div v-if="isBanned(uma)" class="absolute inset-0 opacity-10 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8cGF0aCBkPSJNLTEgMUwyIC0xTTEgOUw5IDFNOSA5TDEgMSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+')]"></div>
-            <div class="flex justify-between items-center relative z-10">
-              <div class="flex items-center gap-2 min-w-0 pr-2">
-                <img :src="getUmaImagePath(uma)" :alt="uma" class="w-8 h-8 rounded-full object-cover shrink-0 bg-slate-700" />
-                <span class="font-medium text-sm" :class="isBanned(uma) ? 'text-red-300 line-through decoration-red-500/50' : 'text-slate-200 group-hover:text-white'">{{ uma }}</span>
-              </div>
-              <div class="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors" :class="isBanned(uma) ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-500 group-hover:bg-indigo-500 group-hover:text-white'">
-                <i class="ph-bold" :class="isBanned(uma) ? 'ph-x' : 'ph-check'"></i>
-              </div>
-            </div>
-          </button>
+        <div v-else class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          <UmaCard v-for="uma in filteredUmas" :key="uma"
+                   :uma-name="uma"
+                   :is-banned="isBanned(uma)"
+                   :disabled="!isAdmin"
+                   action-type="ban"
+                   :surface-aptitude="selectedTrackData?.surface"
+                   :distance-aptitude="selectedTrackData?.distanceType"
+                   @click="isAdmin && toggleBan(uma)"
+                   @mouseenter="isAdminRef && playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3')" />
         </div>
       </div>
 
