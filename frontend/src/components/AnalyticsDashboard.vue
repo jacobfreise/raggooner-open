@@ -159,11 +159,11 @@ function stageStatValue(item: any, criterion: string): number {
 type PerfLevel = 'much-better' | 'better' | 'same' | 'worse' | 'much-worse';
 
 const PERF_STYLES: Record<PerfLevel, { icon: string; color: string; label: string }> = {
-  'much-better': { icon: 'ph-fill ph-trend-up',    color: 'text-emerald-400', label: 'Much better in finals' },
-  'better':      { icon: 'ph-bold ph-arrow-up',    color: 'text-green-400',   label: 'Better in finals' },
+  'much-better': { icon: 'ph-fill ph-arrow-up',    color: 'text-emerald-400', label: 'Much better in finals' },
+  'better':      { icon: 'ph-bold ph-trend-up',    color: 'text-green-400',   label: 'Better in finals' },
   'same':        { icon: 'ph-bold ph-minus',        color: 'text-slate-500',   label: 'Similar in finals' },
-  'worse':       { icon: 'ph-bold ph-arrow-down',  color: 'text-amber-400',   label: 'Worse in finals' },
-  'much-worse':  { icon: 'ph-fill ph-trend-down',  color: 'text-red-400',     label: 'Much worse in finals' },
+  'worse':       { icon: 'ph-bold ph-trend-down',  color: 'text-amber-400',   label: 'Worse in finals' },
+  'much-worse':  { icon: 'ph-fill ph-arrow-down',  color: 'text-red-400',     label: 'Much worse in finals' },
 };
 
 function perfIndicator(
