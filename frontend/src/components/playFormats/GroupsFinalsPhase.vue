@@ -456,9 +456,13 @@ const sortedTeamsForModal = computed(() => {
                 <span class="font-bold text-lg" :style="{ color: team.color }">{{ team.name }}</span>
                 <div v-if="tournament.format === 'uma-draft' && getUnassignedUmaPool(team).length > 0"
                      class="flex items-center gap-1">
-                  <img v-for="uma in getUnassignedUmaPool(team)" :key="uma"
-                       :src="getUmaImagePath(uma)" :alt="uma" :title="uma"
-                       class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
+                  <div v-for="uma in getUnassignedUmaPool(team)" :key="uma" class="relative group/umaicon">
+                    <img :src="getUmaImagePath(uma)" :alt="uma"
+                         class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-bold text-slate-200 whitespace-nowrap opacity-0 group-hover/umaicon:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                      {{ uma }}
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="flex flex-col sm:flex-row gap-1.5 mt-2">
@@ -573,9 +577,13 @@ const sortedTeamsForModal = computed(() => {
                 <span class="font-bold text-lg" :style="{ color: team.color }">{{ team.name }}</span>
                 <div v-if="tournament.format === 'uma-draft' && getUnassignedUmaPool(team).length > 0"
                      class="flex items-center gap-1">
-                  <img v-for="uma in getUnassignedUmaPool(team)" :key="uma"
-                       :src="getUmaImagePath(uma)" :alt="uma" :title="uma"
-                       class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
+                  <div v-for="uma in getUnassignedUmaPool(team)" :key="uma" class="relative group/umaicon">
+                    <img :src="getUmaImagePath(uma)" :alt="uma"
+                         class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-bold text-slate-200 whitespace-nowrap opacity-0 group-hover/umaicon:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                      {{ uma }}
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="flex flex-col sm:flex-row gap-1.5 mt-2">
@@ -688,9 +696,13 @@ const sortedTeamsForModal = computed(() => {
                 <span class="font-bold text-lg" :style="{ color: team.color }">{{ team.name }}</span>
                 <div v-if="tournament.format === 'uma-draft' && getUnassignedUmaPool(team).length > 0"
                      class="flex items-center gap-1">
-                  <img v-for="uma in getUnassignedUmaPool(team)" :key="uma"
-                       :src="getUmaImagePath(uma)" :alt="uma" :title="uma"
-                       class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
+                  <div v-for="uma in getUnassignedUmaPool(team)" :key="uma" class="relative group/umaicon">
+                    <img :src="getUmaImagePath(uma)" :alt="uma"
+                         class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-bold text-slate-200 whitespace-nowrap opacity-0 group-hover/umaicon:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                      {{ uma }}
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="flex flex-col sm:flex-row gap-1.5 mt-2">
@@ -795,9 +807,13 @@ const sortedTeamsForModal = computed(() => {
                 <span class="font-bold text-lg" :style="{ color: team.color }">{{ team.name }}</span>
                 <div v-if="tournament.format === 'uma-draft' && getUnassignedUmaPool(team).length > 0"
                      class="flex items-center gap-1">
-                  <img v-for="uma in getUnassignedUmaPool(team)" :key="uma"
-                       :src="getUmaImagePath(uma)" :alt="uma" :title="uma"
-                       class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
+                  <div v-for="uma in getUnassignedUmaPool(team)" :key="uma" class="relative group/umaicon">
+                    <img :src="getUmaImagePath(uma)" :alt="uma"
+                         class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-bold text-slate-200 whitespace-nowrap opacity-0 group-hover/umaicon:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                      {{ uma }}
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="flex flex-col sm:flex-row gap-1.5 mt-2">

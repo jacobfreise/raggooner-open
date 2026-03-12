@@ -132,6 +132,47 @@ const structuredPlayerStats = computed(() => {
   return [{ id: 'all', title: null, color: null, players, sortNumeric: 0, sortString: '' }];
 });
 
+// --- Card Flip ---
+const flippedCards = ref<Record<string, boolean>>({});
+
+const toggleFlip = (playerId: string) => {
+  flippedCards.value = { ...flippedCards.value, [playerId]: !flippedCards.value[playerId] };
+};
+
+const ordinal = (n: number): string => {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return `${n}th`;
+  const suffix = ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th';
+  return `${n}${suffix}`;
+};
+
+const getPlayerBackStats = (playerId: string) => {
+  const allResults = getRaceResultsForPlayer(playerId);
+  const totalRaces = allResults.length;
+  if (totalRaces === 0) {
+    return { totalRaces: 0, stats: [], hasPhaseData: false, avgGroupPts: null as string | null, avgFinalsPts: null as string | null };
+  }
+  const wins = allResults.filter(r => r.position === 1).length;
+  const podiums = allResults.filter(r => r.position && r.position <= 3).length;
+  const totalPts = allResults.reduce((s, r) => s + r.points, 0);
+  const positions = allResults.map(r => r.position).filter((p): p is number => p != null && p > 0);
+  const bestFinish = positions.length > 0 ? Math.min(...positions) : null;
+  const avgPos = positions.length > 0 ? (positions.reduce((s, p) => s + p, 0) / positions.length).toFixed(1) : null;
+  const stats = [
+    { label: 'Win Rate', value: `${Math.round(wins / totalRaces * 100)}%` },
+    { label: 'Podium', value: `${Math.round(podiums / totalRaces * 100)}%` },
+    { label: 'Avg Pts', value: (totalPts / totalRaces).toFixed(1) },
+    { label: 'Best Fin.', value: bestFinish != null ? ordinal(bestFinish) : '—' },
+    { label: 'Avg Pos.', value: avgPos ?? '—' },
+    { label: 'Races', value: totalRaces },
+  ];
+  const groupResults = allResults.filter(r => r.stage === 'groups');
+  const finalsResults = allResults.filter(r => r.stage === 'finals');
+  const avgGroupPts = groupResults.length > 0 ? (getPhaseTotal(groupResults) / groupResults.length).toFixed(1) : null;
+  const avgFinalsPts = finalsResults.length > 0 ? (getPhaseTotal(finalsResults) / finalsResults.length).toFixed(1) : null;
+  return { totalRaces, stats, hasPhaseData: !isSmallTournament.value, avgGroupPts, avgFinalsPts };
+};
+
 // 2. FETCH ACTIVE STATS
 const { activeStats } = useHallOfFame(tournamentRef);
 
@@ -219,117 +260,174 @@ const playerFameMap = computed(() => {
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
-          <div v-for="player in section.players" :key="player.id" class="relative overflow-hidden bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-indigo-500/50 transition-all flex flex-col group hover:shadow-xl hover:-translate-y-1">
-            <div class="absolute inset-0 transition-opacity duration-500 opacity-0 group-hover:opacity-100 pointer-events-none" :style="{ background: `linear-gradient(to bottom right, ${getPlayerColor(player.id)}33, transparent)` }"></div>
+          <div v-for="player in section.players" :key="player.id" class="card-container">
+            <div class="card-inner" :class="{ 'is-flipped': flippedCards[player.id] }">
 
-            <div class="relative z-10 pb-2 border-slate-700/50">
-              <div class="flex justify-between items-start">
-                <div class="flex-1 flex items-start gap-3 min-w-0">
-                  <img v-if="player.uma" :src="getUmaImagePath(player.uma)" :alt="player.uma"
-                       class="w-10 h-10 rounded-full object-cover shrink-0 bg-slate-700 mt-0.5" />
-                  <div class="flex flex-col min-w-0">
-                    <div class="text-2xl font-bold leading-none group-hover:text-indigo-300 transition-colors" :style="{ color: getPlayerColor(player.id) }">{{ player.name }}</div>
-                    <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 mt-1 h-3.5" v-if="player.uma">{{ player.uma }}</div>
-                    <div v-else class="h-3.5 mt-1"></div>
-                  </div>
-                </div>
-                <div class="text-right shrink-0 ml-2">
-                  <div class="text-2xl font-bold leading-none text-indigo-400 tabular-nums">{{ getTotalPoints(player.id) }}</div>
-                  <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 mt-1 h-3.5">Total Pts</div>
-                </div>
-              </div>
-              <div v-if="playerFameMap[player.id]?.length" class="flex flex-wrap gap-1 mt-2">
-                <div v-for="fame in playerFameMap[player.id]" :key="fame.title"
-                     class="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded border border-slate-700 bg-slate-900/80 flex items-center gap-1 shadow-sm">
-                  <i :class="[fame.icon, fame.color]" class="ph-fill text-[10px]"></i>
-                  <span class="text-slate-400">{{ fame.title }}</span>
-                </div>
-              </div>
-            </div>
+              <!-- Front Face -->
+              <div class="card-face relative overflow-hidden bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-indigo-500/50 transition-all flex flex-col group hover:shadow-xl hover:-translate-y-1">
+                <div class="absolute inset-0 transition-opacity duration-500 opacity-0 group-hover:opacity-100 pointer-events-none" :style="{ background: `linear-gradient(to bottom right, ${getPlayerColor(player.id)}33, transparent)` }"></div>
 
-            <div class="flex-1 flex flex-col gap-2">
-              <template v-for="results in [getSplitResults(player.id)]" :key="player.id">
-                <div v-if="isSmallTournament">
-                  <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">
-                    Races <div class="h-px bg-slate-700 flex-1"></div>
-                  </div>
-                  <div class="min-h-[60px] flex flex-col justify-center">
-                    <div v-if="results.finals.length === 0" class="flex items-center justify-center">
-                      <span class="text-xs text-slate-600 italic">No races recorded yet</span>
+                <div class="relative z-10 pb-2 border-slate-700/50">
+                  <div class="flex justify-between items-start">
+                    <div class="flex-1 flex items-start gap-3 min-w-0">
+                      <img v-if="player.uma" :src="getUmaImagePath(player.uma)" :alt="player.uma"
+                           class="w-10 h-10 rounded-full object-cover shrink-0 bg-slate-700 mt-0.5" />
+                      <div class="flex flex-col min-w-0">
+                        <div class="text-2xl font-bold leading-none group-hover:text-indigo-300 transition-colors" :style="{ color: getPlayerColor(player.id) }">{{ player.name }}</div>
+                        <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 mt-1 h-3.5" v-if="player.uma">{{ player.uma }}</div>
+                        <div v-else class="h-3.5 mt-1"></div>
+                      </div>
                     </div>
-                    <div v-else class="grid grid-cols-5 gap-2">
-                      <div v-for="(result, idx) in results.finals" :key="'r'+idx" class="flex flex-col items-center gap-1">
-                        <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110" :class="getPositionStyle(result.position, 'finals')">
-                          {{ result.position || '-' }}
+                    <div class="text-right shrink-0 ml-2">
+                      <div class="text-2xl font-bold leading-none text-indigo-400 tabular-nums">{{ getTotalPoints(player.id) }}</div>
+                      <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 mt-1 h-3.5">Total Pts</div>
+                    </div>
+                  </div>
+                  <div v-if="playerFameMap[player.id]?.length" class="flex flex-wrap gap-1 mt-2">
+                    <div v-for="fame in playerFameMap[player.id]" :key="fame.title"
+                         class="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded border border-slate-700 bg-slate-900/80 flex items-center gap-1 shadow-sm">
+                      <i :class="[fame.icon, fame.color]" class="ph-fill text-[10px]"></i>
+                      <span class="text-slate-400">{{ fame.title }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex-1 flex flex-col gap-2">
+                  <template v-for="results in [getSplitResults(player.id)]" :key="player.id">
+                    <div v-if="isSmallTournament">
+                      <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">
+                        Races <div class="h-px bg-slate-700 flex-1"></div>
+                      </div>
+                      <div class="min-h-[60px] flex flex-col justify-center">
+                        <div v-if="results.finals.length === 0" class="flex items-center justify-center">
+                          <span class="text-xs text-slate-600 italic">No races recorded yet</span>
                         </div>
-                        <span class="text-[10px] font-mono text-slate-500">
-                          {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div v-else class="contents">
-                  <div>
-                    <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">
-                      Group Stage <div class="h-px bg-slate-700 flex-1"></div>
-                      <span class="font-mono text-slate-400">{{ getPhaseTotal(results.groups) }} pts</span>
-                    </div>
-                    <div class="min-h-[60px] flex flex-col justify-center">
-                      <div v-if="results.groups.length === 0" class="flex items-center justify-center">
-                        <span class="text-xs text-slate-600 italic">No races recorded yet</span>
-                      </div>
-                      <div v-else class="grid grid-cols-5 gap-2">
-                        <div v-for="(result, idx) in results.groups" :key="'g'+idx" class="flex flex-col items-center gap-1">
-                          <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110" :class="getPositionStyle(result.position, 'groups')">
-                            {{ result.position || '-' }}
+                        <div v-else class="grid grid-cols-5 gap-2">
+                          <div v-for="(result, idx) in results.finals" :key="'r'+idx" class="flex flex-col items-center gap-1">
+                            <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110" :class="getPositionStyle(result.position, 'finals')">
+                              {{ result.position || '-' }}
+                            </div>
+                            <span class="text-[10px] font-mono text-slate-500">
+                              {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
+                            </span>
                           </div>
-                          <span class="text-[10px] font-mono text-slate-500">
-                            {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
-                          </span>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div v-if="!playerEliminated(player.id) || results.finals.length > 0">
-                    <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 mt-1 flex items-center gap-2">
-                      <span class="text-amber-500">Finals</span>
-                      <div class="h-px bg-slate-700 flex-1"></div>
-                      <span class="font-mono text-slate-400">{{ getPhaseTotal(results.finals) }} pts</span>
-                    </div>
-                    <div class="min-h-[60px] flex flex-col justify-center">
-                      <div v-if="results.finals.length === 0" class="flex items-center justify-center">
-                        <span class="text-xs text-slate-600 italic">No races recorded yet</span>
-                      </div>
-                      <div v-else class="grid grid-cols-5 gap-2">
-                        <div v-for="(result, idx) in results.finals" :key="'f'+idx" class="flex flex-col items-center gap-1">
-                          <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110" :class="getPositionStyle(result.position, 'finals')">
-                            {{ result.position || '-' }}
+                    <div v-else class="contents">
+                      <div>
+                        <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">
+                          Group Stage <div class="h-px bg-slate-700 flex-1"></div>
+                          <span class="font-mono text-slate-400">{{ getPhaseTotal(results.groups) }} pts</span>
+                        </div>
+                        <div class="min-h-[60px] flex flex-col justify-center">
+                          <div v-if="results.groups.length === 0" class="flex items-center justify-center">
+                            <span class="text-xs text-slate-600 italic">No races recorded yet</span>
                           </div>
-                          <span class="text-[10px] font-mono text-slate-500">
-                            {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
-                          </span>
+                          <div v-else class="grid grid-cols-5 gap-2">
+                            <div v-for="(result, idx) in results.groups" :key="'g'+idx" class="flex flex-col items-center gap-1">
+                              <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110" :class="getPositionStyle(result.position, 'groups')">
+                                {{ result.position || '-' }}
+                              </div>
+                              <span class="text-[10px] font-mono text-slate-500">
+                                {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div v-if="!playerEliminated(player.id) || results.finals.length > 0">
+                        <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 mt-1 flex items-center gap-2">
+                          <span class="text-amber-500">Finals</span>
+                          <div class="h-px bg-slate-700 flex-1"></div>
+                          <span class="font-mono text-slate-400">{{ getPhaseTotal(results.finals) }} pts</span>
+                        </div>
+                        <div class="min-h-[60px] flex flex-col justify-center">
+                          <div v-if="results.finals.length === 0" class="flex items-center justify-center">
+                            <span class="text-xs text-slate-600 italic">No races recorded yet</span>
+                          </div>
+                          <div v-else class="grid grid-cols-5 gap-2">
+                            <div v-for="(result, idx) in results.finals" :key="'f'+idx" class="flex flex-col items-center gap-1">
+                              <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110" :class="getPositionStyle(result.position, 'finals')">
+                                {{ result.position || '-' }}
+                              </div>
+                              <span class="text-[10px] font-mono text-slate-500">
+                                {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div v-else-if="playerEliminated(player.id)" class="mt-auto">
+                        <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 mt-1 flex items-center gap-2">
+                          <span class="text-amber-500">Finals</span>
+                          <div class="h-px bg-slate-700 flex-1"></div>
+                          <span class="font-mono text-slate-400">{{ getPhaseTotal(results.finals) }} pts</span>
+                        </div>
+                        <div class="min-h-[60px] flex flex-col justify-center">
+                          <div class="bg-slate-900/50 rounded-lg border border-slate-700 border-dashed p-3 text-center">
+                            <span class="text-xs text-slate-500 italic">Did not qualify for finals</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </template>
+                </div>
+                <button @click.stop="toggleFlip(player.id)" class="absolute bottom-3 right-3 z-20 p-1 rounded-lg text-slate-600 hover:text-white hover:bg-slate-700 transition-all" title="Show Stats">
+                  <i class="ph-bold ph-chart-bar text-sm"></i>
+                </button>
+              </div>
 
-                  <div v-else-if="playerEliminated(player.id)" class="mt-auto">
-                    <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 mt-1 flex items-center gap-2">
-                      <span class="text-amber-500">Finals</span>
-                      <div class="h-px bg-slate-700 flex-1"></div>
-                      <span class="font-mono text-slate-400">{{ getPhaseTotal(results.finals) }} pts</span>
-                    </div>
-                    <div class="min-h-[60px] flex flex-col justify-center">
-                      <div class="bg-slate-900/50 rounded-lg border border-slate-700 border-dashed p-3 text-center">
-                        <span class="text-xs text-slate-500 italic">Did not qualify for finals</span>
+              <!-- Back Face -->
+              <div class="card-back-face bg-slate-800 rounded-xl border border-indigo-500/30 p-4 flex flex-col gap-3">
+                <div class="pb-2 border-slate-700/50">
+                  <div class="flex justify-between items-start">
+                    <div class="flex-1 flex items-start gap-3 min-w-0">
+                      <img v-if="player.uma" :src="getUmaImagePath(player.uma)" :alt="player.uma"
+                           class="w-10 h-10 rounded-full object-cover shrink-0 bg-slate-700 mt-0.5" />
+                      <div class="flex flex-col min-w-0">
+                        <div class="text-2xl font-bold leading-none" :style="{ color: getPlayerColor(player.id) }">{{ player.name }}</div>
+                        <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 mt-1 h-3.5" v-if="player.uma">{{ player.uma }}</div>
+                        <div v-else class="h-3.5 mt-1"></div>
                       </div>
+                    </div>
+                    <div class="text-right shrink-0 ml-2">
+                      <div class="text-2xl font-bold leading-none text-indigo-400 tabular-nums">{{ getTotalPoints(player.id) }}</div>
+                      <div class="text-[10px] uppercase font-bold tracking-wider text-slate-500 mt-1 h-3.5">Total Pts</div>
                     </div>
                   </div>
                 </div>
-              </template>
+                <template v-for="bs in [getPlayerBackStats(player.id)]" :key="player.id + '-back'">
+                  <div v-if="bs.totalRaces === 0" class="flex-1 flex items-center justify-center">
+                    <span class="text-xs text-slate-600 italic">No races recorded yet</span>
+                  </div>
+                  <div v-else class="flex flex-col gap-2">
+                    <div class="grid grid-cols-3 gap-1.5">
+                      <div v-for="stat in bs.stats" :key="stat.label" class="bg-slate-900/80 rounded-lg p-2 text-center">
+                        <div class="text-base font-bold text-white tabular-nums">{{ stat.value }}</div>
+                        <div class="text-[9px] uppercase text-slate-500 font-bold tracking-wider mt-0.5">{{ stat.label }}</div>
+                      </div>
+                    </div>
+                    <div v-if="bs.hasPhaseData" class="space-y-1">
+                      <div v-if="bs.avgGroupPts !== null" class="flex justify-between items-center bg-slate-900/50 rounded px-2 py-1.5">
+                        <span class="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Group Avg</span>
+                        <span class="text-xs font-mono font-bold text-slate-300">{{ bs.avgGroupPts }} <span class="text-slate-600 font-normal">pts/race</span></span>
+                      </div>
+                      <div v-if="bs.avgFinalsPts !== null" class="flex justify-between items-center bg-slate-900/50 rounded px-2 py-1.5">
+                        <span class="text-[10px] uppercase text-amber-600 font-bold tracking-wider">Finals Avg</span>
+                        <span class="text-xs font-mono font-bold text-slate-300">{{ bs.avgFinalsPts }} <span class="text-slate-600 font-normal">pts/race</span></span>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                <button @click.stop="toggleFlip(player.id)" class="absolute bottom-3 right-3 z-20 p-1 rounded-lg text-slate-600 hover:text-white hover:bg-slate-700 transition-all" title="Flip back">
+                  <i class="ph-bold ph-arrow-counter-clockwise text-sm"></i>
+                </button>
+              </div>
+
             </div>
           </div>
         </div>
@@ -337,3 +435,27 @@ const playerFameMap = computed(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.card-container {
+  perspective: 1000px;
+}
+.card-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.5s;
+}
+.card-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+.card-face,
+.card-back-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.card-back-face {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+}
+</style>
