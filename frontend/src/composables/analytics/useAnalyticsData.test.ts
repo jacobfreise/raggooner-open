@@ -38,7 +38,7 @@ describe('useAnalyticsData', () => {
     const { loading, minTournaments, selectedSeasons } = useAnalyticsData();
     expect(loading.value).toBe(true);
     expect(minTournaments.value).toBe(3);
-    expect(selectedSeasons.value).toEqual(['season-2']);
+    expect(selectedSeasons.value).toEqual(['season-3']);
   });
 
   it('loads data and updates state', async () => {
