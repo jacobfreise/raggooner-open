@@ -170,7 +170,17 @@ const getPlayerBackStats = (playerId: string) => {
   const finalsResults = allResults.filter(r => r.stage === 'finals');
   const avgGroupPts = groupResults.length > 0 ? (getPhaseTotal(groupResults) / groupResults.length).toFixed(1) : null;
   const avgFinalsPts = finalsResults.length > 0 ? (getPhaseTotal(finalsResults) / finalsResults.length).toFixed(1) : null;
-  return { totalRaces, stats, hasPhaseData: !isSmallTournament.value, avgGroupPts, avgFinalsPts };
+  let totalBeaten = 0;
+  let totalFaced = 0;
+  Object.values(props.tournament.races || {}).forEach(race => {
+    const position = race.placements[playerId];
+    if (position == null) return;
+    const playersInRace = Object.keys(race.placements).length;
+    totalBeaten += playersInRace - position;
+    totalFaced += playersInRace - 1;
+  });
+  const dominance = totalFaced > 0 ? Math.round(totalBeaten / totalFaced * 100) : null;
+  return { totalRaces, stats, hasPhaseData: !isSmallTournament.value, avgGroupPts, avgFinalsPts, dominance };
 };
 
 // 2. FETCH ACTIVE STATS
@@ -382,7 +392,7 @@ const playerFameMap = computed(() => {
               </div>
 
               <!-- Back Face -->
-              <div class="card-back-face bg-slate-800 rounded-xl border border-indigo-500/30 p-4 flex flex-col gap-3">
+              <div class="card-back-face bg-slate-800 rounded-xl border border-indigo-500/30 p-4 flex flex-col gap-3 overflow-y-auto">
                 <div class="pb-2 border-slate-700/50">
                   <div class="flex justify-between items-start">
                     <div class="flex-1 flex items-start gap-3 min-w-0">
@@ -409,6 +419,12 @@ const playerFameMap = computed(() => {
                       <div v-for="stat in bs.stats" :key="stat.label" class="bg-slate-900/80 rounded-lg p-2 text-center">
                         <div class="text-base font-bold text-white tabular-nums">{{ stat.value }}</div>
                         <div class="text-[9px] uppercase text-slate-500 font-bold tracking-wider mt-0.5">{{ stat.label }}</div>
+                      </div>
+                    </div>
+                    <div class="space-y-1">
+                      <div v-if="bs.dominance !== null" class="flex justify-between items-center bg-slate-900/50 rounded px-2 py-1.5">
+                        <span class="text-[10px] uppercase text-indigo-400 font-bold tracking-wider">Dominance</span>
+                        <span class="text-xs font-mono font-bold text-slate-300">{{ bs.dominance }}%</span>
                       </div>
                     </div>
                     <div v-if="bs.hasPhaseData" class="space-y-1">
