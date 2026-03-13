@@ -45,10 +45,9 @@ function getAptitudeGrade(umaName: string, aptKey: string): string {
   if (!data) return '?';
   const { surface, distance, style } = data.aptitudes;
   
-  const key = aptKey.toLowerCase();
-  if (key in surface) return surface[key as keyof typeof surface];
-  if (key in distance) return distance[key as keyof typeof distance];
-  if (key in style) return style[key as keyof typeof style];
+  if (aptKey in surface) return surface[aptKey as keyof typeof surface];
+  if (aptKey in distance) return distance[aptKey as keyof typeof distance];
+  if (aptKey in style) return style[aptKey as keyof typeof style];
   return '?';
 }
 
