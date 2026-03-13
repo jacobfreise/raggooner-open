@@ -567,24 +567,26 @@ export function useGameLogic(
 
         const adjustment: PointAdjustment = {
             id: crypto.randomUUID(),
-            amount, // e.g. -10 or +5
+            amount,
             reason,
             stage
         };
 
-        // 1. Add adjustment to the specific team locally
-        const tempTeams = tournament.value.teams.map(t => {
+        const teamsWithAdj = tournament.value.teams.map(t => {
             if (t.id === teamId) {
-                return {
-                    ...t,
-                    adjustments: [...(t.adjustments || []), adjustment]
-                };
+                return { ...t, adjustments: [...(t.adjustments || []), adjustment] };
             }
             return t;
         });
 
+        // Recalculate so team.points / team.finalsPoints reflect the new adjustment immediately
+        const { teams: scoredTeams } = recalculateTournamentScores({
+            ...tournament.value,
+            teams: teamsWithAdj
+        });
+
         try {
-            await secureUpdate({ teams: tempTeams });
+            await secureUpdate({ teams: scoredTeams });
         } catch(e) {
             console.error(e);
         } finally {
@@ -597,19 +599,21 @@ export function useGameLogic(
         if (!tournament.value) return;
         saving.value = true;
 
-        // 1. Create a local copy of teams with the specific adjustment removed
-        const tempTeams = tournament.value.teams.map(t => {
+        const teamsWithoutAdj = tournament.value.teams.map(t => {
             if (t.id === teamId && t.adjustments) {
-                return {
-                    ...t,
-                    adjustments: t.adjustments.filter(a => a.id !== adjustmentId)
-                };
+                return { ...t, adjustments: t.adjustments.filter(a => a.id !== adjustmentId) };
             }
             return t;
         });
 
+        // Recalculate so team.points / team.finalsPoints reflect the removed adjustment immediately
+        const { teams: scoredTeams } = recalculateTournamentScores({
+            ...tournament.value,
+            teams: teamsWithoutAdj
+        });
+
         try {
-            await secureUpdate({ teams: tempTeams });
+            await secureUpdate({ teams: scoredTeams });
         } catch(e) {
             console.error("Error removing adjustment:", e);
         } finally {

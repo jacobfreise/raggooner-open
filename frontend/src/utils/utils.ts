@@ -43,8 +43,8 @@ export const compareTeams = (a: Team, b: Team, useIdFallback = true, tournament:
 
     if (useTiebreaker) {
         // Priority 2: Countback (Most 1sts, then 2nds, etc.)
-        const placementsA = getTeamPlacements(a, tournament);
-        const placementsB = getTeamPlacements(b, tournament);
+        const placementsA = getTeamPlacements(a, tournament, isFinals);
+        const placementsB = getTeamPlacements(b, tournament, isFinals);
 
         for (let i = 1; i <= 18; i++) {
             const countA = placementsA[i] || 0;
@@ -64,16 +64,16 @@ export const compareTeams = (a: Team, b: Team, useIdFallback = true, tournament:
 };
 
 // 1. Get placement counts for a specific team (e.g. {1: 3, 2: 1, 3: 0})
-const getTeamPlacements = (team: Team, tournament: Tournament) => {
+const getTeamPlacements = (team: Team, tournament: Tournament, isFinals?: boolean) => {
     const counts: Record<number, number> = {};
     if (!tournament) return counts;
 
     // Get all members (Captain + Members)
-    const roster = [team.captainId, ...team.memberIds];
+    const roster = [team.captainId, ...(team.memberIds || [])];
 
-    // Look at ONLY the races for this team's group
+    // For finals tiebreaker use finals races; for groups use the team's own group races
     const relevantRaces = Object.values(tournament.races).filter(r =>
-        r.stage === 'groups' && r.group === team.group
+        isFinals ? r.stage === 'finals' : (r.stage === 'groups' && r.group === team.group)
     );
 
     relevantRaces.forEach(race => {

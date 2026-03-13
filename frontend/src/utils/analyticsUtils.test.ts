@@ -63,13 +63,20 @@ describe('analyticsUtils', () => {
     it('returns finalist winner if finalists exist', () => {
       const tournament = {
         teams: [
-          { id: 't1', inFinals: true, finalsPoints: 10, points: 50 },
-          { id: 't2', inFinals: true, finalsPoints: 20, points: 40 },
+          { id: 't1', inFinals: true, captainId: 'p1', memberIds: [], group: 'A', adjustments: [] },
+          { id: 't2', inFinals: true, captainId: 'p2', memberIds: [], group: 'B', adjustments: [] },
         ],
-        players: {},
-        races: {}
+        players: {
+          p1: { id: 'p1', name: 'P1', isCaptain: true, uma: '' },
+          p2: { id: 'p2', name: 'P2', isCaptain: true, uma: '' },
+        },
+        // t2's captain (p2) finishes 1st, t1's captain (p1) finishes 2nd
+        races: {
+          'finals-A-1': { stage: 'finals', group: 'A', raceNumber: 1, timestamp: '', placements: { p1: 2, p2: 1 } },
+        },
+        pointsSystem: { 1: 10, 2: 5 },
       } as any;
-      // t2 should win due to higher finals points (using compareTeams logic)
+      // t2 should win: 10 finalsPoints vs t1's 5
       expect(getWinningTeam(tournament)?.id).toBe('t2');
     });
 

@@ -74,15 +74,18 @@ export function getWinningTeam(tournament: Tournament): Team | undefined {
   const teams = tournament.teams;
   if (!teams || teams.length === 0) return undefined;
 
-  const finalistTeams = teams.filter(team => team.inFinals);
+  // Early exit: multi-group with no finalists — no winner to determine
+  const hasFinalists = teams.some(t => t.inFinals);
+  const hasGroups = new Set(teams.map(tm => tm.group)).size > 1;
+  if (!hasFinalists && hasGroups) return undefined;
+
+  const { teams: scoredTeams } = recalculateTournamentScores(tournament);
+
+  const finalistTeams = scoredTeams.filter(team => team.inFinals);
   if (finalistTeams.length > 0) {
     return [...finalistTeams].sort((a, b) => compareTeams(a, b, true, tournament, true))[0];
   }
 
-  const hasGroups = new Set(teams.map(tm => tm.group)).size > 1;
-  if (hasGroups) return undefined;
-
-  const { teams: scoredTeams } = recalculateTournamentScores(tournament);
   const topId = [...scoredTeams].sort((a, b) => {
     const aTotal = (a.points || 0) + (a.finalsPoints || 0);
     const bTotal = (b.points || 0) + (b.finalsPoints || 0);
