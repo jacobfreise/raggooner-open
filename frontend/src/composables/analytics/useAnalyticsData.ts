@@ -24,7 +24,7 @@ export function useAnalyticsData() {
   // Filters
   const minTournaments = ref(3);
   const tierCriterion = ref<TierCriterion>('dominance');
-  const selectedSeasons = ref<string[]>(['season-2']);
+  const selectedSeasons = ref<string[]>(['season-3']);
   const selectedFormats = ref<string[]>([]);
   const selectedSurfaces = ref<string[]>([]);
   const selectedDistanceTypes = ref<string[]>([]);
