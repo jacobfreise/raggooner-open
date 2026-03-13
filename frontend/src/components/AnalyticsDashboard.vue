@@ -260,28 +260,33 @@ function perfIndicator(
       </div>
 
       <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6 flex flex-col lg:flex-row flex-wrap gap-8 lg:items-center">
-        <div class="flex items-center gap-6 flex-1 max-w-xl">
-          <div class="flex flex-col min-w-[120px]">
-            <label class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+        <div class="flex flex-col gap-2 flex-1 max-w-xl">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">
               Min. Tourneys
             </label>
-            <div class="text-2xl font-black text-white">
-              {{ minTournaments }} <span class="text-xs text-slate-500 font-medium">played</span>
+            <div class="flex items-center gap-2">
+              <input
+                  v-model.number="minTournaments"
+                  type="number"
+                  min="1"
+                  max="20"
+                  @change="minTournaments = Math.min(20, Math.max(1, minTournaments || 1))"
+                  class="w-14 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white text-sm font-mono font-bold text-center focus:outline-none focus:border-indigo-500 transition-colors"
+              />
+              <span class="text-xs text-slate-500">played</span>
             </div>
           </div>
-
-          <div class="flex-1">
-            <input
-                v-model.number="minTournaments"
-                type="range"
-                min="1"
-                :max="20"
-                class="w-full h-2 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-indigo-500 hover:accent-indigo-400 transition-all"
-            />
-            <div class="flex justify-between text-[10px] text-slate-500 font-bold mt-2 px-1">
-              <span>1</span>
-              <span>{{ 20 }}</span>
-            </div>
+          <input
+              v-model.number="minTournaments"
+              type="range"
+              min="1"
+              max="20"
+              class="w-full h-2 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-indigo-500 hover:accent-indigo-400 transition-all"
+          />
+          <div class="flex justify-between text-[10px] text-slate-500 font-bold px-1">
+            <span>1</span>
+            <span>20</span>
           </div>
         </div>
 
