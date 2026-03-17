@@ -196,6 +196,27 @@ const copyTrackImage = async () => {
     } catch (e) { console.error('Clipboard image failed', e); }
 };
 
+// Registration status hint
+const VALID_PLAYER_TOTALS = [9, 12, 15, 18, 24, 27];
+
+const registrationHint = computed(() => {
+  const playerCount = Object.keys(props.tournament.players).length;
+  const captainCount = Object.values(props.tournament.players).filter(p => p.isCaptain).length;
+
+  if (VALID_PLAYER_TOTALS.includes(playerCount)) {
+    const expected = playerCount / 3;
+    const diff = expected - captainCount;
+    if (diff === 0) return { type: 'ready' as const,   text: 'Ready to draft!' };
+    if (diff > 0)   return { type: 'captain' as const, text: `Promote ${diff} captain${diff > 1 ? 's' : ''}` };
+                    return { type: 'captain' as const, text: `Demote ${Math.abs(diff)} captain${Math.abs(diff) > 1 ? 's' : ''}` };
+  }
+
+  const next = VALID_PLAYER_TOTALS.find(t => t > playerCount);
+  if (!next)       return { type: 'over' as const,    text: 'Over max (27)' };
+  const needed = next - playerCount;
+  return { type: 'players' as const, text: `Need ${needed} more player${needed > 1 ? 's' : ''}` };
+});
+
 // Get list of already added player IDs
 const addedPlayerIds = () => {
   return Object.keys(props.tournament.players);
@@ -234,11 +255,31 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
           <option value="all">All Time</option>
           <option v-for="season in seasons" :key="season.id" :value="season.id">{{ season.name }}</option>
         </select>
-        <div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 ml-auto">
-          <div class="text-sm text-slate-400">Total Players</div>
-          <div class="text-2xl font-bold text-white font-mono">
-            {{ Object.keys(tournament.players).length }}
-            <span class="text-sm font-normal text-slate-500">/ 27 max</span>
+        <div class="flex items-center gap-3 ml-auto">
+          <!-- Hint pill -->
+          <div class="px-3 py-1.5 rounded-lg border text-sm font-bold flex items-center gap-2"
+               :class="{
+                 'bg-emerald-900/30 border-emerald-500/40 text-emerald-400': registrationHint.type === 'ready',
+                 'bg-amber-900/30 border-amber-500/40 text-amber-400':       registrationHint.type === 'captain',
+                 'bg-slate-800 border-slate-700 text-slate-400':             registrationHint.type === 'players',
+                 'bg-red-900/30 border-red-500/40 text-red-400':             registrationHint.type === 'over',
+               }">
+            <i class="ph-fill text-sm"
+               :class="{
+                 'ph-check-circle':  registrationHint.type === 'ready',
+                 'ph-crown':         registrationHint.type === 'captain',
+                 'ph-user-plus':     registrationHint.type === 'players',
+                 'ph-warning-circle':registrationHint.type === 'over',
+               }"></i>
+            {{ registrationHint.text }}
+          </div>
+
+          <div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700">
+            <div class="text-sm text-slate-400">Total Players</div>
+            <div class="text-2xl font-bold text-white font-mono">
+              {{ Object.keys(tournament.players).length }}
+              <span class="text-sm font-normal text-slate-500">/ 27 max</span>
+            </div>
           </div>
         </div>
       </div>

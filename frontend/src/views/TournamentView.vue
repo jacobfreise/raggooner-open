@@ -63,6 +63,48 @@ const { currentView } = useGameLogic(tournament, secureUpdate);
 const { activeVisualEgg } = useEasterEgg(tournament);
 useVoicelines(tournament);
 
+// --- PHASE TRANSITION OVERLAY ---
+const PHASE_NAMES: Record<string, { label: string; icon: string }> = {
+  'registration':    { label: 'Registration',       icon: 'ph-users'           },
+  'draft':           { label: 'Player Draft',        icon: 'ph-shuffle'         },
+  'ban':             { label: 'Uma Ban',              icon: 'ph-prohibit'        },
+  'pick':            { label: 'Uma Draft',            icon: 'ph-horse'           },
+  'active':          { label: 'Tournament Start',     icon: 'ph-flag-checkered'  },
+  'completed':       { label: 'Tournament Complete',  icon: 'ph-trophy'          },
+};
+
+interface PhaseOverlay {
+  label: string;
+  icon: string;
+  draftOrder: { name: string; color: string }[];
+}
+
+const phaseOverlay = ref<PhaseOverlay | null>(null);
+let overlayTimeout: number | null = null;
+
+watch(() => tournament.value?.status, (newStatus, oldStatus) => {
+  if (!newStatus || !oldStatus || newStatus === oldStatus) return;
+
+  const meta = PHASE_NAMES[newStatus];
+  if (!meta) return;
+
+  const draftOrder: { name: string; color: string }[] = [];
+  if ((newStatus === 'draft' || newStatus === 'pick') && tournament.value?.draft?.order) {
+    const seen = new Set<string>();
+    for (const teamId of tournament.value.draft.order) {
+      if (!seen.has(teamId)) {
+        seen.add(teamId);
+        const team = tournament.value.teams.find(t => t.id === teamId);
+        if (team) draftOrder.push({ name: team.name, color: team.color ?? '#6366f1' });
+      }
+    }
+  }
+
+  phaseOverlay.value = { ...meta, draftOrder };
+  if (overlayTimeout) clearTimeout(overlayTimeout);
+  overlayTimeout = window.setTimeout(() => { phaseOverlay.value = null; }, 2500);
+});
+
 // Global players & seasons (shared across phases)
 const globalPlayers = ref<GlobalPlayer[]>([]);
 const seasons = ref<Season[]>([]);
@@ -141,7 +183,10 @@ watch(() => route.params.id, (newId) => {
   }
 }, { immediate: true });
 
-onUnmounted(() => { cleanupSubscription(); });
+onUnmounted(() => {
+  cleanupSubscription();
+  if (overlayTimeout) clearTimeout(overlayTimeout);
+});
 
 // Replace exitTournament with router navigation
 const exitTournament = () => { router.push('/'); };
@@ -433,6 +478,40 @@ const savePointsSystem = async () => {
         @close="isTrackPanelOpen = false"
     />
 
+    <!-- Phase transition overlay -->
+    <Teleport to="body">
+      <Transition name="phase-overlay">
+        <div v-if="phaseOverlay"
+             class="fixed inset-0 z-[150] flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md pointer-events-none select-none">
+          <div class="flex flex-col items-center gap-6 text-center px-8">
+            <div class="phase-overlay-icon-ring">
+              <i class="ph-fill text-5xl text-white" :class="phaseOverlay.icon"></i>
+            </div>
+
+            <div>
+              <div class="text-xs font-bold uppercase tracking-[0.3em] text-indigo-400 mb-2">Now Entering</div>
+              <h2 class="text-5xl sm:text-7xl font-black text-white tracking-tight drop-shadow-2xl">
+                {{ phaseOverlay.label }}
+              </h2>
+            </div>
+
+            <div v-if="phaseOverlay.draftOrder.length > 0" class="mt-2 flex flex-col items-center gap-3">
+              <div class="text-xs font-bold uppercase tracking-[0.25em] text-slate-400">Draft Order</div>
+              <div class="flex flex-wrap justify-center gap-3">
+                <div v-for="(team, idx) in phaseOverlay.draftOrder" :key="team.name"
+                     class="flex items-center gap-2 bg-slate-800/80 border border-slate-700 rounded-full px-4 py-2 shadow-lg">
+                  <span class="text-slate-500 font-bold text-sm tabular-nums">{{ idx + 1 }}</span>
+                  <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: team.color }"></span>
+                  <span class="font-bold text-white text-sm">{{ team.name }}</span>
+                </div>
+              </div>
+              <div class="text-xs text-slate-500 italic">Snake order</div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <!-- Easter egg overlay: rendered OUTSIDE the root div so CSS transforms (shake) don't break fixed positioning -->
     <Teleport to="body">
       <div v-if="activeVisualEgg" :class="activeVisualEgg.visual?.overlayClass" class="flex items-center justify-center fixed inset-0 pointer-events-none z-[9999]">
@@ -446,6 +525,38 @@ const savePointsSystem = async () => {
 </template>
 
 <style scoped>
+/* PHASE TRANSITION OVERLAY */
+.phase-overlay-enter-active {
+  animation: phase-overlay-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.phase-overlay-leave-active {
+  animation: phase-overlay-out 0.5s ease-in forwards;
+}
+@keyframes phase-overlay-in {
+  from { opacity: 0; transform: scale(1.04); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes phase-overlay-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.97); }
+}
+
+.phase-overlay-icon-ring {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 12px rgba(99, 102, 241, 0.15), 0 0 40px rgba(99, 102, 241, 0.4);
+  animation: icon-ring-pulse 2s ease-in-out infinite;
+}
+@keyframes icon-ring-pulse {
+  0%, 100% { box-shadow: 0 0 0 12px rgba(99, 102, 241, 0.15), 0 0 40px rgba(99, 102, 241, 0.4); }
+  50%       { box-shadow: 0 0 0 20px rgba(99, 102, 241, 0.08), 0 0 60px rgba(99, 102, 241, 0.6); }
+}
+
 /* EASTER EGG STYLES */
 @keyframes sumo-shake {
   0% { transform: translate(0, 0) rotate(0deg); }
