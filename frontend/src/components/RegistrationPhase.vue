@@ -197,6 +197,7 @@ const copyTrackImage = async () => {
 };
 
 // Registration status hint
+const VALID_TEAM_COUNTS = [3, 4, 5, 6, 8, 9];
 const VALID_PLAYER_TOTALS = [9, 12, 15, 18, 24, 27];
 
 const registrationHint = computed(() => {
@@ -206,15 +207,36 @@ const registrationHint = computed(() => {
   if (VALID_PLAYER_TOTALS.includes(playerCount)) {
     const expected = playerCount / 3;
     const diff = expected - captainCount;
-    if (diff === 0) return { type: 'ready' as const,   text: 'Ready to draft!' };
-    if (diff > 0)   return { type: 'captain' as const, text: `Promote ${diff} captain${diff > 1 ? 's' : ''}` };
-                    return { type: 'captain' as const, text: `Demote ${Math.abs(diff)} captain${Math.abs(diff) > 1 ? 's' : ''}` };
+    if (diff === 0) return { type: 'ready' as const, text: 'Ready to draft!', options: null };
+
+    if (diff > 0) {
+      // Too few captains. Can also fix by removing players down to captainCount*3 (if that's a valid total).
+      const targetTotal = captainCount * 3;
+      const canRemove = VALID_TEAM_COUNTS.includes(captainCount) && targetTotal < playerCount;
+      const removeCount = playerCount - targetTotal;
+      return { type: 'captain' as const, text: `Promote ${diff} captain${diff > 1 ? 's' : ''}`, options: canRemove ? `or remove ${removeCount} player${removeCount > 1 ? 's' : ''}` : null };
+    }
+
+    // Too many captains. Can also fix by adding players up to captainCount*3 (if that's a valid total ≤ 27).
+    const targetTotal = captainCount * 3;
+    const canAdd = VALID_TEAM_COUNTS.includes(captainCount) && targetTotal > playerCount && targetTotal <= 27;
+    const addCount = targetTotal - playerCount;
+    const absDiff = Math.abs(diff);
+    return { type: 'captain' as const, text: `Demote ${absDiff} captain${absDiff > 1 ? 's' : ''}`, options: canAdd ? `or add ${addCount} player${addCount > 1 ? 's' : ''}` : null };
   }
 
   const next = VALID_PLAYER_TOTALS.find(t => t > playerCount);
-  if (!next)       return { type: 'over' as const,    text: 'Over max (27)' };
+  const prev = [...VALID_PLAYER_TOTALS].reverse().find(t => t < playerCount);
+
+  if (!next) {
+    const removeCount = playerCount - 27;
+    return { type: 'over' as const, text: 'Over max (27)', options: `remove ${removeCount} player${removeCount > 1 ? 's' : ''}` };
+  }
+
   const needed = next - playerCount;
-  return { type: 'players' as const, text: `Need ${needed} more player${needed > 1 ? 's' : ''}` };
+  const addOption = `add ${needed}`;
+  const removeOption = prev ? ` or remove ${playerCount - prev}` : '';
+  return { type: 'players' as const, text: `Need ${needed} more player${needed > 1 ? 's' : ''}`, options: addOption + removeOption };
 });
 
 // Get list of already added player IDs
@@ -257,21 +279,24 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
         </select>
         <div class="flex items-center gap-3 ml-auto">
           <!-- Hint pill -->
-          <div class="px-3 py-1.5 rounded-lg border text-sm font-bold flex items-center gap-2"
+          <div class="px-3 py-2 rounded-lg border flex items-center gap-2"
                :class="{
                  'bg-emerald-900/30 border-emerald-500/40 text-emerald-400': registrationHint.type === 'ready',
                  'bg-amber-900/30 border-amber-500/40 text-amber-400':       registrationHint.type === 'captain',
                  'bg-slate-800 border-slate-700 text-slate-400':             registrationHint.type === 'players',
                  'bg-red-900/30 border-red-500/40 text-red-400':             registrationHint.type === 'over',
                }">
-            <i class="ph-fill text-sm"
+            <i class="ph-fill text-sm shrink-0"
                :class="{
-                 'ph-check-circle':  registrationHint.type === 'ready',
-                 'ph-crown':         registrationHint.type === 'captain',
-                 'ph-user-plus':     registrationHint.type === 'players',
-                 'ph-warning-circle':registrationHint.type === 'over',
+                 'ph-check-circle':   registrationHint.type === 'ready',
+                 'ph-crown':          registrationHint.type === 'captain',
+                 'ph-user-plus':      registrationHint.type === 'players',
+                 'ph-warning-circle': registrationHint.type === 'over',
                }"></i>
-            {{ registrationHint.text }}
+            <div class="flex flex-col leading-tight">
+              <span class="text-sm font-bold">{{ registrationHint.text }}</span>
+              <span v-if="registrationHint.options" class="text-xs font-normal opacity-70">{{ registrationHint.options }}</span>
+            </div>
           </div>
 
           <div class="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700">
