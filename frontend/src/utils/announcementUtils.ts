@@ -24,24 +24,22 @@ export function generateAnnouncementText(
         timeStr,
         trackLine,
         conditionLine,
+        ''
     ];
 
     if (isDraft) {
         lines.push(
-            'Unique Rules:',
-            '• There are NO bans for this tournament.',
-            '• Instead of a ban phase, there will be an uma snake draft phase where teams will pick the umas they wish to run.',
-            '• There can be no duplicate umas',
-            '• Players will have 50 minutes after the end of the uma draft phase to make their ace.',
-            '• 2 points will be deducted per minute over the time limit up to 20 points. If a player is still not ready after 10 minutes, an NPC will replace them until they are able to join with a completed ace.',
-            '',
             'Rules:',
             '• Teams of 3, each player makes an uma in one run on the day and then they race. 5 races total. Points are allocated based on each player\'s placement and the team with the most points wins.',
             '• Teams are established via a snake draft made up of all people who have signed up.',
+            '• There is no ban phase.',
+            '• There will be an uma snake draft phase where teams will pick the umas they wish to run.',
+            '• There can be no duplicate umas',
+            '• 2 points will be deducted per minute over the time limit up to 10 points. If a player is still not ready after 10 minutes, an NPC will replace them until they are able to join with a completed ace.',
             '• Borrows are allowed for this tournament',
             '• If your career fails get fucked LMAO',
-            '• The exception to this is if you start your career on the wrong scenario (e.g. URA instead of Aoharu), in which case you may restart.',
-            '• In order to join, you just enter the signup channel on the day, the start time is not rigid and may be delayed up to 30 minutes depending on numbers, but it may also start on the dot so try not to be late. The tournament may take up to two hours.',
+            '• The exception to this is if you start your career on the wrong scenario (e.g. Aoharu instead of MANT), in which case you may restart.',
+            '• In order to join, you just enter the signup channel on the day, the start time is not rigid and may be delayed up to 30 minutes depending on numbers, but it may also start on the dot so try not to be late. The tournament may take up to three hours.',
         );
     } else {
         lines.push(
