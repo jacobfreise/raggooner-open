@@ -61,7 +61,7 @@ const {
 
 const { currentView } = useGameLogic(tournament, secureUpdate);
 const { activeVisualEgg } = useEasterEgg(tournament);
-useVoicelines(tournament);
+const { setBaseline } = useVoicelines(tournament);
 
 // --- PHASE TRANSITION OVERLAY ---
 const PHASE_NAMES: Record<string, { label: string; icon: string }> = {
@@ -136,6 +136,7 @@ const cleanupSubscription = () => {
 const subscribeToTournament = (id: string) => {
   cleanupSubscription();
   loading.value = true;
+  let initialServerSnapshotReceived = false;
   currentUnsubscribe = onSnapshot(getTournamentRef(id), (docSnap) => {
     if (isDeleting.value) return;
     if (docSnap.exists()) {
@@ -155,6 +156,15 @@ const subscribeToTournament = (id: string) => {
       // Migrate legacy tournaments to the default 'uma-ban' format
       if (!data.format) {
         data.format = 'uma-ban';
+      }
+
+      // Initialize sound baseline from the first server-confirmed snapshot before updating
+      // tournament.value. This prevents retroactive sounds for picks/bans that happened before
+      // the user opened the site, which would otherwise occur when Firestore delivers a stale
+      // cached snapshot followed by updated server data.
+      if (!docSnap.metadata.fromCache && !initialServerSnapshotReceived) {
+        initialServerSnapshotReceived = true;
+        setBaseline(data);
       }
 
       tournament.value = data;

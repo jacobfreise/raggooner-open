@@ -18,21 +18,17 @@ export function useVoicelines(tournament: Ref<Tournament | null>) {
     watch(voicelineVolume, (v) => localStorage.setItem('voicelineVolume', String(v)));
 
     // Snapshots of state at page-load time. Only changes after these are populated trigger sounds.
-    // The tournament watcher (immediate) fires before the sub-field watchers, so these are always
-    // initialized before the bans/teams watchers run for the first time.
+    // Initialized explicitly via setBaseline() from TournamentView once the first server-confirmed
+    // Firestore snapshot arrives, preventing retroactive sounds from stale cached data.
     let seenBans: Set<string> | null = null;
     let seenUmaPools: Map<string, Set<string>> | null = null;
     let seenMembers: Map<string, Set<string>> | null = null;
 
-    watch(() => tournament.value, (t) => {
-        if (t === null) return;
-        if (seenBans === null)
-            seenBans = new Set(t.bans ?? []);
-        if (seenUmaPools === null)
-            seenUmaPools = new Map(t.teams.map(team => [team.id, new Set(team.umaPool ?? [])]));
-        if (seenMembers === null)
-            seenMembers = new Map(t.teams.map(team => [team.id, new Set(team.memberIds ?? [])]));
-    }, { immediate: true });
+    const setBaseline = (t: Tournament) => {
+        seenBans = new Set(t.bans ?? []);
+        seenUmaPools = new Map(t.teams.map(team => [team.id, new Set(team.umaPool ?? [])]));
+        seenMembers = new Map(t.teams.map(team => [team.id, new Set(team.memberIds ?? [])]));
+    };
 
     // Ban phase
     watch(
@@ -80,4 +76,6 @@ export function useVoicelines(tournament: Ref<Tournament | null>) {
             }
         }
     );
+
+    return { setBaseline };
 }

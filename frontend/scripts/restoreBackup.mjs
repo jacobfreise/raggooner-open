@@ -14,7 +14,7 @@
 import { readFileSync } from 'fs';
 import { confirmLiveMode, IS_LIVE, DRY_RUN, getDb, BASE_PATH } from './config.mjs';
 
-const BACKUP_FILE = './live-database-backup.json';
+const BACKUP_FILE = './live-s3-database-backup.json';
 
 async function main() {
   await confirmLiveMode();
