@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, inject, type Ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { collection, doc, getDocs, orderBy, query, writeBatch, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import type { Tournament, Season } from '../types';
 import { POINTS_SYSTEM, TOURNAMENT_FORMATS } from "../utils/constants.ts";
 import { getStatusColor } from "../utils/utils.ts";
+import SiteHeader from '../components/shared/SiteHeader.vue';
+import SiteNav from '../components/shared/SiteNav.vue';
 
-const openChangelog = inject<() => void>('openChangelog')!;
-const hasNewUpdates = inject<Ref<boolean>>('hasNewUpdates')!;
 
 const router = useRouter();
 const appId = 'default-app';
@@ -207,53 +207,12 @@ onMounted(() => {
 <template>
   <div class="w-full flex flex-col min-h-full">
 
-    <header class="border-b border-slate-700 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
-      <div class="max-w-[1800px] mx-auto px-4 h-16 md:px-8 flex items-center justify-between">
-        <div class="flex items-center gap-2 text-indigo-500 z-10">
-          <i class="ph-fill ph-flag-checkered text-3xl"></i>
-          <span class="text-2xl font-bold text-white heading tracking-widest hidden sm:block">Raccoon Open</span>
-          <span class="text-2xl font-bold text-white heading tracking-widest sm:hidden">RO</span>
-        </div>
-
-        <div class="flex items-center gap-4 z-10">
-          <button @click="openChangelog" class="relative text-slate-400 hover:text-white transition-colors">
-            <i class="ph-bold ph-bell text-xl"></i>
-            <span v-if="hasNewUpdates" class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse"></span>
-          </button>
-        </div>
-      </div>
-    </header>
+    <SiteHeader />
 
     <main class="flex-grow p-4 md:p-6 max-w-7xl mx-auto w-full">
-      <div class="max-w-3xl mx-auto mt-4 mb-12 animate-fade-in">
+      <div class="max-w-3xl mx-auto">
 
-        <div class="grid grid-cols-2 md:grid-cols-2 gap-4 mb-12 border-b border-slate-800 pb-12">
-
-          <router-link to="/" class="group bg-indigo-600 border border-indigo-500 rounded-xl p-4 flex items-center gap-3 hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20 cursor-default pointer-events-none">
-            <i class="ph-fill ph-flag-checkered text-2xl text-white"></i>
-            <div>
-              <div class="text-sm font-bold text-white uppercase tracking-widest">Play</div>
-              <div class="text-[10px] text-indigo-200">Tournaments</div>
-            </div>
-          </router-link>
-
-          <router-link to="/analytics" class="group bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-center gap-3 hover:border-indigo-500 hover:bg-slate-750 transition-colors cursor-pointer">
-            <i class="ph-fill ph-chart-line-up text-2xl text-indigo-400 group-hover:text-indigo-300"></i>
-            <div>
-              <div class="text-sm font-bold text-white uppercase tracking-widest group-hover:text-indigo-100">Analytics</div>
-              <div class="text-[10px] text-slate-400">Global Stats</div>
-            </div>
-          </router-link>
-
-<!--          <router-link to="/tools" class="hidden md:flex group bg-slate-800 border border-slate-700 rounded-xl p-4 items-center gap-3 hover:border-indigo-500 hover:bg-slate-750 transition-colors cursor-pointer opacity-50 hover:opacity-100">-->
-<!--            <i class="ph-fill ph-dice-three text-2xl text-indigo-400 group-hover:text-indigo-300"></i>-->
-<!--            <div>-->
-<!--              <div class="text-sm font-bold text-white uppercase tracking-widest group-hover:text-indigo-100">Roller</div>-->
-<!--              <div class="text-[10px] text-slate-400">Track Generator</div>-->
-<!--            </div>-->
-<!--          </router-link>-->
-
-        </div>
+        <SiteNav />
 
         <div v-if="!loading" class="max-w-lg mx-auto mt-8 space-y-12">
 

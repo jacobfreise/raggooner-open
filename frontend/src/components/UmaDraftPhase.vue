@@ -8,6 +8,7 @@ import { getPlayerName } from '../utils/utils';
 import { UMA_DICT } from '../utils/umaData';
 import { TRACK_DICT } from '../utils/trackData';
 import UmaCard from './UmaCard.vue';
+import SlotReel from './shared/SlotReel.vue';
 
 const props = defineProps<{
   tournament: Tournament;
@@ -423,27 +424,7 @@ const sinceLastPick = computed(() => {
 
     </template>
 
-    <div v-if="showRandomModal" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md">
-      <h2 class="text-3xl font-bold text-white mb-8 animate-pulse text-center">
-        Drafting <span class="text-indigo-400">Uma</span>...
-      </h2>
-
-      <div class="relative w-80 h-[240px] bg-slate-900 border-4 border-slate-700 rounded-xl overflow-hidden shadow-[0_0_50px_rgba(99,102,241,0.3)]">
-
-        <div class="absolute top-[80px] left-0 w-full h-[80px] border-y-2 border-indigo-500 bg-indigo-500/20 z-20 shadow-[inset_0_0_20px_rgba(99,102,241,0.5)] pointer-events-none"></div>
-
-        <div class="w-full flex flex-col transition-transform duration-[4000ms] ease-[cubic-bezier(0.15,0.85,0.15,1)]"
-             :style="{ transform: `translateY(${slotTranslateY}px)` }">
-          <div v-for="(uma, idx) in slotReel" :key="idx"
-               class="h-[80px] flex items-center justify-center text-xl font-black text-white uppercase tracking-widest text-center px-4 shrink-0">
-            {{ uma }}
-          </div>
-        </div>
-
-        <div class="absolute top-0 left-0 w-full h-[80px] bg-gradient-to-b from-slate-950 to-transparent z-10 pointer-events-none"></div>
-        <div class="absolute bottom-0 left-0 w-full h-[80px] bg-gradient-to-t from-slate-950 to-transparent z-10 pointer-events-none"></div>
-      </div>
-    </div>
+    <SlotReel :visible="showRandomModal" :items="slotReel" :translate-y="slotTranslateY" label="Drafting" highlight="Uma" />
   </div>
 </template>
 

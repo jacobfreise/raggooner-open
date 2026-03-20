@@ -1,7 +1,8 @@
-import {computed, ref, type Ref} from 'vue';
+import {computed, type Ref} from 'vue';
 import type {FirestoreUpdate, Tournament} from '../types';
 import {generateUmaDraftOrder} from '../utils/draftUtils';
 import {UMA_DICT} from '../utils/umaData';
+import {useUmaRoller} from './useUmaRoller';
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
 
@@ -11,9 +12,7 @@ export function useUmaDraft(
     isAdmin: Ref<boolean>
 ) {
 
-    const showRandomModal = ref(false);
-    const slotReel = ref<string[]>([]);
-    const slotTranslateY = ref(80);
+    const { showRandomModal, slotReel, slotTranslateY, roll } = useUmaRoller();
 
     const startUmaDraft = async () => {
         if (!tournament.value) return;
@@ -33,43 +32,7 @@ export function useUmaDraft(
         const bannedUmas = new Set(tournament.value!.bans || []);
         const candidates = availableUmas.value.filter(uma => !bannedUmas.has(uma));
         if (candidates.length === 0 || !isAdmin.value) return;
-
-        // 1. Pick the actual winner
-        const winnerIdx = Math.floor(Math.random() * candidates.length);
-        const winner = candidates[winnerIdx]!;
-
-        // 2. Build the visual reel (40 items long)
-        const targetIndex = 40;
-        const reel: string[] = [];
-
-        // Add decoys before the winner
-        for (let i = 0; i < targetIndex; i++) {
-            reel.push(candidates[Math.floor(Math.random() * candidates.length)]!);
-        }
-
-        // Slot the winner into the target stopping position
-        reel.push(winner);
-
-        // Add a few decoys at the bottom so the reel doesn't look empty when it stops
-        for (let i = 0; i < 5; i++) {
-            reel.push(candidates[Math.floor(Math.random() * candidates.length)]!);
-        }
-
-        slotReel.value = reel;
-        slotTranslateY.value = 80; // Reset position to the top
-        showRandomModal.value = true;
-
-        // 3. Trigger the CSS transition shortly after mounting
-        setTimeout(() => {
-            // Each slot item is 80px tall. Translate up by (targetIndex * 80)
-            slotTranslateY.value = 80 - (targetIndex * 80);
-        }, 100);
-
-        // 4. Wait for the 4s animation to finish + 500ms pause, then finalize
-        setTimeout(async () => {
-            showRandomModal.value = false;
-            await pickUma(winner);
-        }, 4500);
+        roll(candidates, (winner) => pickUma(winner));
     };
 
     const currentPicker = computed(() => {

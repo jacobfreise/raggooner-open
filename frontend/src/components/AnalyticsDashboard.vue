@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, inject, type Ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import LineChart from './analytics/LineChart.vue';
 import { getUmaImagePath } from "../utils/umaData.ts";
 import { TOURNAMENT_FORMATS } from "../utils/constants.ts";
@@ -9,10 +9,9 @@ import { usePlayerRankings } from '../composables/analytics/usePlayerRankings';
 import { useUmaStats } from '../composables/analytics/useUmaStats';
 import { useDiagrams } from '../composables/analytics/useDiagrams';
 import { TIER_CRITERIA, TOP5_CRITERIA, getWinningTeam } from '../utils/analyticsUtils';
+import SiteHeader from './shared/SiteHeader.vue';
+import SiteNav from './shared/SiteNav.vue';
 
-// Inject Changelog functions from App.vue
-const openChangelog = inject<() => void>('openChangelog')!;
-const hasNewUpdates = inject<Ref<boolean>>('hasNewUpdates')!;
 
 const activeTab = ref<'overview' | 'players' | 'umas' | 'tierlist' | 'tournaments' | 'diagrams'>('overview');
 const playerSearchQuery = ref('');
@@ -185,52 +184,11 @@ function perfIndicator(
 <template>
   <div class="w-full flex flex-col min-h-full">
 
-    <header class="border-b border-slate-700 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
-      <div class="max-w-[1800px] w-full mx-auto px-4 md:px-8 h-16 flex items-center justify-between relative">
-
-        <router-link to="/" class="flex items-center gap-2 text-indigo-500 hover:text-indigo-400 transition-colors z-10">
-          <i class="ph-fill ph-flag-checkered text-3xl"></i>
-          <span class="text-2xl font-bold text-white heading tracking-widest hidden sm:block">Raccoon Open</span>
-          <span class="text-2xl font-bold text-white heading tracking-widest sm:hidden">RO</span>
-        </router-link>
-
-        <div class="flex items-center gap-4 z-10">
-          <button @click="openChangelog" class="relative text-slate-400 hover:text-white transition-colors">
-            <i class="ph-bold ph-bell text-xl"></i>
-            <span v-if="hasNewUpdates" class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse"></span>
-          </button>
-        </div>
-
-      </div>
-    </header>
+    <SiteHeader />
 
     <main class="flex-grow max-w-[1800px] mx-auto px-4 md:px-8 xl:px-12 py-6 w-full space-y-6">
 
-      <div class="w-full mt-4 mb-12 animate-fade-in">
-
-        <div class="w-full border-b border-slate-800 pb-12 mb-12">
-
-          <div class="max-w-3xl mx-auto grid grid-cols-2 md:grid-cols-2 gap-4">
-
-            <router-link to="/" class="group bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-center gap-3 hover:border-indigo-500 hover:bg-slate-750 transition-colors cursor-pointer">
-              <i class="ph-fill ph-flag-checkered text-2xl text-indigo-400 group-hover:text-indigo-300"></i>
-              <div>
-                <div class="text-sm font-bold text-white uppercase tracking-widest group-hover:text-indigo-100">Play</div>
-                <div class="text-[10px] text-slate-400">Tournaments</div>
-              </div>
-            </router-link>
-
-            <router-link to="/analytics" class="group bg-indigo-600 border border-indigo-500 rounded-xl p-4 flex items-center gap-3 hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20 cursor-default pointer-events-none">
-              <i class="ph-fill ph-chart-line-up text-2xl text-white"></i>
-              <div>
-                <div class="text-sm font-bold text-white uppercase tracking-widest">Analytics</div>
-                <div class="text-[10px] text-indigo-200">Global Stats</div>
-              </div>
-            </router-link>
-
-          </div>
-        </div>
-      </div>
+      <SiteNav />
 
 
       <div class="flex items-center justify-between">

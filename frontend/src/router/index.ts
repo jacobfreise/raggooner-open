@@ -18,6 +18,11 @@ const router = createRouter({
             path: '/analytics',
             name: 'analytics',
             component: () => import('../components/AnalyticsDashboard.vue')
+        },
+        {
+            path: '/tools',
+            name: 'tools',
+            component: () => import('../views/ToolsView.vue')
         }
     ]
 })
