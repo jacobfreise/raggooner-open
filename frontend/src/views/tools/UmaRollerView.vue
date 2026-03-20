@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue';
+import { ref, computed, reactive, onMounted, onUnmounted } from 'vue';
 import { UMA_DICT } from '../../utils/umaData';
 import { useUmaRoller } from '../../composables/useUmaRoller';
 import SlotReel from '../../components/shared/SlotReel.vue';
@@ -30,27 +30,65 @@ const apt = reactive<Record<string, AptRange>>({
     endCloser:   { min: 'A', max: 'G' },
 });
 
-// Smart click: grades to the left of the range (or at min) move min;
-// grades to the right (or at max) move max; grades inside are assigned
-// to whichever endpoint is closer.
-const handleGradeClick = (key: string, clickedIdx: number) => {
+// ── Drag interaction ──
+const dragging = ref<{ key: string; endpoint: 'min' | 'max' } | null>(null);
+const rowHover = ref<string | null>(null);
+const rowContainerRefs: Record<string, HTMLElement | null> = {};
+
+const applyDrag = (key: string, gIdx: number) => {
+    if (!dragging.value || dragging.value.key !== key) return;
     const range = apt[key]!;
     const minIdx = GRADE_ORDER.indexOf(range.min);
     const maxIdx = GRADE_ORDER.indexOf(range.max);
-
-    if (clickedIdx <= minIdx) {
-        range.min = GRADE_ORDER[clickedIdx]!;
-    } else if (clickedIdx >= maxIdx) {
-        range.max = GRADE_ORDER[clickedIdx]!;
+    if (dragging.value.endpoint === 'min') {
+        if (gIdx <= maxIdx) range.min = GRADE_ORDER[gIdx]!;
     } else {
-        // Within range: move nearest endpoint
-        if (clickedIdx - minIdx <= maxIdx - clickedIdx) {
-            range.min = GRADE_ORDER[clickedIdx]!;
-        } else {
-            range.max = GRADE_ORDER[clickedIdx]!;
-        }
+        if (gIdx >= minIdx) range.max = GRADE_ORDER[gIdx]!;
     }
 };
+
+const onGradeMouseDown = (key: string, gIdx: number, event: MouseEvent) => {
+    event.preventDefault();
+    const range = apt[key]!;
+    const minIdx = GRADE_ORDER.indexOf(range.min);
+    const maxIdx = GRADE_ORDER.indexOf(range.max);
+    let endpoint: 'min' | 'max';
+    if (gIdx <= minIdx) endpoint = 'min';
+    else if (gIdx >= maxIdx) endpoint = 'max';
+    else endpoint = (gIdx - minIdx <= maxIdx - gIdx) ? 'min' : 'max';
+    dragging.value = { key, endpoint };
+    applyDrag(key, gIdx);
+};
+
+const onHandleMouseDown = (key: string, endpoint: 'min' | 'max', event: MouseEvent) => {
+    event.preventDefault();
+    dragging.value = { key, endpoint };
+};
+
+const onDocMouseMove = (event: MouseEvent) => {
+    if (!dragging.value) return;
+    const container = rowContainerRefs[dragging.value.key];
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const relX = event.clientX - rect.left;
+    const gIdx = Math.max(0, Math.min(GRADE_ORDER.length - 1,
+        Math.floor(relX / rect.width * GRADE_ORDER.length)));
+    applyDrag(dragging.value.key, gIdx);
+};
+
+const onGradeMouseEnter = (key: string, gIdx: number) => {
+    hoverTarget.value = { key, idx: gIdx };
+};
+
+const stopDrag = () => { dragging.value = null; };
+onMounted(() => {
+    document.addEventListener('mouseup', stopDrag);
+    document.addEventListener('mousemove', onDocMouseMove);
+});
+onUnmounted(() => {
+    document.removeEventListener('mouseup', stopDrag);
+    document.removeEventListener('mousemove', onDocMouseMove);
+});
 
 const resetSection = (keys: readonly string[]) => {
     keys.forEach(k => { apt[k]!.min = 'A'; apt[k]!.max = 'G'; });
@@ -176,22 +214,39 @@ const LABELS: Record<string, string> = {
                         <div class="space-y-1.5">
                             <div v-for="key in SURFACE_KEYS" :key="key" class="flex items-center gap-2">
                                 <span class="text-xs text-slate-300 w-6 shrink-0">{{ LABELS[key] }}</span>
-                                <div class="flex flex-1 gap-px">
+                                <div class="relative flex flex-1 gap-px select-none"
+                                     :ref="(el: any) => { rowContainerRefs[key] = el; }"
+                                     @mouseenter="rowHover = key"
+                                     @mouseleave="rowHover = null">
                                     <button v-for="(g, gIdx) in GRADE_ORDER" :key="g"
-                                            @click="handleGradeClick(key, gIdx)"
-                                            @mouseenter="hoverTarget = { key, idx: gIdx }"
+                                            @mousedown.prevent="onGradeMouseDown(key, gIdx, $event)"
+                                            @mouseenter="onGradeMouseEnter(key, gIdx)"
                                             @mouseleave="hoverTarget = null"
-                                            class="flex-1 h-6 rounded-sm text-[10px] font-black border transition-all"
+                                            class="flex-1 h-6 rounded-sm text-[10px] font-black border transition-all cursor-pointer"
                                             :class="[
                                                 gIdx >= GRADE_ORDER.indexOf(apt[key]!.min) && gIdx <= GRADE_ORDER.indexOf(apt[key]!.max)
                                                     ? gradeActiveClass[g]
                                                     : 'text-slate-700 border-slate-800 hover:border-slate-600 hover:text-slate-500',
                                                 hoverTarget?.key === key && hoverTarget?.idx === gIdx
                                                     ? 'scale-110 z-10'
-                                                    : ''
+                                                    : '',
                                             ]">
                                         {{ g }}
                                     </button>
+                                    <!-- Left drag handle -->
+                                    <div v-if="rowHover === key || dragging?.key === key"
+                                         class="absolute top-0 h-full w-4 z-20 flex items-center justify-center cursor-ew-resize"
+                                         :style="{ left: `${GRADE_ORDER.indexOf(apt[key]!.min) / GRADE_ORDER.length * 100}%` }"
+                                         @mousedown.prevent="onHandleMouseDown(key, 'min', $event)">
+                                        <div class="w-0.5 h-4 rounded-full bg-indigo-400 shadow-[0_0_6px_rgba(99,102,241,0.9)] pointer-events-none"></div>
+                                    </div>
+                                    <!-- Right drag handle -->
+                                    <div v-if="rowHover === key || dragging?.key === key"
+                                         class="absolute top-0 h-full w-4 z-20 flex items-center justify-center cursor-ew-resize"
+                                         :style="{ left: `${(GRADE_ORDER.indexOf(apt[key]!.max) + 1) / GRADE_ORDER.length * 100}%`, transform: 'translateX(-100%)' }"
+                                         @mousedown.prevent="onHandleMouseDown(key, 'max', $event)">
+                                        <div class="w-0.5 h-4 rounded-full bg-indigo-400 shadow-[0_0_6px_rgba(99,102,241,0.9)] pointer-events-none"></div>
+                                    </div>
                                 </div>
                                 <!-- Range label -->
                                 <span class="text-[10px] text-slate-600 w-8 text-right shrink-0 font-mono">
@@ -212,22 +267,39 @@ const LABELS: Record<string, string> = {
                         <div class="space-y-1.5">
                             <div v-for="key in DISTANCE_KEYS" :key="key" class="flex items-center gap-2">
                                 <span class="text-xs text-slate-300 w-10 shrink-0">{{ LABELS[key] }}</span>
-                                <div class="flex flex-1 gap-px">
+                                <div class="relative flex flex-1 gap-px select-none"
+                                     :ref="(el: any) => { rowContainerRefs[key] = el; }"
+                                     @mouseenter="rowHover = key"
+                                     @mouseleave="rowHover = null">
                                     <button v-for="(g, gIdx) in GRADE_ORDER" :key="g"
-                                            @click="handleGradeClick(key, gIdx)"
-                                            @mouseenter="hoverTarget = { key, idx: gIdx }"
+                                            @mousedown.prevent="onGradeMouseDown(key, gIdx, $event)"
+                                            @mouseenter="onGradeMouseEnter(key, gIdx)"
                                             @mouseleave="hoverTarget = null"
-                                            class="flex-1 h-6 rounded-sm text-[10px] font-black border transition-all"
+                                            class="flex-1 h-6 rounded-sm text-[10px] font-black border transition-all cursor-pointer"
                                             :class="[
                                                 gIdx >= GRADE_ORDER.indexOf(apt[key]!.min) && gIdx <= GRADE_ORDER.indexOf(apt[key]!.max)
                                                     ? gradeActiveClass[g]
                                                     : 'text-slate-700 border-slate-800 hover:border-slate-600 hover:text-slate-500',
                                                 hoverTarget?.key === key && hoverTarget?.idx === gIdx
                                                     ? 'scale-110 z-10'
-                                                    : ''
+                                                    : '',
                                             ]">
                                         {{ g }}
                                     </button>
+                                    <!-- Left drag handle -->
+                                    <div v-if="rowHover === key || dragging?.key === key"
+                                         class="absolute top-0 h-full w-4 z-20 flex items-center justify-center cursor-ew-resize"
+                                         :style="{ left: `${GRADE_ORDER.indexOf(apt[key]!.min) / GRADE_ORDER.length * 100}%` }"
+                                         @mousedown.prevent="onHandleMouseDown(key, 'min', $event)">
+                                        <div class="w-0.5 h-4 rounded-full bg-indigo-400 shadow-[0_0_6px_rgba(99,102,241,0.9)] pointer-events-none"></div>
+                                    </div>
+                                    <!-- Right drag handle -->
+                                    <div v-if="rowHover === key || dragging?.key === key"
+                                         class="absolute top-0 h-full w-4 z-20 flex items-center justify-center cursor-ew-resize"
+                                         :style="{ left: `${(GRADE_ORDER.indexOf(apt[key]!.max) + 1) / GRADE_ORDER.length * 100}%`, transform: 'translateX(-100%)' }"
+                                         @mousedown.prevent="onHandleMouseDown(key, 'max', $event)">
+                                        <div class="w-0.5 h-4 rounded-full bg-indigo-400 shadow-[0_0_6px_rgba(99,102,241,0.9)] pointer-events-none"></div>
+                                    </div>
                                 </div>
                                 <span class="text-[10px] text-slate-600 w-8 text-right shrink-0 font-mono">
                                     {{ apt[key]!.min === apt[key]!.max ? apt[key]!.min : `${apt[key]!.min}–${apt[key]!.max}` }}
@@ -247,22 +319,39 @@ const LABELS: Record<string, string> = {
                         <div class="space-y-1.5">
                             <div v-for="key in STYLE_KEYS" :key="key" class="flex items-center gap-2">
                                 <span class="text-xs text-slate-300 w-[4.5rem] shrink-0 leading-tight">{{ LABELS[key] }}</span>
-                                <div class="flex flex-1 gap-px">
+                                <div class="relative flex flex-1 gap-px select-none"
+                                     :ref="(el: any) => { rowContainerRefs[key] = el; }"
+                                     @mouseenter="rowHover = key"
+                                     @mouseleave="rowHover = null">
                                     <button v-for="(g, gIdx) in GRADE_ORDER" :key="g"
-                                            @click="handleGradeClick(key, gIdx)"
-                                            @mouseenter="hoverTarget = { key, idx: gIdx }"
+                                            @mousedown.prevent="onGradeMouseDown(key, gIdx, $event)"
+                                            @mouseenter="onGradeMouseEnter(key, gIdx)"
                                             @mouseleave="hoverTarget = null"
-                                            class="flex-1 h-6 rounded-sm text-[10px] font-black border transition-all"
+                                            class="flex-1 h-6 rounded-sm text-[10px] font-black border transition-all cursor-pointer"
                                             :class="[
                                                 gIdx >= GRADE_ORDER.indexOf(apt[key]!.min) && gIdx <= GRADE_ORDER.indexOf(apt[key]!.max)
                                                     ? gradeActiveClass[g]
                                                     : 'text-slate-700 border-slate-800 hover:border-slate-600 hover:text-slate-500',
                                                 hoverTarget?.key === key && hoverTarget?.idx === gIdx
                                                     ? 'scale-110 z-10'
-                                                    : ''
+                                                    : '',
                                             ]">
                                         {{ g }}
                                     </button>
+                                    <!-- Left drag handle -->
+                                    <div v-if="rowHover === key || dragging?.key === key"
+                                         class="absolute top-0 h-full w-4 z-20 flex items-center justify-center cursor-ew-resize"
+                                         :style="{ left: `${GRADE_ORDER.indexOf(apt[key]!.min) / GRADE_ORDER.length * 100}%` }"
+                                         @mousedown.prevent="onHandleMouseDown(key, 'min', $event)">
+                                        <div class="w-0.5 h-4 rounded-full bg-indigo-400 shadow-[0_0_6px_rgba(99,102,241,0.9)] pointer-events-none"></div>
+                                    </div>
+                                    <!-- Right drag handle -->
+                                    <div v-if="rowHover === key || dragging?.key === key"
+                                         class="absolute top-0 h-full w-4 z-20 flex items-center justify-center cursor-ew-resize"
+                                         :style="{ left: `${(GRADE_ORDER.indexOf(apt[key]!.max) + 1) / GRADE_ORDER.length * 100}%`, transform: 'translateX(-100%)' }"
+                                         @mousedown.prevent="onHandleMouseDown(key, 'max', $event)">
+                                        <div class="w-0.5 h-4 rounded-full bg-indigo-400 shadow-[0_0_6px_rgba(99,102,241,0.9)] pointer-events-none"></div>
+                                    </div>
                                 </div>
                                 <span class="text-[10px] text-slate-600 w-8 text-right shrink-0 font-mono">
                                     {{ apt[key]!.min === apt[key]!.max ? apt[key]!.min : `${apt[key]!.min}–${apt[key]!.max}` }}
