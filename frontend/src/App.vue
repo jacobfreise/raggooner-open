@@ -6,7 +6,11 @@ import { auth } from './firebase';
 import { APP_VERSION } from './data/changelog';
 import ChangelogModal from './components/ChangelogModal.vue';
 import SuperAdminPanel from "./components/admin/SuperAdminPanel.vue";
+import DiscordAuthModal from "./components/auth/DiscordAuthModal.vue";
 import {SUPERADMIN_UIDS} from "./utils/constants.ts";
+import { useAuth } from './composables/useAuth';
+
+const { user, linkedPlayer, loading: authLoading, isDiscordUser } = useAuth();
 // import SeasonSetup from "./components/SeasonSetup.vue";
 // import Migrate from "./components/Migrate.vue";
 
@@ -25,6 +29,12 @@ const init = async () => {
   onAuthStateChanged(auth, (user) => {
     currentUserUid.value = user?.uid || null;
   });
+
+  // Wait for Firebase to restore the persisted auth session before deciding
+  // whether to sign in anonymously. Without this, auth.currentUser is always
+  // null on page load (session restore is async), causing a new anonymous user
+  // to be created on every refresh and overwriting any existing Discord session.
+  await auth.authStateReady();
 
   const initialToken = (window as any).__initial_auth_token;
   if (initialToken) {
@@ -106,5 +116,7 @@ onMounted(() => {
     <Transition enter-active-class="duration-200 ease-out" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="duration-150 ease-in" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
       <ChangelogModal v-if="showChangelog" :last-seen-version="previousVersion" @close="closeChangelog" />
     </Transition>
+
+    <DiscordAuthModal v-if="!authLoading && user && isDiscordUser && !linkedPlayer" />
   </div>
 </template>

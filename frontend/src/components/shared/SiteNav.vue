@@ -1,13 +1,20 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useRoute } from 'vue-router';
+import { useAuth } from '../../composables/useAuth';
 
 const route = useRoute();
+const { linkedPlayer } = useAuth();
 
-const nav = [
+const baseNav = [
     { to: '/',          icon: 'ph-fill ph-flag-checkered', label: 'Play',      sub: 'Tournaments' },
     { to: '/analytics', icon: 'ph-fill ph-chart-line-up',  label: 'Analytics', sub: 'Global Stats' },
     { to: '/tools',     icon: 'ph-fill ph-wrench',          label: 'Tools',     sub: 'Rollers' },
 ];
+
+const profileNav = { to: '/profile', icon: 'ph-fill ph-user-circle', label: 'Profile', sub: 'My Account' };
+
+const nav = computed(() => linkedPlayer.value ? [...baseNav, profileNav] : baseNav);
 
 function isActive(to: string) {
     if (to === '/') return route.path === '/';
@@ -16,7 +23,9 @@ function isActive(to: string) {
 </script>
 
 <template>
-    <div class="max-w-3xl mx-auto grid grid-cols-3 gap-4 mt-4 mb-12 border-b border-slate-800 pb-12 animate-fade-in">
+    <div class="max-w-3xl mx-auto grid gap-4 mt-4 mb-12 border-b border-slate-800 pb-12 animate-fade-in"
+         :class="nav.length === 4 ? 'grid-cols-4' : 'grid-cols-3'">
+
         <router-link
             v-for="item in nav"
             :key="item.to"

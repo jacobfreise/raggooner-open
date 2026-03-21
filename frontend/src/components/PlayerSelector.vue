@@ -171,7 +171,10 @@ const handleKeydown = (e: KeyboardEvent) => {
             class="w-full px-4 py-3 text-left hover:bg-slate-800 transition-colors flex items-center justify-between group"
         >
           <div class="flex-1 min-w-0">
-            <div class="font-bold text-white truncate">{{ player.name }}</div>
+            <div class="flex items-center gap-1.5 min-w-0">
+              <div class="font-bold text-white truncate">{{ player.name }}</div>
+              <i v-if="player.firebaseUid" class="ph-fill ph-discord-logo text-[#5865F2] text-sm shrink-0" title="Linked Discord Profile"></i>
+            </div>
             <div v-if="showStats !== false" class="text-xs text-slate-400 flex items-center gap-3 mt-1">
               <span class="flex items-center gap-1">
                 <i class="ph-fill ph-trophy text-amber-500"></i>

@@ -9,9 +9,19 @@ export interface ChangeLogEntry {
     }[];
 }
 
-export const APP_VERSION = '2.4.0'; // Update this manually when you deploy
+export const APP_VERSION = '3.0.0'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '3.0.0',
+        date: '2026-03-22',
+        title: 'Discord Login and Profiles',
+        changes: [
+            { type: 'new', text: 'Log in via discord.' },
+            { type: 'new', text: 'Logged in users can edit their profile to add their Uma and Support Card roster.' },
+            { type: 'new', text: 'View players\' profiles during tournament registration and drafting phases to help decide who to pick.' },
+        ]
+    },
     {
         version: '2.4.0',
         date: '2026-03-21',

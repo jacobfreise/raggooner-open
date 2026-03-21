@@ -5,6 +5,7 @@ import { usePlayerDraft } from '../composables/usePlayerDraft';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
 import {getPlayerName} from "../utils/utils";
 import { voicelineVolume, playLocalSfx } from '../composables/useVoicelines';
+import PlayerProfileModal from './PlayerProfileModal.vue';
 
 // 1. Define Props
 const props = defineProps<{
@@ -61,6 +62,23 @@ const {
 } = usePlayerDraft(tournamentRef, props.secureUpdate, isAdminRef);
 
 const { advancePhase, isAdvancing } = useTournamentFlow(tournamentRef, props.secureUpdate);
+
+// ── Player profile modal ──────────────────────────────────────────────────────
+const profileModalOpen = ref(false);
+const profilePlayerId = ref<string>('');
+
+const openProfile = (playerId: string) => {
+    profilePlayerId.value = playerId;
+    profileModalOpen.value = true;
+};
+
+const profilePlayer = computed(() =>
+    props.globalPlayers.find(gp => gp.id === profilePlayerId.value) ?? null
+);
+
+const profilePlayerName = computed(() =>
+    props.tournament.players[profilePlayerId.value]?.name ?? ''
+);
 
 const sortedAvailablePlayers = computed(() => {
   return [...availablePlayers.value].sort((a, b) => {
@@ -211,28 +229,33 @@ const sortedAvailablePlayers = computed(() => {
 
                 <div class="absolute inset-0 bg-white/20 -skew-x-12 -translate-x-full shine-effect"></div>
               </button>
-              <button v-for="player in sortedAvailablePlayers" :key="player.id"
-                      @click="draftPlayer(player)"
-                      @mouseenter="isAdmin && playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3')"
-                      :disabled="!isAdmin"
-                      class="h-full w-full bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 p-3 rounded-xl transition-all text-left group relative overflow-hidden flex flex-col justify-between min-h-[80px] shadow-sm hover:shadow-indigo-500/20">
+              <div v-for="player in sortedAvailablePlayers" :key="player.id" class="relative min-h-[80px]">
+                <button @click="draftPlayer(player)"
+                        @mouseenter="isAdmin && playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3')"
+                        :disabled="!isAdmin"
+                        class="h-full w-full bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 p-3 rounded-xl transition-all text-left group relative overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-indigo-500/20">
 
-                <span class="relative z-10 font-bold text-slate-200 group-hover:text-white truncate w-full pr-4">
-                  {{ player.name }}
-                </span>
-
-                <div v-if="getDominance(player.id) !== null"
-                     class="relative z-10 mt-3 flex items-center gap-1.5 w-fit px-2 py-1 rounded-md bg-slate-900/60 group-hover:bg-indigo-900/40 border border-slate-700/50 group-hover:border-indigo-400/30 transition-colors">
-                  <i class="ph-fill ph-sword text-indigo-400 group-hover:text-indigo-300 text-xs"></i>
-                  <span class="text-xs font-bold text-slate-300 group-hover:text-white tracking-wide">
-                    {{ getDominance(player.id)!.toFixed(1) }}%
+                  <span class="relative z-10 font-bold text-slate-200 group-hover:text-white truncate w-full pr-4">
+                    {{ player.name }}
                   </span>
-                </div>
 
-                <div class="absolute -bottom-2 -right-2 p-2 text-slate-700 group-hover:text-indigo-400 opacity-20 transition-colors">
-                  <i class="ph-fill ph-steering-wheel text-5xl"></i>
-                </div>
-              </button>
+                  <div v-if="getDominance(player.id) !== null"
+                       class="relative z-10 mt-3 flex items-center gap-1.5 w-fit px-2 py-1 rounded-md bg-slate-900/60 group-hover:bg-indigo-900/40 border border-slate-700/50 group-hover:border-indigo-400/30 transition-colors">
+                    <i class="ph-fill ph-sword text-indigo-400 group-hover:text-indigo-300 text-xs"></i>
+                    <span class="text-xs font-bold text-slate-300 group-hover:text-white tracking-wide">
+                      {{ getDominance(player.id)!.toFixed(1) }}%
+                    </span>
+                  </div>
+
+                  <div class="absolute -bottom-2 -right-2 p-2 text-slate-700 group-hover:text-indigo-400 opacity-20 transition-colors">
+                    <i class="ph-fill ph-steering-wheel text-5xl"></i>
+                  </div>
+                </button>
+                <button @click.stop="openProfile(player.id)"
+                        class="absolute top-1.5 right-1.5 z-10 w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:text-white hover:bg-slate-700 transition-colors">
+                  <i class="ph-bold ph-info text-xs"></i>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -247,12 +270,20 @@ const sortedAvailablePlayers = computed(() => {
               </div>
               <div class="space-y-2">
                 <div class="flex items-center gap-2 text-sm text-amber-400">
-                  <i class="ph-fill ph-crown"></i> {{ getPlayerName(tournament, team.captainId) }}
+                  <i class="ph-fill ph-crown"></i>
+                  <span class="flex-1">{{ getPlayerName(tournament, team.captainId) }}</span>
+                  <button @click="openProfile(team.captainId)" class="text-slate-600 hover:text-slate-300 transition-colors">
+                    <i class="ph-bold ph-info text-xs"></i>
+                  </button>
                 </div>
-                <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ">
-                  <i class="ph-fill ph-user"></i> {{ getPlayerName(tournament, memberId) }}
+                <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300">
+                  <i class="ph-fill ph-user"></i>
+                  <span class="flex-1">{{ getPlayerName(tournament, memberId) }}</span>
+                  <button @click="openProfile(memberId)" class="text-slate-600 hover:text-slate-300 transition-colors">
+                    <i class="ph-bold ph-info text-xs"></i>
+                  </button>
                 </div>
-                <div v-for="n in (2 - team.memberIds.length)" :key="n" class="flex items-center gap-2 text-sm text-slate-700  border-dashed border border-slate-800 p-1 rounded">
+                <div v-for="n in (2 - team.memberIds.length)" :key="n" class="flex items-center gap-2 text-sm text-slate-700 border-dashed border border-slate-800 p-1 rounded">
                   <span class="text-xs">Empty Slot</span>
                 </div>
               </div>
@@ -310,14 +341,20 @@ const sortedAvailablePlayers = computed(() => {
             <div class="space-y-2">
               <div class="flex items-center gap-3 bg-gradient-to-r from-amber-500/10 to-transparent border-l-2 border-amber-500 px-3 py-2 rounded-r-lg">
                 <i class="ph-fill ph-crown text-amber-400 text-lg drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]"></i>
-                <span class="text-sm font-bold text-amber-100">{{ getPlayerName(tournament, team.captainId) }}</span>
+                <span class="text-sm font-bold text-amber-100 flex-1">{{ getPlayerName(tournament, team.captainId) }}</span>
+                <button @click="openProfile(team.captainId)" class="text-slate-600 hover:text-slate-300 transition-colors shrink-0">
+                  <i class="ph-bold ph-info text-xs"></i>
+                </button>
               </div>
 
               <div v-if="team.memberIds.length > 0" class="grid grid-cols-2 gap-2 mt-2">
                 <div v-for="memberId in team.memberIds" :key="memberId"
                      class="flex items-center gap-2 bg-slate-900/50 px-3 py-1.5 rounded-lg border border-slate-700/30">
                   <i class="ph-fill ph-user text-slate-500"></i>
-                  <span class="text-sm font-medium text-slate-300 truncate">{{ getPlayerName(tournament, memberId) }}</span>
+                  <span class="text-sm font-medium text-slate-300 truncate flex-1">{{ getPlayerName(tournament, memberId) }}</span>
+                  <button @click="openProfile(memberId)" class="text-slate-600 hover:text-slate-300 transition-colors shrink-0">
+                    <i class="ph-bold ph-info text-xs"></i>
+                  </button>
                 </div>
               </div>
             </div>
@@ -326,6 +363,13 @@ const sortedAvailablePlayers = computed(() => {
         </div>
       </template>
     </div>
+
+    <PlayerProfileModal
+        :open="profileModalOpen"
+        :player-name="profilePlayerName"
+        :global-player="profilePlayer"
+        @close="profileModalOpen = false"
+    />
 
     <div v-if="showRandomModal" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md">
 
