@@ -15,6 +15,7 @@ export interface DerivedRace {
   stage: string;
   group: string;
   raceNumber: number;
+  timestamp?: string;
   placements: Record<string, number>;
   umaMapping: Record<string, string>;
 }
@@ -145,6 +146,7 @@ export function deriveFromTournaments(allTournaments: Tournament[]) {
         stage: race.stage,
         group: race.group,
         raceNumber: race.raceNumber,
+        timestamp: race.timestamp,
         placements: race.placements,
         umaMapping,
       });
