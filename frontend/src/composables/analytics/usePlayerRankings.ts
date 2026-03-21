@@ -559,7 +559,7 @@ export function usePlayerRankings(
         key: `${race.tournamentId}-${race.stage}-${race.group}-${race.raceNumber}`,
         tournamentId: race.tournamentId,
         tournamentName: t?.name || race.tournamentId,
-        date: t?.playedAt ?? t?.createdAt ?? '',
+        date: race.timestamp ?? t?.playedAt ?? t?.createdAt ?? '',
         uma: race.umaMapping?.[playerId] || '-',
         position,
         points: pointSystem[position] || 0,
