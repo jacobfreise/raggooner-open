@@ -841,6 +841,9 @@ function perfIndicator(
                               <td class="px-3 py-2 text-sm font-bold text-white">
                                 {{ t.tournamentName }}
                                 <span v-if="t.status === 'active'" class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold uppercase">Live</span>
+                                <template v-for="track in [t.selectedTrack ? TRACK_DICT[t.selectedTrack] : null]" :key="'pt'">
+                                  <span v-if="track" class="block text-[11px] font-normal text-slate-500">{{ track.location }} {{ track.distance }}m</span>
+                                </template>
                               </td>
                               <td class="px-3 py-2 text-sm text-slate-400 whitespace-nowrap">{{ t.playedAt ? new Date(t.playedAt).toLocaleDateString() : '—' }}</td>
                               <td class="px-3 py-2 text-sm text-left text-slate-300">
@@ -1193,7 +1196,12 @@ function perfIndicator(
                             <tbody class="divide-y divide-slate-700">
                             <tr v-for="(row, rIdx) in expandedUmaTournaments" :key="row.tournamentId + '_' + row.playerId" class="hover:bg-slate-700/50 transition-colors">
                               <td class="px-3 py-2 text-xs text-slate-500">{{ rIdx + 1 }}</td>
-                              <td class="px-3 py-2 text-sm font-bold text-white">{{ row.tournamentName }}</td>
+                              <td class="px-3 py-2 text-sm font-bold text-white">
+                                {{ row.tournamentName }}
+                                <template v-for="track in [row.selectedTrack ? TRACK_DICT[row.selectedTrack] : null]" :key="'ut'">
+                                  <span v-if="track" class="block text-[11px] font-normal text-slate-500">{{ track.location }} {{ track.distance }}m</span>
+                                </template>
+                              </td>
                               <td class="px-3 py-2 text-sm text-slate-400 whitespace-nowrap">{{ row.playedAt ? new Date(row.playedAt).toLocaleDateString() : '—' }}</td>
                               <td class="px-3 py-2 text-sm text-slate-300">{{ row.playerName }}</td>
                               <td class="px-3 py-2 text-sm text-left">

@@ -428,7 +428,7 @@ export function usePlayerRankings(
       const fin = overrides.finalsRowStats ?? emptyStats;
       return {
         rowKey, tournamentId: part.tournamentId, tournamentName: t?.name || part.tournamentId,
-        playedAt: t?.playedAt ?? t?.createdAt ?? '', status: t?.status || 'unknown',
+        playedAt: t?.playedAt ?? t?.createdAt ?? '', status: t?.status || 'unknown', selectedTrack: t?.selectedTrack || null,
         uma: part.uma || '-', isWildcard: overrides.isWildcard, wildcardGroup: overrides.wildcardGroup || null,
         finalsStatus: overrides.finalsStatus, teamRank: overrides.teamRank ?? null,
         races: stats.races, wins: stats.wins,

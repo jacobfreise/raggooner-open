@@ -9,9 +9,18 @@ export interface ChangeLogEntry {
     }[];
 }
 
-export const APP_VERSION = '2.3.4'; // Update this manually when you deploy
+export const APP_VERSION = '2.4.0'; // Update this manually when you deploy
 
 export const changelogData: ChangeLogEntry[] = [
+    {
+        version: '2.4.0',
+        date: '2026-03-21',
+        title: 'Tools',
+        changes: [
+            { type: 'new', text: 'Use the standalone tools for rolling random tracks and umas just for fun.' },
+            { type: 'improvement', text: 'Lots of minor things in analytics.' },
+        ]
+    },
     {
         version: '2.3.4',
         date: '2026-03-11',

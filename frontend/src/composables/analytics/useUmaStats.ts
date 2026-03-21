@@ -370,7 +370,7 @@ export function useUmaStats(
 
       return {
         tournamentId: part.tournamentId, tournamentName: tName,
-        playedAt: t?.playedAt ?? t?.createdAt ?? '', playerId: part.playerId, playerName,
+        playedAt: t?.playedAt ?? t?.createdAt ?? '', selectedTrack: t?.selectedTrack || null, playerId: part.playerId, playerName,
         isWildcard, wildcardGroup, finalsStatus, teamRank,
         races, wins, winRate: races > 0 ? Math.round((wins / races) * 100 * 10) / 10 : 0,
         totalPoints, avgPoints: races > 0 ? Math.round((totalPoints / races) * 10) / 10 : 0,
