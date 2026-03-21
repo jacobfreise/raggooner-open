@@ -139,6 +139,19 @@ const toggleFlip = (playerId: string) => {
   flippedCards.value = { ...flippedCards.value, [playerId]: !flippedCards.value[playerId] };
 };
 
+const allCardsFlipped = computed(() => {
+  const all = structuredPlayerStats.value.flatMap(s => s.players);
+  return all.length > 0 && all.every(p => flippedCards.value[p.id]);
+});
+
+const flipAll = () => {
+  const all = structuredPlayerStats.value.flatMap(s => s.players);
+  const target = !allCardsFlipped.value;
+  const next: Record<string, boolean> = {};
+  all.forEach(p => { next[p.id] = target; });
+  flippedCards.value = next;
+};
+
 const ordinal = (n: number): string => {
   const v = n % 100;
   if (v >= 11 && v <= 13) return `${n}th`;
@@ -252,6 +265,11 @@ const playerFameMap = computed(() => {
         <button @click="groupByTeam = !groupByTeam" class="flex items-center gap-2 px-3 py-2 rounded-lg border transition-all text-xs font-bold uppercase tracking-wider" :class="groupByTeam ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'">
           <i class="ph-bold" :class="groupByTeam ? 'ph-users-three' : 'ph-squares-four'"></i>
           <span class="hidden sm:inline">Group by Team</span>
+        </button>
+
+        <button @click="flipAll" class="flex items-center gap-2 px-3 py-2 rounded-lg border transition-all text-xs font-bold uppercase tracking-wider" :class="allCardsFlipped ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'">
+          <i class="ph-bold ph-chart-bar"></i>
+          <span class="hidden sm:inline">Flip All</span>
         </button>
       </div>
     </div>

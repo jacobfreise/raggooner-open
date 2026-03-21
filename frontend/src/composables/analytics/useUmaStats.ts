@@ -12,6 +12,7 @@ import {
   createSortState,
   getWinningTeam
 } from '../../utils/analyticsUtils';
+import { compareTeams, recalculateTournamentScores } from '../../utils/utils.ts';
 import { getUmaData } from '../../utils/umaData';
 
 const UMA_STAGE_KEY: Record<string, Record<string, string>> = {
@@ -322,9 +323,55 @@ export function useUmaStats(
         }
       });
 
+      const teams = t?.teams || [];
+      const tStatus = t?.status || 'unknown';
+      const playerTeam = teams.find(tm => tm.captainId === part.playerId || (tm.memberIds && tm.memberIds.includes(part.playerId)));
+      const wildcards = t?.wildcards || [];
+      const playerWildcards = wildcards.filter((wc: any) => wc.playerId === part.playerId);
+      const winningTeam = t ? (getWinningTeam(t) ?? null) : null;
+      const uniqueGroupSet = new Set(teams.map(tm => tm.group));
+      const hasGroupsTournament = uniqueGroupSet.size > 1;
+      const finalistTeams = teams.filter(tm => tm.inFinals);
+
+      let finalsStatus: string = '-';
+      let teamRank: number | null = null;
+      let isWildcard = false;
+      let wildcardGroup: string | null = null;
+
+      if (playerTeam) {
+        if (teams.length === 0 && tStatus === 'active') finalsStatus = '-';
+        else if (winningTeam && playerTeam.id === winningTeam.id && tStatus === 'completed') finalsStatus = 'winner';
+        else if (!hasGroupsTournament) finalsStatus = 'no-groups';
+        else if (playerTeam.inFinals) finalsStatus = 'finals';
+        else if (hasGroupsTournament) finalsStatus = 'eliminated';
+
+        if (finalsStatus === 'winner') teamRank = 1;
+        else if (finalsStatus === 'finals' && t) {
+          const sorted = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true));
+          teamRank = sorted.findIndex(tm => tm.id === playerTeam.id) + 1 || null;
+        } else if (finalsStatus === 'eliminated' && t) {
+          const groupTeams = teams.filter(tm => tm.group === playerTeam.group);
+          const sorted = [...groupTeams].sort((a, b) => compareTeams(a, b, true, t, false));
+          teamRank = sorted.findIndex(tm => tm.id === playerTeam.id) + 1 || null;
+        } else if (finalsStatus === 'no-groups' && t) {
+          const { teams: scoredTeams } = recalculateTournamentScores(t);
+          const sorted = [...scoredTeams].sort((a, b) => {
+            const aTotal = (a.points || 0) + (a.finalsPoints || 0);
+            const bTotal = (b.points || 0) + (b.finalsPoints || 0);
+            return bTotal !== aTotal ? bTotal - aTotal : a.id.localeCompare(b.id);
+          });
+          teamRank = sorted.findIndex(tm => tm.id === playerTeam.id) + 1 || null;
+        }
+      } else if (playerWildcards.length > 0) {
+        isWildcard = true;
+        wildcardGroup = playerWildcards[0]?.group || null;
+        finalsStatus = '-';
+      }
+
       return {
         tournamentId: part.tournamentId, tournamentName: tName,
         playedAt: t?.playedAt ?? t?.createdAt ?? '', playerId: part.playerId, playerName,
+        isWildcard, wildcardGroup, finalsStatus, teamRank,
         races, wins, winRate: races > 0 ? Math.round((wins / races) * 100 * 10) / 10 : 0,
         totalPoints, avgPoints: races > 0 ? Math.round((totalPoints / races) * 10) / 10 : 0,
         avgGroupPoints: groupRaces > 0 ? Math.round((groupTotalPoints / groupRaces) * 10) / 10 : 0,

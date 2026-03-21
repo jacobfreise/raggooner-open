@@ -109,11 +109,16 @@ export function usePlayerRankings(
   const playerTournamentSortDesc = playerTournamentSort.sortDesc;
   const togglePlayerTournamentSort = playerTournamentSort.toggle;
 
+  const playerRaceSort = createSortState('date', true);
+  const playerRaceSortKey = playerRaceSort.sortKey;
+  const playerRaceSortDesc = playerRaceSort.sortDesc;
+  const togglePlayerRaceSort = playerRaceSort.toggle;
+
   const resolveStageKey = (key: string) =>
     stageView.value !== 'total' ? (SORT_STAGE_KEY[key]?.[stageView.value] ?? key) : key;
 
   const expandedPlayerId = ref<string | null>(null);
-  const expandedDetailTab = ref<'umas' | 'tournaments'>('tournaments');
+  const expandedDetailTab = ref<'umas' | 'tournaments' | 'races'>('tournaments');
 
   const topPlayerCriterion = ref<Top5Key>('totalPoints');
 
@@ -126,6 +131,7 @@ export function usePlayerRankings(
       expandedDetailTab.value = 'tournaments';
       playerUmaSort.reset();
       playerTournamentSort.reset();
+      playerRaceSort.reset();
     }
   };
 
@@ -534,6 +540,56 @@ export function usePlayerRankings(
     return rows;
   });
 
+  const expandedPlayerRaces = computed(() => {
+    if (!expandedPlayerId.value) return [];
+    const playerId = expandedPlayerId.value;
+
+    const rows: any[] = [];
+
+    filteredRaces.value.forEach(race => {
+      const position = race.placements[playerId];
+      if (position === undefined) return;
+      const playersInRace = Object.keys(race.placements).length;
+      if (playersInRace <= 1) return;
+
+      const t = filteredTournaments.value.find(tourney => tourney.id === race.tournamentId);
+      const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
+
+      rows.push({
+        key: `${race.tournamentId}-${race.stage}-${race.group}-${race.raceNumber}`,
+        tournamentId: race.tournamentId,
+        tournamentName: t?.name || race.tournamentId,
+        date: t?.playedAt ?? t?.createdAt ?? '',
+        uma: race.umaMapping?.[playerId] || '-',
+        position,
+        points: pointSystem[position] || 0,
+        stage: race.stage,
+        group: race.group,
+        raceNumber: race.raceNumber,
+        opponents: playersInRace - 1,
+        beaten: playersInRace - position,
+      });
+    });
+
+    rows.sort((a, b) => {
+      const key = playerRaceSortKey.value;
+      const modifier = playerRaceSortDesc.value ? -1 : 1;
+      let valA: any, valB: any;
+      if (key === 'tournamentName' || key === 'uma' || key === 'stage') {
+        valA = String(a[key]).toLowerCase();
+        valB = String(b[key]).toLowerCase();
+      } else {
+        valA = a[key];
+        valB = b[key];
+      }
+      if (valA < valB) return -1 * modifier;
+      if (valA > valB) return 1 * modifier;
+      return 0;
+    });
+
+    return rows;
+  });
+
   const topPlayers = computed(() => {
     const baseKey = TOP5_CRITERIA[topPlayerCriterion.value].playerKey;
     const key = stageView.value !== 'total' ? (PLAYER_STAGE_KEY[stageView.value]?.[baseKey] ?? baseKey) : baseKey;
@@ -569,6 +625,7 @@ export function usePlayerRankings(
     playerRankings,
     expandedPlayerTournaments,
     expandedPlayerUmas,
+    expandedPlayerRaces,
     topPlayers,
     playerTierList,
 
@@ -580,6 +637,8 @@ export function usePlayerRankings(
     playerUmaSortDesc,
     playerTournamentSortKey,
     playerTournamentSortDesc,
+    playerRaceSortKey,
+    playerRaceSortDesc,
     topPlayerCriterion,
 
     togglePlayerSort,
@@ -587,6 +646,7 @@ export function usePlayerRankings(
     togglePlayerExpand,
     togglePlayerUmaSort,
     togglePlayerTournamentSort,
+    togglePlayerRaceSort,
     getStatValue,
     assignTier
   };

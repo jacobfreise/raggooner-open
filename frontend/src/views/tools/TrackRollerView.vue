@@ -5,6 +5,35 @@ import SlotReel from '../../components/shared/SlotReel.vue';
 
 const rollerImageMode = ref<'gametora' | 'sim'>('gametora');
 
+const showCopySuccess = ref(false);
+const showCopyImageSuccess = ref(false);
+
+const copyAnnouncement = async () => {
+    if (!rollerTrack.value || !rollerCondition.value) return;
+    const t = rollerTrack.value;
+    const c = rollerCondition.value;
+    const dir = t.direction.charAt(0).toUpperCase() + t.direction.slice(1);
+    const text = [
+        `🏆 TRACK: ${t.location} ${t.surface} ${t.distance}m (${dir})`,
+        `📅 CONDITIONS: ${c.season} / ${c.weather} / ${c.ground}`,
+    ].join('\n');
+    try {
+        await navigator.clipboard.writeText(text);
+        showCopySuccess.value = true;
+        setTimeout(() => { showCopySuccess.value = false; }, 2500);
+    } catch (e) { console.error('Clipboard failed', e); }
+};
+
+const copyTrackImage = async () => {
+    if (!rollerTrack.value) return;
+    try {
+        const blob = await fetch(`/assets/tracks/${rollerTrack.value.id}.png`).then(r => r.blob());
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        showCopyImageSuccess.value = true;
+        setTimeout(() => { showCopyImageSuccess.value = false; }, 2500);
+    } catch (e) { console.error('Clipboard image failed', e); }
+};
+
 const {
     surfaceFilters, distanceFilters, directionFilters, locationFilters, maxPlayersFilters,
     groundFilters, weatherFilters, seasonFilters,
@@ -264,6 +293,26 @@ const {
                                 {{ rollerCondition.season }}
                             </span>
                         </template>
+                    </div>
+
+                    <!-- Copy buttons (shown once a result has settled) -->
+                    <div v-if="rollerSettled && !isRolling" class="flex gap-2 justify-center">
+                        <button @click="copyAnnouncement"
+                                class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-all"
+                                :class="showCopySuccess
+                                  ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
+                                  : 'bg-slate-900 text-slate-400 hover:text-white border-slate-700'">
+                            <i :class="showCopySuccess ? 'ph-bold ph-check' : 'ph-bold ph-copy'" class="text-xs"></i>
+                            {{ showCopySuccess ? 'Copied!' : 'Announcement' }}
+                        </button>
+                        <button @click="copyTrackImage"
+                                class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-all"
+                                :class="showCopyImageSuccess
+                                  ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
+                                  : 'bg-slate-900 text-slate-400 hover:text-white border-slate-700'">
+                            <i :class="showCopyImageSuccess ? 'ph-bold ph-check' : 'ph-bold ph-image'" class="text-xs"></i>
+                            {{ showCopyImageSuccess ? 'Copied!' : 'Image' }}
+                        </button>
                     </div>
 
                     <div class="flex flex-col items-center gap-2">
