@@ -39,6 +39,6 @@ export const TOURNAMENT_FORMATS: Record<string, TournamentFormat> = {
 }
 
 export const SUPERADMIN_UIDS = [
-    'JrBubSUpmlNqYV4Gi7TsYY7yRqzO',
+    'JrBubSUpmlNqYV4Gi7TsYY7yRqzO', '0u3zMN1xD3SrcVKIzw10UMvnmFJ2',
     'mehTFP5BuqdrT6mw4xqnaNrHSMk1', 'j7kIBg1mIXO5m824GeBQmXYfb6q2', 'LCwXSR9TZUPqdpv8qM7qD3y7m0uh', 'JXs2aov8XqTfnB9XLOVHVNzw3psv'
 ];
