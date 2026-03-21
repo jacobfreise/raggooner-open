@@ -12,9 +12,11 @@ vi.mock('firebase/auth', () => ({
         authCallbackHolder.fn = cb;
         return vi.fn();
     }),
-    signInWithPopup: vi.fn().mockResolvedValue({}),
+    signInWithPopup: vi.fn().mockResolvedValue({ user: {} }),
     signOut: vi.fn().mockResolvedValue(undefined),
-    OAuthProvider: vi.fn(),
+    OAuthProvider: vi.fn(function(this: any) { this.addScope = vi.fn(); }),
+    getAdditionalUserInfo: vi.fn().mockReturnValue(null),
+    updateProfile: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('firebase/firestore', () => ({
