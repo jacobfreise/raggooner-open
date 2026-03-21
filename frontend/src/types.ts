@@ -104,11 +104,22 @@ export interface Season {
     description?: string;
 }
 
+export type SupportCardType = 'speed' | 'stamina' | 'power' | 'guts' | 'wit' | 'group' | 'pal';
+
+export interface ProfileSupportCard {
+    cardId: string;       // key into SUPPORT_CARD_DICT
+    limitBreak: number;   // 0–4
+}
+
 export interface GlobalPlayer {
     id: string;
     name: string;
     aliases?: string[];
     createdAt: string;
+    firebaseUid?: string;           // Linked Firebase Auth UID
+    discordId?: string;             // Discord User ID (e.g. "123456789012345678")
+    roster?: string[];              // Uma names owned by this player (keys of UMA_DICT)
+    supportCards?: ProfileSupportCard[];
     metadata: {
         totalTournaments: number;
         totalRaces: number;

@@ -5,6 +5,7 @@ import { useRoster } from '../composables/useRoster';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
 import { useJokeConfirmation, JOKE_PLAYERS } from '../composables/useEasterEgg';
 import PlayerSelector from './PlayerSelector.vue';
+import PlayerProfileModal from './PlayerProfileModal.vue';
 import { arrayUnion, deleteField } from 'firebase/firestore';
 import { TRACK_DICT } from '../utils/trackData';
 import { generateAnnouncementText } from '../utils/announcementUtils';
@@ -244,6 +245,28 @@ const addedPlayerIds = () => {
   return Object.keys(props.tournament.players);
 };
 
+const isVerified = (playerId: string) => {
+  const gp = props.globalPlayers.find(p => p.id === playerId);
+  return !!gp?.firebaseUid;
+};
+
+// Profile modal
+const profileModalOpen = ref(false);
+const profilePlayerId = ref<string | null>(null);
+
+const openProfile = (playerId: string) => {
+  profilePlayerId.value = playerId;
+  profileModalOpen.value = true;
+};
+
+const profilePlayer = computed(() =>
+  props.globalPlayers.find(p => p.id === profilePlayerId.value) ?? null
+);
+
+const profilePlayerName = computed(() =>
+  profilePlayerId.value ? (props.tournament.players[profilePlayerId.value]?.name ?? '') : ''
+);
+
 // Handle player selection from PlayerSelector
 const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
   if (!props.isAdmin) return;
@@ -424,14 +447,16 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
               </div>
 
               <div class="flex flex-col min-w-0 flex-1">
-                <span
-                    class="font-bold truncate"
-                    :class="player.isCaptain ? 'text-amber-100' : 'text-slate-200'"
-                >
-                  {{ player.name }}
-                </span>
-                              <div class="flex items-center gap-2 mt-0.5">
+                <div class="flex items-center gap-1.5 min-w-0">
                   <span
+                      class="font-bold truncate"
+                      :class="player.isCaptain ? 'text-amber-100' : 'text-slate-200'"
+                  >
+                    {{ player.name }}
+                  </span>
+                  <i v-if="isVerified(player.id)" class="ph-fill ph-discord-logo text-[#5865F2] text-sm shrink-0" title="Linked Discord Profile"></i>
+                </div>
+                <div class="flex items-center gap-2 mt-0.5">                  <span
                       class="text-[10px] uppercase font-bold tracking-wider"
                       :class="player.isCaptain ? 'text-amber-500' : 'text-slate-500'"
                   >
@@ -447,13 +472,20 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
               </div>
             </div>
 
-            <!-- Remove Button -->
-            <button @click.stop="removePlayer(player.id)"
-                    :disabled="!isAdmin"
-                    title="Remove Player"
-                    class="opacity-0 group-hover:opacity-100 w-8 h-8 flex items-center justify-center rounded text-slate-600 hover:bg-red-500/10 hover:text-red-400 transition-colors">
-              <i class="ph-bold ph-trash"></i>
-            </button>
+            <!-- Action Buttons -->
+            <div class="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+              <button @click.stop="openProfile(player.id)"
+                      title="View Profile"
+                      class="w-8 h-8 flex items-center justify-center rounded text-slate-600 hover:bg-indigo-500/10 hover:text-indigo-400 transition-colors">
+                <i class="ph-bold ph-user-circle"></i>
+              </button>
+              <button @click.stop="removePlayer(player.id)"
+                      :disabled="!isAdmin"
+                      title="Remove Player"
+                      class="w-8 h-8 flex items-center justify-center rounded text-slate-600 hover:bg-red-500/10 hover:text-red-400 transition-colors">
+                <i class="ph-bold ph-trash"></i>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -567,6 +599,14 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
 
       </div>
     </div>
+    <!-- PROFILE MODAL -->
+    <PlayerProfileModal
+        :open="profileModalOpen"
+        :player-name="profilePlayerName"
+        :global-player="profilePlayer"
+        @close="profileModalOpen = false"
+    />
+
     <!-- DELAYED TOAST -->
     <Transition
         enter-from-class="opacity-0 -translate-y-3"

@@ -2,10 +2,6 @@ import {describe, it, expect, vi, beforeEach, type Mock} from 'vitest'
 
 // Hoist firebase mock before any imports
 vi.mock('firebase/firestore', () => ({ FieldValue: class {} }))
-vi.mock('../utils/metadataSync', () => ({
-    claimAndSyncMetadata: vi.fn().mockResolvedValue(true),
-    claimAndUnsyncMetadata: vi.fn().mockResolvedValue(true),
-}))
 vi.mock('../utils/draftUtils', () => ({
     generateDraftStructure: vi.fn().mockReturnValue({
         teams: [{ id: 'team-1' }, { id: 'team-2' }],
@@ -101,15 +97,13 @@ describe('useTournamentFlow — uma-ban format', () => {
         }))
     })
 
-    it('active → completed: sets status to completed and syncs metadata', async () => {
-        const { claimAndSyncMetadata } = await import('../utils/metadataSync')
+    it('active → completed: sets status to completed', async () => {
         const tournament = ref(makeTournament({ format: 'uma-ban', status: 'active' }))
         const { advancePhase } = useTournamentFlow(tournament, secureUpdate, 'test-app')
 
         await advancePhase()
 
         expect(secureUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }))
-        expect(claimAndSyncMetadata).toHaveBeenCalled()
     })
 })
 
@@ -184,15 +178,13 @@ describe('useTournamentFlow — guards', () => {
         expect(secureUpdate).not.toHaveBeenCalled()
     })
 
-    it('reopenTournament reverts completed → active and unsyncs metadata', async () => {
-        const { claimAndUnsyncMetadata } = await import('../utils/metadataSync')
+    it('reopenTournament reverts completed → active', async () => {
         const secureUpdate = vi.fn().mockResolvedValue(undefined)
         const tournament = ref(makeTournament({ status: 'completed' }))
         const { reopenTournament } = useTournamentFlow(tournament, secureUpdate)
 
         await reopenTournament()
 
-        expect(claimAndUnsyncMetadata).toHaveBeenCalled()
         expect(secureUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'active' }))
     })
 

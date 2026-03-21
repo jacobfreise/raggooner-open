@@ -1,14 +1,13 @@
 import {ref, type Ref} from "vue";
 import type {FirestoreUpdate, Tournament} from "../types";
 import { generateDraftStructure, generateUmaDraftOrder } from "../utils/draftUtils";
-import { claimAndSyncMetadata, claimAndUnsyncMetadata } from "../utils/metadataSync";
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
 
 export function useTournamentFlow(
     tournament: Ref<Tournament | null>,
     secureUpdate: SecureUpdateFn,
-    appId: string = 'default-app'
+    _appId: string = 'default-app'
 ) {
 
     const isAdvancing = ref(false);
@@ -77,11 +76,6 @@ export function useTournamentFlow(
                             status: 'completed',
                             completedAt: new Date().toISOString()
                         });
-                        try {
-                            await claimAndSyncMetadata(t, appId);
-                        } catch (e) {
-                            console.error('Failed to sync tournament metadata on completion:', e);
-                        }
                         break;
                     }
                 }
@@ -125,11 +119,6 @@ export function useTournamentFlow(
                     }
                     case 'active': {
                         await secureUpdate({ status: 'completed', completedAt: new Date().toISOString() });
-                        try {
-                            await claimAndSyncMetadata(t, appId);
-                        } catch (e) {
-                            console.error('Failed to sync tournament metadata on completion:', e);
-                        }
                         break;
                     }
                 }
@@ -151,9 +140,6 @@ export function useTournamentFlow(
 
         isAdvancing.value = true;
         try {
-            // Unsync metadata BEFORE changing status
-            await claimAndUnsyncMetadata(tournament.value, appId);
-
             await secureUpdate({
                 status: 'active',
                 completedAt: null,
@@ -162,7 +148,7 @@ export function useTournamentFlow(
             });
         } catch (e) {
             console.error('Failed to reopen tournament:', e);
-            alert('Failed to reverse tournament completion. Check console.');
+            alert('Failed to reopen tournament. Check console.');
         } finally {
             isAdvancing.value = false;
         }

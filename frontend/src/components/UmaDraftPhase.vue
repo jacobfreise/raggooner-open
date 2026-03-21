@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toRef, ref, computed, onMounted, onUnmounted } from 'vue';
-import type {Tournament, FirestoreUpdate, Team} from '../types';
+import type {Tournament, FirestoreUpdate, Team, GlobalPlayer} from '../types';
 import { useUmaDraft } from '../composables/useUmaDraft';
 import { useTournamentFlow } from '../composables/useTournamentFlow';
 import { voicelineVolume, playLocalSfx } from '../composables/useVoicelines';
@@ -9,11 +9,13 @@ import { UMA_DICT } from '../utils/umaData';
 import { TRACK_DICT } from '../utils/trackData';
 import UmaCard from './UmaCard.vue';
 import SlotReel from './shared/SlotReel.vue';
+import PlayerProfileModal from './PlayerProfileModal.vue';
 
 const props = defineProps<{
   tournament: Tournament;
   isAdmin: boolean;
   secureUpdate: (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
+  globalPlayers: GlobalPlayer[];
 }>();
 
 const tournamentRef = toRef(props, 'tournament');
@@ -35,6 +37,23 @@ const {
 } = useUmaDraft(tournamentRef, props.secureUpdate, isAdminRef);
 
 const { advancePhase, isAdvancing } = useTournamentFlow(tournamentRef, props.secureUpdate);
+
+// ── Player profile modal ──────────────────────────────────────────────────────
+const profileModalOpen = ref(false);
+const profilePlayerId = ref<string>('');
+
+const openProfile = (playerId: string) => {
+  profilePlayerId.value = playerId;
+  profileModalOpen.value = true;
+};
+
+const profilePlayer = computed(() =>
+  props.globalPlayers.find(gp => gp.id === profilePlayerId.value) ?? null
+);
+
+const profilePlayerName = computed(() =>
+  props.tournament.players[profilePlayerId.value]?.name ?? ''
+);
 
 const umaSearch = ref('');
 const selectedAptitude = ref('');
@@ -312,10 +331,18 @@ const sinceLastPick = computed(() => {
             </div>
             <div class="space-y-2">
               <div class="flex items-center gap-2 text-sm text-amber-400">
-                <i class="ph-fill ph-crown"></i> {{ getPlayerName(tournament, team.captainId) }}
+                <i class="ph-fill ph-crown"></i>
+                <span class="flex-1">{{ getPlayerName(tournament, team.captainId) }}</span>
+                <button @click="openProfile(team.captainId)" class="text-slate-600 hover:text-slate-300 transition-colors">
+                  <i class="ph-bold ph-info text-xs"></i>
+                </button>
               </div>
-              <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300 ">
-                <i class="ph-fill ph-user"></i> {{ getPlayerName(tournament, memberId) }}
+              <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300">
+                <i class="ph-fill ph-user"></i>
+                <span class="flex-1">{{ getPlayerName(tournament, memberId) }}</span>
+                <button @click="openProfile(memberId)" class="text-slate-600 hover:text-slate-300 transition-colors">
+                  <i class="ph-bold ph-info text-xs"></i>
+                </button>
               </div>
 
               <div class="mt-3 pt-3 border-t border-slate-800">
@@ -383,14 +410,20 @@ const sinceLastPick = computed(() => {
           <div class="space-y-2 mb-5">
             <div class="flex items-center gap-3 bg-gradient-to-r from-amber-500/10 to-transparent border-l-2 border-amber-500 px-3 py-2 rounded-r-lg">
               <i class="ph-fill ph-crown text-amber-400 text-lg drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]"></i>
-              <span class="text-sm font-bold text-amber-100">{{ getPlayerName(tournament, team.captainId) }}</span>
+              <span class="text-sm font-bold text-amber-100 flex-1">{{ getPlayerName(tournament, team.captainId) }}</span>
+              <button @click="openProfile(team.captainId)" class="text-slate-600 hover:text-slate-300 transition-colors shrink-0">
+                <i class="ph-bold ph-info text-xs"></i>
+              </button>
             </div>
 
             <div v-if="team.memberIds.length > 0" class="grid grid-cols-2 gap-2 mt-2">
               <div v-for="memberId in team.memberIds" :key="memberId"
                    class="flex items-center gap-2 bg-slate-900/50 px-3 py-1.5 rounded-lg border border-slate-700/30">
                 <i class="ph-fill ph-user text-slate-500"></i>
-                <span class="text-sm font-medium text-slate-300 truncate">{{ getPlayerName(tournament, memberId) }}</span>
+                <span class="text-sm font-medium text-slate-300 truncate flex-1">{{ getPlayerName(tournament, memberId) }}</span>
+                <button @click="openProfile(memberId)" class="text-slate-600 hover:text-slate-300 transition-colors shrink-0">
+                  <i class="ph-bold ph-info text-xs"></i>
+                </button>
               </div>
             </div>
           </div>
@@ -423,6 +456,13 @@ const sinceLastPick = computed(() => {
       </div>
 
     </template>
+
+    <PlayerProfileModal
+        :open="profileModalOpen"
+        :player-name="profilePlayerName"
+        :global-player="profilePlayer"
+        @close="profileModalOpen = false"
+    />
 
     <SlotReel :visible="showRandomModal" :items="slotReel" :translate-y="slotTranslateY" label="Drafting" highlight="Uma" />
   </div>

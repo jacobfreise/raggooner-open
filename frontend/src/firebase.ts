@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -22,7 +22,8 @@ const auth = getAuth(app);
 if (location.hostname === "localhost") {
     console.log("🔧 connecting to emulators...");
     connectFirestoreEmulator(db, '127.0.0.1', 8080);
-    connectAuthEmulator(auth, 'http://127.0.0.1:9099');
+    // Auth emulator not used: it doesn't persist sessions across refreshes and
+    // Discord OAuth requires real Firebase Auth regardless.
 }
 
 export { db, auth };
