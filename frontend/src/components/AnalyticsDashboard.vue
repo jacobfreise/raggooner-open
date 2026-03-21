@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import LineChart from './analytics/LineChart.vue';
 import { getUmaImagePath } from "../utils/umaData.ts";
 import { TOURNAMENT_FORMATS } from "../utils/constants.ts";
+import { TRACK_DICT } from "../utils/trackData.ts";
 
 import { useAnalyticsData } from '../composables/analytics/useAnalyticsData';
 import { usePlayerRankings } from '../composables/analytics/usePlayerRankings';
@@ -30,11 +31,12 @@ const stageView = ref<'total' | 'groups' | 'finals'>('total');
 
 // 2. Player Rankings Layer
 const {
-  playerRankings, expandedPlayerTournaments, expandedPlayerUmas, topPlayers, playerTierList,
+  playerRankings, expandedPlayerTournaments, expandedPlayerUmas, expandedPlayerRaces, topPlayers, playerTierList,
   playerSortKey, playerSortDesc, expandedPlayerId, expandedDetailTab,
   playerUmaSortKey, playerUmaSortDesc, playerTournamentSortKey, playerTournamentSortDesc,
+  playerRaceSortKey, playerRaceSortDesc,
   topPlayerCriterion,
-  togglePlayerSort, togglePlayerExpand, togglePlayerUmaSort, togglePlayerTournamentSort
+  togglePlayerSort, togglePlayerExpand, togglePlayerUmaSort, togglePlayerTournamentSort, togglePlayerRaceSort
 } = usePlayerRankings(players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, stageView);
 
 // 3. Uma Stats Layer
@@ -777,6 +779,17 @@ function perfIndicator(
                             Umas
                             <span class="opacity-60">({{ expandedPlayerUmas.length }})</span>
                           </button>
+                          <button
+                              @click="expandedDetailTab = 'races'"
+                              class="px-3 py-1.5 text-xs font-bold rounded-full transition-colors border flex items-center gap-1.5"
+                              :class="expandedDetailTab === 'races'
+                                  ? 'bg-indigo-600 border-indigo-500 text-white'
+                                  : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'"
+                          >
+                            <i class="ph-fill ph-flag-checkered"></i>
+                            Races
+                            <span class="opacity-60">({{ expandedPlayerRaces.length }})</span>
+                          </button>
                         </div>
 
                         <div v-if="expandedDetailTab === 'tournaments'" class="overflow-x-auto">
@@ -946,6 +959,76 @@ function perfIndicator(
                           </table>
                           <div v-if="expandedPlayerUmas.length === 0" class="px-4 py-6 text-center text-slate-500 text-sm">No uma data</div>
                         </div>
+
+                        <div v-if="expandedDetailTab === 'races'" class="overflow-x-auto">
+                          <table class="w-full">
+                            <thead class="bg-slate-900 border-b border-slate-700">
+                            <tr>
+                              <th class="px-3 py-2 text-left text-xs font-bold text-slate-400 uppercase tracking-wider w-8">#</th>
+                              <th v-for="col in [
+                                    { key: 'tournamentName', label: 'Tournament',  align: 'left'  },
+                                    { key: 'date',           label: 'Date',        align: 'left'  },
+                                    { key: 'uma',            label: 'Uma',         align: 'left'  },
+                                    { key: 'stage',          label: 'Stage',       align: 'left'  },
+                                    { key: 'raceNumber',     label: 'Race',        align: 'right' },
+                                    { key: 'position',       label: 'Pos.',        align: 'right' },
+                                    { key: 'points',         label: 'Pts',         align: 'right' },
+                                    { key: 'opponents',      label: 'Players',       align: 'right' },
+                                    { key: 'beaten',         label: 'Beaten',      align: 'right' },
+                                  ]"
+                                  :key="col.key"
+                                  @click="togglePlayerRaceSort(col.key)"
+                                  class="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors group select-none whitespace-nowrap"
+                                  :class="col.align === 'right' ? 'text-right' : 'text-left'"
+                              >
+                                <div class="flex items-center gap-1" :class="col.align === 'right' ? 'justify-end' : 'justify-start'">
+                                  {{ col.label }}
+                                  <i v-if="playerRaceSortKey === col.key" class="ph-bold text-indigo-400" :class="playerRaceSortDesc ? 'ph-caret-down' : 'ph-caret-up'"></i>
+                                  <i v-else class="ph-bold ph-caret-down opacity-0 group-hover:opacity-50"></i>
+                                </div>
+                              </th>
+                              <th class="px-3 py-2 w-8"></th>
+                            </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700">
+                            <tr v-for="(race, rIdx) in expandedPlayerRaces" :key="race.key"
+                                class="hover:bg-slate-700/50 transition-colors"
+                                :class="race.position === 1 ? 'bg-amber-500/5' : ''">
+                              <td class="px-3 py-2 text-xs text-slate-500">{{ rIdx + 1 }}</td>
+                              <td class="px-3 py-2 text-sm font-bold text-white whitespace-nowrap">{{ race.tournamentName }}</td>
+                              <td class="px-3 py-2 text-sm text-slate-400 whitespace-nowrap">{{ race.date ? new Date(race.date).toLocaleDateString() : '—' }}</td>
+                              <td class="px-3 py-2 text-sm text-slate-300">
+                                <div class="flex items-center gap-1.5">
+                                  <img :src="getUmaImagePath(race.uma)" :alt="race.uma" class="w-5 h-5 rounded-full object-cover shrink-0 bg-slate-700" />
+                                  {{ race.uma }}
+                                </div>
+                              </td>
+                              <td class="px-3 py-2 text-sm whitespace-nowrap">
+                                <span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded"
+                                      :class="race.stage === 'finals'
+                                        ? 'bg-amber-500/10 text-amber-400'
+                                        : 'bg-slate-700/60 text-slate-400'">
+                                  {{ race.stage === 'finals' ? 'Finals' : `Groups ${race.group}` }}
+                                </span>
+                              </td>
+                              <td class="px-3 py-2 text-sm text-right text-slate-400 font-mono">{{ race.raceNumber }}</td>
+                              <td class="px-3 py-2 text-sm text-right font-bold"
+                                  :class="race.position === 1 ? 'text-amber-400' : race.position <= 3 ? 'text-emerald-400' : 'text-slate-300'">
+                                {{ race.position }}
+                              </td>
+                              <td class="px-3 py-2 text-sm text-right font-bold text-white">{{ race.points }}</td>
+                              <td class="px-3 py-2 text-sm text-right text-slate-400">{{ race.opponents+1 }}</td>
+                              <td class="px-3 py-2 text-sm text-right text-purple-400">{{ race.beaten }}</td>
+                              <td class="px-3 py-2 text-right">
+                                <router-link :to="'/t/' + race.tournamentId" class="text-indigo-400 hover:text-indigo-300 transition-colors">
+                                  <i class="ph-bold ph-arrow-right"></i>
+                                </router-link>
+                              </td>
+                            </tr>
+                            </tbody>
+                          </table>
+                          <div v-if="expandedPlayerRaces.length === 0" class="px-4 py-6 text-center text-slate-500 text-sm">No race data</div>
+                        </div>
                       </div>
 
                     </div>
@@ -1084,6 +1167,7 @@ function perfIndicator(
                                     { key: 'tournamentName', label: 'Tournament' },
                                     { key: 'playedAt', label: 'Date' },
                                     { key: 'playerName', label: 'Player' },
+                                    { key: 'finalsStatus', label: 'Perf.' },
                                     { key: 'races', label: 'Races' },
                                     { key: 'wins', label: 'Wins' },
                                     { key: 'winRate', label: 'Win %' },
@@ -1095,9 +1179,9 @@ function perfIndicator(
                                   :key="col.key"
                                   @click="toggleUmaTournamentSort(col.key)"
                                   class="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors group select-none whitespace-nowrap"
-                                  :class="col.key === 'tournamentName' || col.key === 'playedAt' || col.key === 'playerName' ? 'text-left' : 'text-right'"
+                                  :class="col.key === 'tournamentName' || col.key === 'playedAt' || col.key === 'playerName' || col.key === 'finalsStatus' ? 'text-left' : 'text-right'"
                               >
-                                <div class="flex items-center gap-1" :class="col.key === 'tournamentName' || col.key === 'playedAt' || col.key === 'playerName' ? '' : 'justify-end'">
+                                <div class="flex items-center gap-1" :class="col.key === 'tournamentName' || col.key === 'playedAt' || col.key === 'playerName' || col.key === 'finalsStatus' ? '' : 'justify-end'">
                                   {{ col.label }}
                                   <i v-if="umaTournamentSortKey === col.key" class="ph-bold text-indigo-400" :class="umaTournamentSortDesc ? 'ph-caret-down' : 'ph-caret-up'"></i>
                                   <i v-else class="ph-bold ph-caret-down opacity-0 group-hover:opacity-50"></i>
@@ -1112,6 +1196,16 @@ function perfIndicator(
                               <td class="px-3 py-2 text-sm font-bold text-white">{{ row.tournamentName }}</td>
                               <td class="px-3 py-2 text-sm text-slate-400 whitespace-nowrap">{{ row.playedAt ? new Date(row.playedAt).toLocaleDateString() : '—' }}</td>
                               <td class="px-3 py-2 text-sm text-slate-300">{{ row.playerName }}</td>
+                              <td class="px-3 py-2 text-sm text-left">
+                                <div class="flex items-center justify-start gap-1 flex-wrap">
+                                  <span v-if="row.isWildcard" class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-bold uppercase">WC {{ row.wildcardGroup }}</span>
+                                  <span v-if="row.finalsStatus === 'winner'" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-bold uppercase">Winner</span>
+                                  <span v-else-if="row.finalsStatus === 'finals'" class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-bold uppercase">{{ row.teamRank ? ordinal(row.teamRank) + ' Finals' : 'Finals' }}</span>
+                                  <span v-else-if="row.finalsStatus === 'eliminated'" class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 font-bold uppercase">{{ row.teamRank ? ordinal(row.teamRank) + ' Grps' : 'Out' }}</span>
+                                  <span v-else-if="row.finalsStatus === 'no-groups'" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-400 font-bold uppercase">{{ row.teamRank ? ordinal(row.teamRank) : '-' }}</span>
+                                  <span v-else-if="!row.isWildcard" class="text-slate-600">-</span>
+                                </div>
+                              </td>
                               <td class="px-3 py-2 text-sm text-right text-slate-400">{{ (row as any)[stageKey('races')] }}</td>
                               <td class="px-3 py-2 text-sm text-right text-emerald-400">{{ (row as any)[stageKey('wins')] }}</td>
                               <td class="px-3 py-2 text-sm text-right font-bold text-emerald-400">{{ (row as any)[stageKey('winRate')] }}%</td>
@@ -1300,6 +1394,7 @@ function perfIndicator(
                 <th v-for="col in [
                   { key: 'date',    label: 'Date',     align: 'left'  },
                   { key: 'name',    label: 'Name',     align: 'left'  },
+                  { key: 'track',   label: 'Track',    align: 'left'  },
                   { key: 'winners', label: 'Winner(s)', align: 'left' },
                   { key: 'players', label: 'Players',  align: 'right' },
                 ]" :key="col.key"
@@ -1323,6 +1418,12 @@ function perfIndicator(
                   <router-link :to="'/t/' + t.id" class="hover:text-indigo-400 transition-colors">
                     {{ t.name }}
                   </router-link>
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-300 whitespace-nowrap">
+                  <template v-for="track in [t.selectedTrack ? TRACK_DICT[t.selectedTrack] : null]" :key="'track'">
+                    <span v-if="track">{{ track.location }} {{ track.distance }}m</span>
+                    <span v-else class="text-slate-600">—</span>
+                  </template>
                 </td>
                 <td class="px-4 py-3 text-sm text-amber-400 font-medium">
                   {{ tournamentWinnerNames.get(t.id)?.join(', ') || '—' }}
