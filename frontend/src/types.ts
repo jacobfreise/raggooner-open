@@ -118,6 +118,7 @@ export interface GlobalPlayer {
     createdAt: string;
     firebaseUid?: string;           // Linked Firebase Auth UID
     discordId?: string;             // Discord User ID (e.g. "123456789012345678")
+    avatarUrl?: string;             // Discord CDN avatar URL
     roster?: string[];              // Uma names owned by this player (keys of UMA_DICT)
     supportCards?: ProfileSupportCard[];
     metadata: {

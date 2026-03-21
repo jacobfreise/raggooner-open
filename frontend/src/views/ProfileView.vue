@@ -12,6 +12,7 @@ import {
 import type { ProfileSupportCard, SupportCardType } from '../types';
 import SiteHeader from '../components/shared/SiteHeader.vue';
 import SiteNav from '../components/shared/SiteNav.vue';
+import PlayerAvatar from '../components/shared/PlayerAvatar.vue';
 
 const { user, linkedPlayer, updatePlayerProfile } = useAuth();
 
@@ -148,10 +149,12 @@ const sortedOwnedCards = computed(() =>
 
             <!-- Header card -->
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6 flex items-center gap-5">
-                <img v-if="user.photoURL" :src="user.photoURL" class="w-16 h-16 rounded-full border-2 border-slate-600" alt="avatar" />
-                <div v-else class="w-16 h-16 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center">
-                    <i class="ph-bold ph-user text-3xl text-slate-400"></i>
-                </div>
+                <PlayerAvatar
+                    :name="linkedPlayer.name"
+                    :avatar-url="linkedPlayer.avatarUrl ?? user.photoURL"
+                    size="xl"
+                    class="border-2 border-slate-600"
+                />
                 <div>
                     <div class="text-xl font-bold text-white">{{ linkedPlayer.name }}</div>
                     <div class="text-sm text-slate-400 flex items-center gap-1.5 mt-0.5">
@@ -161,7 +164,7 @@ const sortedOwnedCards = computed(() =>
                     <div class="flex gap-4 mt-2 text-xs text-slate-500">
                         <span><span class="text-white font-bold">{{ linkedPlayer.metadata.totalTournaments }}</span> tournaments</span>
                         <span><span class="text-white font-bold">{{ linkedPlayer.metadata.totalRaces }}</span> races</span>
-                        <span><span class="text-white font-bold">{{ linkedPlayer.roster?.length ?? 0 }}</span> umas</span>
+                        <span><span class="inline-block min-w-[2ch] text-right tabular-nums text-white font-bold">{{ linkedPlayer.roster?.length ?? 0 }}</span> umas</span>
                         <span><span class="text-white font-bold">{{ linkedPlayer.supportCards?.length ?? 0 }}</span> support cards</span>
                     </div>
                 </div>
@@ -172,7 +175,7 @@ const sortedOwnedCards = computed(() =>
                 <div class="px-5 py-4 border-b border-slate-700 bg-slate-900 flex items-center justify-between gap-4">
                     <div>
                         <h2 class="font-bold text-white uppercase tracking-wider text-sm">Uma Roster</h2>
-                        <p class="text-xs text-slate-500 mt-0.5">{{ ownedUmas.size }} / {{ UMA_LIST.length }} umas owned</p>
+                        <p class="text-xs text-slate-500 mt-0.5"><span class="inline-block min-w-[2ch] text-right tabular-nums">{{ ownedUmas.size }}</span> / {{ UMA_LIST.length }} umas owned</p>
                     </div>
                     <input
                         v-model="umaSearch"
@@ -187,7 +190,7 @@ const sortedOwnedCards = computed(() =>
                         :key="uma.id"
                         @click="toggleUma(uma.name)"
                         :disabled="savingRoster"
-                        class="relative rounded-lg overflow-hidden border-2 transition-all group"
+                        class="relative rounded-lg overflow-hidden border-2 transition-[border-color,box-shadow,opacity] duration-150 group"
                         :class="ownedUmas.has(uma.name)
                             ? 'border-indigo-500 shadow-md shadow-indigo-500/20'
                             : 'border-slate-700 opacity-40 hover:opacity-70 hover:border-slate-500'"

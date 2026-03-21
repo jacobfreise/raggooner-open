@@ -5,6 +5,8 @@ import {
     signInAnonymously,
     signOut,
     OAuthProvider,
+    getAdditionalUserInfo,
+    updateProfile,
     type User
 } from 'firebase/auth';
 import { 
@@ -62,9 +64,25 @@ export function useAuth() {
 
     const loginWithDiscord = async () => {
         const provider = new OAuthProvider('oidc.discord.com');
+
+        provider.addScope('identify');
         try {
-            await signInWithPopup(auth, provider);
-            // user.value and fetchLinkedPlayer are handled by onAuthStateChanged
+            const result = await signInWithPopup(auth, provider);
+
+            // Firebase calls Discord's userinfo endpoint internally during OIDC;
+            // the result is exposed via getAdditionalUserInfo.
+            const profile = getAdditionalUserInfo(result)?.profile as Record<string, any> | null;
+            const avatarUrl: string | null = profile?.picture ?? null;
+
+            if (avatarUrl) {
+                await updateProfile(result.user, { photoURL: avatarUrl });
+                user.value = auth.currentUser;
+                if (linkedPlayer.value) {
+                    const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', linkedPlayer.value.id);
+                    await updateDoc(playerRef, { avatarUrl });
+                    linkedPlayer.value = { ...linkedPlayer.value, avatarUrl };
+                }
+            }
         } catch (e) {
             console.error('Discord login failed:', e);
             throw e;
@@ -90,7 +108,8 @@ export function useAuth() {
             const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', globalPlayer.id);
             const updateData: Partial<GlobalPlayer> = {
                 firebaseUid: user.value.uid,
-                discordId: discordId || undefined
+                discordId: discordId || undefined,
+                avatarUrl: user.value.photoURL || undefined,
             };
 
             await updateDoc(playerRef, updateData);
@@ -118,6 +137,7 @@ export function useAuth() {
             createdAt: new Date().toISOString(),
             firebaseUid: user.value.uid,
             discordId: discordId || undefined,
+            avatarUrl: user.value.photoURL || undefined,
             metadata: {
                 totalTournaments: 0,
                 totalRaces: 0

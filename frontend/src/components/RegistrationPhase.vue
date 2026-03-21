@@ -6,6 +6,7 @@ import { useTournamentFlow } from '../composables/useTournamentFlow';
 import { useJokeConfirmation, JOKE_PLAYERS } from '../composables/useEasterEgg';
 import PlayerSelector from './PlayerSelector.vue';
 import PlayerProfileModal from './PlayerProfileModal.vue';
+import PlayerAvatar from './shared/PlayerAvatar.vue';
 import { arrayUnion, deleteField } from 'firebase/firestore';
 import { TRACK_DICT } from '../utils/trackData';
 import { generateAnnouncementText } from '../utils/announcementUtils';
@@ -436,14 +437,17 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
             ]"
           >
             <div class="flex items-center gap-3 flex-1 min-w-0">
-              <div
-                  class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-transform group-active:scale-95 shadow-sm shrink-0"
-                  :class="player.isCaptain
-                  ? 'bg-amber-500 text-slate-900 ring-2 ring-amber-500/20'
-                  : 'bg-slate-700 text-slate-400'"
-              >
-                <i v-if="player.isCaptain" class="ph-fill ph-crown text-lg"></i>
-                <span v-else>{{ player.name.charAt(0) }}</span>
+              <div class="relative shrink-0 transition-transform group-active:scale-95">
+                <PlayerAvatar
+                    :name="player.name"
+                    :avatar-url="props.globalPlayers.find(gp => gp.id === player.id)?.avatarUrl"
+                    size="lg"
+                    :class="player.isCaptain ? 'ring-2 ring-amber-500/60' : ''"
+                />
+                <div v-if="player.isCaptain"
+                     class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center shadow">
+                  <i class="ph-fill ph-crown text-[8px] text-slate-900"></i>
+                </div>
               </div>
 
               <div class="flex flex-col min-w-0 flex-1">

@@ -12,6 +12,7 @@ import { useDiagrams } from '../composables/analytics/useDiagrams';
 import { TIER_CRITERIA, TOP5_CRITERIA, getWinningTeam } from '../utils/analyticsUtils';
 import SiteHeader from './shared/SiteHeader.vue';
 import SiteNav from './shared/SiteNav.vue';
+import PlayerAvatar from './shared/PlayerAvatar.vue';
 
 
 const activeTab = ref<'overview' | 'players' | 'umas' | 'tierlist' | 'tournaments' | 'diagrams'>('overview');
@@ -503,6 +504,8 @@ function perfIndicator(
                 <div class="text-2xl" :class="getRankColor(idx)">
                   <i :class="getRankIcon(idx)"></i>
                 </div>
+
+                <PlayerAvatar :name="player.player.name" :avatar-url="player.player.avatarUrl" size="md" />
 
                 <div class="flex-1 min-w-0">
                   <div class="font-bold text-white truncate">{{ player.player.name }}</div>
@@ -1332,6 +1335,7 @@ function perfIndicator(
                         :key="p.player.id"
                         class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 flex items-center gap-2 hover:border-slate-500 transition-colors"
                     >
+                      <PlayerAvatar :name="p.player.name" :avatar-url="p.player.avatarUrl" size="sm" />
                       <span class="font-bold text-white text-sm">{{ p.player.name }}</span>
                       <span class="text-xs px-1.5 py-0.5 rounded font-bold" :class="tier.text + ' bg-slate-900'">{{ stageStatValue(p, tierCriterion) }}{{ TIER_CRITERIA[tierCriterion].suffix }}</span>
                     </div>

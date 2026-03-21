@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import type { GlobalPlayer, SupportCardType } from '../types';
 import { getUmaImagePath } from '../utils/umaData';
 import { SUPPORT_CARD_DICT, SUPPORT_CARD_TYPE_META } from '../utils/supportCardData';
+import PlayerAvatar from './shared/PlayerAvatar.vue';
 
 const props = defineProps<{
     open: boolean;
@@ -80,13 +81,16 @@ watch(() => props.open, (val) => { if (val) onOpen(); });
 
                     <!-- Header -->
                     <div class="flex items-center justify-between px-5 py-4 border-b border-slate-700 shrink-0">
-                        <div>
-                            <h2 class="text-lg font-bold text-white">{{ playerName }}</h2>
-                            <p v-if="globalPlayer?.discordId" class="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-                                <i class="ph-fill ph-discord-logo text-[#5865F2]"></i>
-                                Linked profile
-                            </p>
-                            <p v-else class="text-xs text-slate-600 mt-0.5 italic">No linked profile</p>
+                        <div class="flex items-center gap-3">
+                            <PlayerAvatar :name="playerName" :avatar-url="globalPlayer?.avatarUrl" size="xl" />
+                            <div>
+                                <h2 class="text-lg font-bold text-white">{{ playerName }}</h2>
+                                <p v-if="globalPlayer?.discordId" class="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                                    <i class="ph-fill ph-discord-logo text-[#5865F2]"></i>
+                                    Linked profile
+                                </p>
+                                <p v-else class="text-xs text-slate-600 mt-0.5 italic">No linked profile</p>
+                            </div>
                         </div>
                         <button @click="emit('close')"
                                 class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors">

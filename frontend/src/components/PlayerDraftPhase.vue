@@ -6,6 +6,7 @@ import { useTournamentFlow } from '../composables/useTournamentFlow';
 import {getPlayerName} from "../utils/utils";
 import { voicelineVolume, playLocalSfx } from '../composables/useVoicelines';
 import PlayerProfileModal from './PlayerProfileModal.vue';
+import PlayerAvatar from './shared/PlayerAvatar.vue';
 
 // 1. Define Props
 const props = defineProps<{
@@ -79,6 +80,9 @@ const profilePlayer = computed(() =>
 const profilePlayerName = computed(() =>
     props.tournament.players[profilePlayerId.value]?.name ?? ''
 );
+
+const getAvatarUrl = (playerId: string) =>
+    props.globalPlayers.find(gp => gp.id === playerId)?.avatarUrl;
 
 const sortedAvailablePlayers = computed(() => {
   return [...availablePlayers.value].sort((a, b) => {
@@ -235,9 +239,10 @@ const sortedAvailablePlayers = computed(() => {
                         :disabled="!isAdmin"
                         class="h-full w-full bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 p-3 rounded-xl transition-all text-left group relative overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-indigo-500/20">
 
-                  <span class="relative z-10 font-bold text-slate-200 group-hover:text-white truncate w-full pr-4">
-                    {{ player.name }}
-                  </span>
+                  <div class="relative z-10 flex items-center gap-2 w-full pr-4 min-w-0">
+                    <PlayerAvatar :name="player.name" :avatar-url="getAvatarUrl(player.id)" size="md" class="shrink-0" />
+                    <span class="font-bold text-slate-200 group-hover:text-white truncate">{{ player.name }}</span>
+                  </div>
 
                   <div v-if="getDominance(player.id) !== null"
                        class="relative z-10 mt-3 flex items-center gap-1.5 w-fit px-2 py-1 rounded-md bg-slate-900/60 group-hover:bg-indigo-900/40 border border-slate-700/50 group-hover:border-indigo-400/30 transition-colors">
@@ -270,16 +275,17 @@ const sortedAvailablePlayers = computed(() => {
               </div>
               <div class="space-y-2">
                 <div class="flex items-center gap-2 text-sm text-amber-400">
-                  <i class="ph-fill ph-crown"></i>
-                  <span class="flex-1">{{ getPlayerName(tournament, team.captainId) }}</span>
-                  <button @click="openProfile(team.captainId)" class="text-slate-600 hover:text-slate-300 transition-colors">
+                  <PlayerAvatar :name="getPlayerName(tournament, team.captainId)" :avatar-url="getAvatarUrl(team.captainId)" size="sm" />
+                  <i class="ph-fill ph-crown text-xs shrink-0"></i>
+                  <span class="flex-1 truncate">{{ getPlayerName(tournament, team.captainId) }}</span>
+                  <button @click="openProfile(team.captainId)" class="text-slate-600 hover:text-slate-300 transition-colors shrink-0">
                     <i class="ph-bold ph-info text-xs"></i>
                   </button>
                 </div>
                 <div v-for="memberId in team.memberIds" :key="memberId" class="flex items-center gap-2 text-sm text-slate-300">
-                  <i class="ph-fill ph-user"></i>
-                  <span class="flex-1">{{ getPlayerName(tournament, memberId) }}</span>
-                  <button @click="openProfile(memberId)" class="text-slate-600 hover:text-slate-300 transition-colors">
+                  <PlayerAvatar :name="getPlayerName(tournament, memberId)" :avatar-url="getAvatarUrl(memberId)" size="sm" />
+                  <span class="flex-1 truncate">{{ getPlayerName(tournament, memberId) }}</span>
+                  <button @click="openProfile(memberId)" class="text-slate-600 hover:text-slate-300 transition-colors shrink-0">
                     <i class="ph-bold ph-info text-xs"></i>
                   </button>
                 </div>
@@ -340,8 +346,9 @@ const sortedAvailablePlayers = computed(() => {
 
             <div class="space-y-2">
               <div class="flex items-center gap-3 bg-gradient-to-r from-amber-500/10 to-transparent border-l-2 border-amber-500 px-3 py-2 rounded-r-lg">
-                <i class="ph-fill ph-crown text-amber-400 text-lg drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]"></i>
-                <span class="text-sm font-bold text-amber-100 flex-1">{{ getPlayerName(tournament, team.captainId) }}</span>
+                <PlayerAvatar :name="getPlayerName(tournament, team.captainId)" :avatar-url="getAvatarUrl(team.captainId)" size="md" />
+                <i class="ph-fill ph-crown text-amber-400 text-sm drop-shadow-[0_0_5px_rgba(251,191,36,0.5)] shrink-0"></i>
+                <span class="text-sm font-bold text-amber-100 flex-1 truncate">{{ getPlayerName(tournament, team.captainId) }}</span>
                 <button @click="openProfile(team.captainId)" class="text-slate-600 hover:text-slate-300 transition-colors shrink-0">
                   <i class="ph-bold ph-info text-xs"></i>
                 </button>
@@ -350,7 +357,7 @@ const sortedAvailablePlayers = computed(() => {
               <div v-if="team.memberIds.length > 0" class="grid grid-cols-2 gap-2 mt-2">
                 <div v-for="memberId in team.memberIds" :key="memberId"
                      class="flex items-center gap-2 bg-slate-900/50 px-3 py-1.5 rounded-lg border border-slate-700/30">
-                  <i class="ph-fill ph-user text-slate-500"></i>
+                  <PlayerAvatar :name="getPlayerName(tournament, memberId)" :avatar-url="getAvatarUrl(memberId)" size="sm" />
                   <span class="text-sm font-medium text-slate-300 truncate flex-1">{{ getPlayerName(tournament, memberId) }}</span>
                   <button @click="openProfile(memberId)" class="text-slate-600 hover:text-slate-300 transition-colors shrink-0">
                     <i class="ph-bold ph-info text-xs"></i>
