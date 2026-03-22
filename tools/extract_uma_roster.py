@@ -39,12 +39,10 @@ def on_message(message, data):
         print(f"[OK] Received data chunk: {len(data)} bytes")
 
 # ── Pattern reference ────────────────────────────────────────────────────────
-# Primary key: "chara_array" (11 chars) → fixstr(11) = 0xAB
-#   AB 63 68 61 72 61 5F 61 72 72 61 79 DC
-#
-# Fallback key: "trainee_chara_array" (19 chars) → fixstr(19) = 0xB3
-#   B3 74 72 61 69 6E 65 65 5F 63 68 61 72 61 5F 61 72 72 61 79 DC
-#   (note: same length prefix as "trained_chara_array" used in veteran extractor)
+# Candidates (tried in order):
+#   "card_list"           (9 chars)  → fixstr(9)  = 0xA9  A9 63 61 72 64 5F 6C 69 73 74 DC
+#   "chara_array"         (11 chars) → fixstr(11) = 0xAB  AB 63 68 61 72 61 5F 61 72 72 61 79 DC
+#   "trainee_chara_array" (19 chars) → fixstr(19) = 0xB3  B3 74 72 61 69 6E 65 65 ... DC
 #
 # Validation key: "chara_id" (8 chars) → fixstr(8) = 0xA8
 #   A8 63 68 61 72 61 5F 69 64
@@ -54,15 +52,13 @@ script = session.create_script(r"""
 console.log("Scanning for uma roster data...");
 
 (function() {
-    // Try primary pattern: "chara_array"
-    // fixstr(11)=AB + "chara_array" + DC
     const patterns = [
-        { name: 'chara_array',         pattern: 'AB 63 68 61 72 61 5F 61 72 72 61 79 DC', keyLen: 12 },
-        { name: 'trainee_chara_array', pattern: 'B3 74 72 61 69 6E 65 65 5F 63 68 61 72 61 5F 61 72 72 61 79 DC', keyLen: 20 },
+        { name: 'card_list',           pattern: 'A9 63 61 72 64 5F 6C 69 73 74 DC',                                           keyLen: 10 },
+        { name: 'chara_array',         pattern: 'AB 63 68 61 72 61 5F 61 72 72 61 79 DC',                                     keyLen: 12 },
+        { name: 'trainee_chara_array', pattern: 'B3 74 72 61 69 6E 65 65 5F 63 68 61 72 61 5F 61 72 72 61 79 DC',             keyLen: 20 },
     ];
 
     // Validation: fixstr(8)=A8 + "chara_id"
-    // A8 63 68 61 72 61 5F 69 64
     function countCharaIds(view) {
         let count = 0;
         const limit = Math.min(view.length - 9, 5 * 1024 * 1024);
@@ -106,26 +102,42 @@ console.log("Scanning for uma roster data...");
 
                 for (const result of results) {
                     const arrayStart = result.address.add(keyLen);
-                    const sizes = [5 * 1024 * 1024, 10 * 1024 * 1024, 15 * 1024 * 1024];
 
-                    for (const size of sizes) {
+                    const regionRemaining = range.size - (arrayStart - range.base);
+                    const extendedSizes = [5, 10, 20, 30]
+                        .map(x => x * 1024 * 1024)
+                        .filter(s => s > regionRemaining);
+                    const allSizes = [regionRemaining, ...extendedSizes];
+
+                    let bestData = null;
+                    let bestCount = 0;
+
+                    for (const size of allSizes) {
                         try {
-                            const maxSize = Math.min(size, range.size - (arrayStart - range.base));
-                            const data = arrayStart.readByteArray(maxSize);
+                            const data = arrayStart.readByteArray(size);
                             const view = new Uint8Array(data);
                             const count = countCharaIds(view);
 
-                            console.log(`  Size ${size/(1024*1024)}MB: ${count} chara_id entries`);
+                            console.log(`  Size ${(size/1024/1024).toFixed(1)}MB: ${count} chara_id entries`);
 
-                            if (count >= 5) {
-                                console.log(`[OK] Found valid roster with ${count} umas! (key: ${name})`);
-                                send('found', data);
-                                found = true;
-                                return;
+                            if (count >= 3 && count >= bestCount) {
+                                bestData = data;
+                                bestCount = count;
+                            }
+
+                            if (bestCount > 0 && count === bestCount && size > regionRemaining) {
+                                break;
                             }
                         } catch (e) {
-                            continue;
+                            break;
                         }
+                    }
+
+                    if (bestData) {
+                        console.log(`[OK] Found valid roster with ${bestCount} entries! (key: ${name})`);
+                        send('found', bestData);
+                        found = true;
+                        return;
                     }
                 }
             } catch (e) {
@@ -161,28 +173,85 @@ for _ in range(60):
     if found_data:
         break
 
+def decode_obj(obj):
+    """Recursively decode msgpack output: bytes keys/values → str where possible."""
+    if isinstance(obj, dict):
+        return {
+            (k.decode('utf-8', errors='replace') if isinstance(k, bytes) else k): decode_obj(v)
+            for k, v in obj.items()
+        }
+    if isinstance(obj, list):
+        return [decode_obj(i) for i in obj]
+    if isinstance(obj, bytes):
+        try:
+            return obj.decode('utf-8')
+        except UnicodeDecodeError:
+            return f'<binary {len(obj)}B>'
+    return obj
+
+
+def parse_partial_array(data: bytes):
+    """Parse a msgpack array, yielding as many complete items as the buffer contains."""
+    import struct
+    b = data[0]
+    if b == 0xDC:
+        total = struct.unpack_from('>H', data, 1)[0]
+        item_data = data[3:]
+    elif b == 0xDD:
+        total = struct.unpack_from('>I', data, 1)[0]
+        item_data = data[5:]
+    elif 0x90 <= b <= 0x9F:
+        total = b & 0x0F
+        item_data = data[1:]
+    else:
+        raise ValueError(f"Expected msgpack array, got byte 0x{b:02X}")
+
+    print(f"Array declares {total} items — parsing...")
+
+    up = msgpack.Unpacker(raw=True, strict_map_key=False)
+    up.feed(item_data)
+
+    items = []
+    for item in up:
+        items.append(decode_obj(item))
+        if len(items) >= total:
+            break
+
+    if len(items) < total:
+        print(f"  Data truncated — got {len(items)} of {total} complete items")
+    return items
+
+
 if found_data:
     print("Processing data...")
     try:
-        unpacker = msgpack.Unpacker(raw=False)
-        unpacker.feed(found_data)
-        chara_array = unpacker.unpack()
+        chara_array = parse_partial_array(bytes(found_data))
 
         if isinstance(chara_array, list):
-            print(f"[OK] Parsed {len(chara_array)} umas")
+            print(f"[OK] Parsed {len(chara_array)} entries\n")
+
+            # ── Inspect field names in the first entry ────────────────────────
+            if chara_array and isinstance(chara_array[0], dict):
+                print("Fields found in first entry:")
+                for k, v in chara_array[0].items():
+                    print(f"  {k}: {v}")
+                print()
+            # ─────────────────────────────────────────────────────────────────
 
             output = []
             for chara in chara_array:
+                if not isinstance(chara, dict):
+                    continue
                 entry = {
                     "chara_id": chara.get("chara_id"),
+                    # keep all scalar fields for inspection
+                    "_raw": {k: v for k, v in chara.items() if not isinstance(v, (list, dict))},
                 }
-                # Include card_id (uma variant) if present
                 if "card_id" in chara:
                     entry["card_id"] = chara["card_id"]
                 output.append(entry)
 
-            # Deduplicate by chara_id — same uma can appear multiple times
-            # (e.g. multiple trained copies); keep unique chara_ids
+            # Deduplicate by chara_id
             seen = set()
             unique = []
             for entry in output:
@@ -205,12 +274,11 @@ if found_data:
 
             if unique:
                 print("Sample entry:")
-                print(f"  chara_id: {unique[0]['chara_id']}")
-                if "card_id" in unique[0]:
-                    print(f"  card_id:  {unique[0]['card_id']}")
+                print(f"  chara_id: {unique[0].get('chara_id')}")
 
             print(f"\n[SUCCESS] Extracted {len(unique)} unique umas to {output_file}")
             print(f"          (from {len(output)} total entries including duplicates)")
+            print("Check the file — the '_raw' fields show all available keys per entry.")
         else:
             print(f"[X] Expected list but got {type(chara_array)}")
     except Exception as e:
