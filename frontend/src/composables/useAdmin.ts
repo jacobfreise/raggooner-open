@@ -3,7 +3,6 @@ import { ref, computed, watch, type Ref } from 'vue';
 import { doc, setDoc, deleteDoc, collection } from 'firebase/firestore';
 import { auth, db } from '../firebase'; // Adjust path if needed
 import type { Tournament, FirestoreUpdate } from '../types';
-import { claimAndUnsyncMetadata } from '../utils/metadataSync';
 import { SUPERADMIN_UIDS } from '../utils/constants.ts';
 
 // Define the interface for the update function to ensure type safety
@@ -150,12 +149,9 @@ export function useAdmin(
         try {
             const col = (name: string) => collection(db, 'artifacts', appId, 'public', 'data', name);
 
-            // 1. If tournament was completed, atomically claim and reverse player metadata
-            if (tournament.value.status === 'completed') {
-                await claimAndUnsyncMetadata(tournament.value, appId);
-            }
-
-            // 2. Delete secret and tournament docs (while admin doc still exists for rule checks)
+            // 1. Delete secret and tournament docs (while admin doc still exists for rule checks)
+            // Note: if the tournament was completed and synced, the unsyncOnTournamentDelete
+            // Cloud Function will automatically reverse player metadata on deletion.
             await deleteDoc(doc(col('secrets'), tid)).catch(() => {});
             await deleteDoc(getTournamentRef(tid));
 

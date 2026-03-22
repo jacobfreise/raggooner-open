@@ -21,8 +21,10 @@ service cloud.firestore {
       // 1. PLAYERS
       match /players/{playerId} {
         allow read, create: if request.auth != null;
-        // Any authenticated user can update (tournament admins sync metadata on completion)
-        allow update: if request.auth != null;
+        // Own doc update (linked player) or linking an unlinked player to yourself
+        allow update: if isSuperAdmin() ||
+          (request.auth != null && resource.data.firebaseUid == request.auth.uid) ||
+          (request.auth != null && !('firebaseUid' in resource.data) && request.resource.data.firebaseUid == request.auth.uid);
         allow delete: if isSuperAdmin();
       }
 

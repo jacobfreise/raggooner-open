@@ -1,5 +1,5 @@
 import { setGlobalOptions } from "firebase-functions";
-import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { onDocumentUpdated, onDocumentDeleted } from "firebase-functions/v2/firestore";
 import { beforeUserCreated } from "firebase-functions/v2/identity";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
@@ -119,6 +119,27 @@ export const syncTournamentMetadata = onDocumentUpdated(
       // Use `after` — races/players are unchanged between completion and reopen.
       await batchUpdatePlayers(db, appId, after, -1);
     }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// unsyncOnTournamentDelete
+//
+// Triggered when a tournament document is deleted.
+// If the tournament was official and had been synced (metadataSynced=true),
+// reverses the player metadata increments so stats stay accurate.
+// ---------------------------------------------------------------------------
+export const unsyncOnTournamentDelete = onDocumentDeleted(
+  "artifacts/{appId}/public/data/tournaments/{tournamentId}",
+  async (event) => {
+    const tournament = event.data?.data();
+    if (!tournament) return;
+    if (!tournament.isOfficial) return;
+    if (!tournament.metadataSynced) return;
+
+    const { appId } = event.params;
+    logger.info("Synced tournament deleted, reversing player metadata.", { tournamentId: event.params.tournamentId });
+    await batchUpdatePlayers(db, appId, tournament, -1);
   }
 );
 

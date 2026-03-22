@@ -12,10 +12,6 @@ vi.mock('../firebase', () => ({
   auth: { currentUser: { uid: 'user-123' } },
 }));
 
-vi.mock('../utils/metadataSync', () => ({
-  claimAndUnsyncMetadata: vi.fn().mockResolvedValue(undefined),
-}));
-
 vi.mock('../utils/constants', async (importOriginal) => {
   const mod = await importOriginal<typeof import('../utils/constants')>();
   return { ...mod, SUPERADMIN_UIDS: ['superadmin-uid'] };
@@ -25,7 +21,6 @@ import { ref, nextTick } from 'vue';
 import { useAdmin } from './useAdmin';
 import { setDoc, deleteDoc } from 'firebase/firestore';
 import { auth } from '../firebase';
-import { claimAndUnsyncMetadata } from '../utils/metadataSync';
 import type {FirestoreUpdate, Tournament} from '../types';
 
 const makeTournament = (overrides: Partial<Tournament> = {}): Tournament => ({
@@ -297,19 +292,19 @@ describe('useAdmin', () => {
       const tournament = ref(makeTournament({ status: 'active', isSecured: false }));
       const { deleteTournament } = useAdmin(tournament, secureUpdate, fetchPublicTournaments, appId);
       await deleteTournament();
-      expect(claimAndUnsyncMetadata).not.toHaveBeenCalled();
       expect(deleteDoc).toHaveBeenCalled();
       expect(tournament.value).toBeNull();
       expect(fetchPublicTournaments).toHaveBeenCalled();
       expect(window.alert).toHaveBeenCalledWith('Tournament deleted successfully.');
     });
 
-    it('calls claimAndUnsyncMetadata before deleting a completed tournament', async () => {
+    it('deletes a completed tournament without client-side unsync (Cloud Function handles it)', async () => {
       (deleteDoc as any).mockResolvedValue(undefined);
       const tournament = ref(makeTournament({ status: 'completed', isSecured: false }));
       const { deleteTournament } = useAdmin(tournament, secureUpdate, fetchPublicTournaments, appId);
       await deleteTournament();
-      expect(claimAndUnsyncMetadata).toHaveBeenCalledWith(tournament.value ?? expect.anything(), appId);
+      expect(deleteDoc).toHaveBeenCalled();
+      expect(tournament.value).toBeNull();
     });
 
     it('cleans up sessionStorage and localStorage on successful delete', async () => {
