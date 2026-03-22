@@ -18,7 +18,7 @@ setGlobalOptions({ maxInstances: 10 });
 // with role = "player" so they appear in the admin user management page.
 // ---------------------------------------------------------------------------
 export const assignDefaultRole = auth.user().onCreate(async (user) => {
-  const isDiscord = user.providerData?.some(p => p.providerId.includes("discord"));
+  const isDiscord = user.providerData?.some((p) => p.providerId.includes("discord"));
   if (!isDiscord) return;
 
   const appId = "default-app";
