@@ -215,6 +215,11 @@ async function updatePlayers(
     let raceCount = 0;
     let raceWins = 0;
     let totalPlacementSum = 0;
+    let totalPoints = 0;
+
+    const pointsSystem = (tournament.pointsSystem ?? {}) as Record<number, number>;
+    const defaultPoints: Record<number, number> = { 1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2 };
+    const activePoints = Object.keys(pointsSystem).length > 0 ? pointsSystem : defaultPoints;
 
     for (const race of races) {
       const position = race.placements?.[player.id];
@@ -226,6 +231,7 @@ async function updatePlayers(
       totalBeaten += playersInRace - position;
       totalPlacementSum += position;
       if (position === 1) raceWins++;
+      totalPoints += activePoints[position] ?? 0;
     }
 
     const update: Record<string, any> = {
@@ -256,7 +262,6 @@ async function updatePlayers(
       const team = findPlayerTeam(tournament, player.id);
       const teamPlacement = team ? (teamRanking.get(team.id) ?? 0) : 0;
       const dominancePct = totalFaced > 0 ? (totalBeaten / totalFaced) * 100 : 0;
-      const playerPoints: number = player.totalPoints ?? 0;
 
       const newResult: RecentResult = {
         tournamentId,
@@ -267,7 +272,7 @@ async function updatePlayers(
         playedAt: tournament.playedAt ?? new Date().toISOString(),
         racesPlayed: raceCount,
         raceWins,
-        avgPoints: raceCount > 0 ? playerPoints / raceCount : 0,
+        avgPoints: raceCount > 0 ? totalPoints / raceCount : 0,
         avgPlacement: raceCount > 0 ? totalPlacementSum / raceCount : 0,
         dominancePct,
         ...(player.uma ? { umaPlayed: player.uma } : {}),

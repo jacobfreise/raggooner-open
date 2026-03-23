@@ -7,6 +7,12 @@ export interface Player {
     name: string;
     isCaptain: boolean;
     uma: string;
+    // NOT stored in Firestore. TournamentView's onSnapshot handler calls
+    // recalculateTournamentScores() and writes the result back into data.players
+    // before setting tournament.value, so all live consumers (HoF, export, game UI)
+    // receive correct values. The analytics pipeline also recalculates independently
+    // via deriveFromTournaments(). The Cloud Function computes these from races
+    // directly for recentResults. Do not add Firestore writes for these fields.
     totalPoints?: number;
     groupPoints?: number;
     finalsPoints?: number;
