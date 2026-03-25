@@ -11,6 +11,7 @@ import { arrayUnion, deleteField } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import { useAuth } from '../composables/useAuth';
+import { useUserRoles } from '../composables/useUserRoles';
 import { TRACK_DICT } from '../utils/trackData';
 import { generateAnnouncementText } from '../utils/announcementUtils';
 
@@ -305,6 +306,8 @@ const profilePlayerName = computed(() =>
 );
 
 const { linkedPlayer } = useAuth();
+const { can } = useUserRoles();
+const canPostToDiscord = computed(() => props.isAdmin && can('post_to_discord'));
 
 // Is the current Discord-linked user already registered?
 const isSelfSignedUp = computed(() =>
@@ -707,7 +710,7 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
                   class="px-4 py-2 rounded-lg text-sm font-bold border border-rose-700/50 text-rose-400 hover:bg-rose-900/30 transition-colors mr-auto">
             Clear Schedule
           </button>
-          <button @click="postToDiscord" :disabled="isSchedulePosting"
+          <button v-if="canPostToDiscord" @click="postToDiscord" :disabled="isSchedulePosting"
                   class="px-4 py-2 rounded-lg text-sm font-bold border transition-colors flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
                   :class="showSchedulePostSuccess
                     ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'

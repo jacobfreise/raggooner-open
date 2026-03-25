@@ -3,6 +3,7 @@ import { ref, computed, watch, onUnmounted } from 'vue';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import type { Tournament } from '../types';
+import { useUserRoles } from '../composables/useUserRoles';
 import { TRACK_DICT } from '../utils/trackData';
 import { generateAnnouncementText } from '../utils/announcementUtils';
 
@@ -35,6 +36,9 @@ const track = computed(() => {
 });
 
 const condition = computed(() => props.tournament.selectedCondition || null);
+
+const { can } = useUserRoles();
+const canPostToDiscord = computed(() => props.isAdmin && can('post_to_discord'));
 
 const showCopySuccess = ref(false);
 const showCopyImageSuccess = ref(false);
@@ -153,7 +157,7 @@ const getSeasonIcon = (s: string) => {
                 <i :class="showCopyImageSuccess ? 'ph-bold ph-check' : 'ph-bold ph-image'" class="text-xs"></i>
                 <span class="hidden sm:inline">{{ showCopyImageSuccess ? 'Copied!' : 'Image' }}</span>
               </button>
-              <button v-if="isAdmin" @click="postToDiscord" :disabled="isPosting"
+              <button v-if="canPostToDiscord" @click="postToDiscord" :disabled="isPosting"
                   class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   :class="showPostSuccess
                     ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'

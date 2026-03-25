@@ -19,13 +19,23 @@
     <div class="flex flex-col gap-3">
 
       <!-- Tier: single — one full-length button, no splitting needed -->
-      <div v-if="tier === 'single'">
+      <div v-if="tier === 'single'" class="flex gap-2">
         <button
             @click="copyMessage(fullSingle)"
-            class="w-full bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-900/20">
+            class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-900/20">
           <i class="ph-bold ph-copy"></i>
           Copy Report
           <span class="text-xs opacity-75 font-mono">({{ fullSingle.length }} chars)</span>
+        </button>
+        <button v-if="canPostToDiscord"
+            @click="postToDiscord([fullSingle])"
+            :disabled="isPosting"
+            class="px-4 py-3 rounded-lg font-bold flex items-center gap-2 transition-all active:scale-95 border disabled:opacity-50 disabled:cursor-not-allowed"
+            :class="showPostSuccess
+              ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
+              : 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-600/30'">
+          <i :class="isPosting ? 'ph ph-spinner animate-spin' : showPostSuccess ? 'ph-bold ph-check' : 'ph-bold ph-discord-logo'"></i>
+          {{ showPostSuccess ? 'Posted!' : isPosting ? 'Posting...' : 'Post' }}
         </button>
       </div>
 
@@ -52,6 +62,18 @@
             <span class="text-[10px] uppercase tracking-wider opacity-60 font-mono">{{ msg.length }} chars</span>
           </button>
         </div>
+
+        <!-- Post all parts to Discord in one click -->
+        <button v-if="canPostToDiscord"
+            @click="postToDiscord(displayMessages)"
+            :disabled="isPosting"
+            class="w-full px-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all active:scale-95 border disabled:opacity-50 disabled:cursor-not-allowed"
+            :class="showPostSuccess
+              ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
+              : 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-600/30'">
+          <i :class="isPosting ? 'ph ph-spinner animate-spin' : showPostSuccess ? 'ph-bold ph-check' : 'ph-bold ph-discord-logo'"></i>
+          {{ showPostSuccess ? `Posted ${displayMessages.length} parts!` : isPosting ? 'Posting...' : `Post ${displayMessages.length} parts to Discord` }}
+        </button>
 
         <button
             @click="copyMessage(fullSingle)"
@@ -113,9 +135,9 @@
         leave-active-class="transition ease-in duration-100"
         leave-from-class="opacity-100"
         leave-to-class="opacity-0">
-      <div v-if="showCopySuccess" class="fixed bottom-4 right-4 z-50 bg-emerald-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 font-medium">
+      <div v-if="showCopySuccess || showPostSuccess" class="fixed bottom-4 right-4 z-50 bg-emerald-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 font-medium">
         <i class="ph-fill ph-check-circle text-xl"></i>
-        {{ copySuccessMessage }}
+        {{ showPostSuccess ? 'Posted to Discord!' : copySuccessMessage }}
       </div>
     </Transition>
   </div>
@@ -123,17 +145,41 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase';
 import type { Tournament } from '../types';
 import { generateDiscordReport, generateDiscordReportSplit, generateDiscordReportSplit3 } from '../utils/exportUtils';
+import { useUserRoles } from '../composables/useUserRoles';
 
 const props = defineProps<{
   tournament: Tournament;
   isAdmin: boolean;
 }>();
 
+const { can } = useUserRoles();
+const canPostToDiscord = computed(() => props.isAdmin && can('post_to_discord'));
+
 const showPreview = ref(false);
 const showCopySuccess = ref(false);
 const copySuccessMessage = ref('');
+const isPosting = ref(false);
+const showPostSuccess = ref(false);
+
+const postDiscordResultsFn = httpsCallable(functions, 'postDiscordResults');
+
+const postToDiscord = async (messages: string[]) => {
+  if (isPosting.value) return;
+  isPosting.value = true;
+  try {
+    await postDiscordResultsFn({ appId: 'default-app', messages });
+    showPostSuccess.value = true;
+    setTimeout(() => { showPostSuccess.value = false; }, 3000);
+  } catch (e) {
+    console.error('Discord post failed', e);
+  } finally {
+    isPosting.value = false;
+  }
+};
 
 const DISCORD_LIMIT = 2000;
 
