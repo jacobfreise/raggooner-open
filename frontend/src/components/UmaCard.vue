@@ -47,7 +47,7 @@ const highlightedGrade = computed(() => {
 
 const APT_LABELS: Record<string, string> = {
   turf: 'Trf', dirt: 'Drt',
-  sprint: 'Spr', mile: 'Mil', medium: 'Mid', long: 'Lng',
+  sprint: 'Spr', mile: 'Mil', medium: 'Med', long: 'Lng',
 };
 
 const trackAptitudes = computed(() => {

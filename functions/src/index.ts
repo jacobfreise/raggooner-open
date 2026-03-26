@@ -11,3 +11,4 @@ export * from "./tournaments/signup";
 export * from "./gameplay/captain";
 export * from "./gameplay/races";
 export * from "./integrations/discord";
+export * from "./maintenance/backup";
