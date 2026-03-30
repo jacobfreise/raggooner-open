@@ -74,6 +74,7 @@ export const SUPPORT_CARD_DICT: Record<string, SupportCard> = {
     'tamamo-cross-stamina':     { id: 'tamamo-cross-stamina',     name: 'Tamamo Cross',       cardName: 'Split the Sky, White Lightning!',                            type: 'stamina', rarity: 'SSR' },
     'tamamo-cross-power':       { id: 'tamamo-cross-power',       name: 'Tamamo Cross',       cardName: 'Beware! Halloween Night!',                                   type: 'power',   rarity: 'SSR' },
     'tazuna-hayakawa-pal':      { id: 'tazuna-hayakawa-pal',      name: 'Tazuna Hayakawa',    cardName: 'Tracen Reception',                                           type: 'pal',     rarity: 'SSR' },
+    'team-sirius-group':      { id: 'team-sirius-group',      name: 'Team Sirius',    cardName: 'Passing the Dream On',                                           type: 'group',     rarity: 'SSR' },
     'tosen-jordan-speed':       { id: 'tosen-jordan-speed',       name: 'Tosen Jordan',       cardName: 'My Way',                                                     type: 'speed',   rarity: 'SSR' },
     'tokai-teio-speed':         { id: 'tokai-teio-speed',         name: 'Tokai Teio',         cardName: 'Dream Big!',                                                 type: 'speed',   rarity: 'SSR' },
     'twin-turbo-speed':         { id: 'twin-turbo-speed',         name: 'Twin Turbo',         cardName: 'Turbo Booooost',                                             type: 'speed',   rarity: 'SSR' },
