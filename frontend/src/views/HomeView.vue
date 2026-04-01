@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, reactive } from 'vue';
 import { useRouter } from 'vue-router';
-import { collection, doc, getDocs, orderBy, query, writeBatch, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, orderBy, query, where, writeBatch, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import type { Tournament, Season, TournamentCreator } from '../types';
 import { TOURNAMENT_FORMATS } from "../utils/constants.ts";
@@ -38,20 +38,39 @@ const stopFormatWatch = watch(() => settings.value.defaultFormat, (fmt) => {
   selectedFormat.value = fmt;
   stopFormatWatch();
 });
+
 const homeListLoading = ref(true);
 const showHistory = ref(false);
-const allTournaments = ref<Tournament[]>([]);
 
+// Only non-completed tournaments — loaded on mount
+const activeTournaments = ref<Tournament[]>([]);
+
+// Completed tournaments loaded lazily per season
+const seasonTournaments = reactive<Record<string, Tournament[]>>({});
+const seasonLoading = reactive<Record<string, boolean>>({});
+const seasonLoaded = reactive<Record<string, boolean>>({});
+
+// All seasons start collapsed when history section opens
 const collapsedSeasons = ref<string[]>([]);
 
-const loading = ref(false);
+watch(showHistory, (val) => {
+  if (val) {
+    const allIds = [...availableSeasons.value.map(s => s.id), 'unassigned'];
+    allIds.forEach(id => {
+      if (!collapsedSeasons.value.includes(id)) collapsedSeasons.value.push(id);
+    });
+  }
+});
 
-const toggleSeasonGroup = (seasonId: string) => {
+const toggleSeasonGroup = async (seasonId: string) => {
   const index = collapsedSeasons.value.indexOf(seasonId);
   if (index === -1) {
-    collapsedSeasons.value.push(seasonId); // Collapse it
+    collapsedSeasons.value.push(seasonId);
   } else {
-    collapsedSeasons.value.splice(index, 1); // Expand it
+    collapsedSeasons.value.splice(index, 1);
+    if (!seasonLoaded[seasonId]) {
+      await fetchSeasonTournaments(seasonId);
+    }
   }
 };
 
@@ -59,13 +78,13 @@ const isScheduledStatus = (t: Tournament) =>
     !!t.scheduledTime && (t.status === 'registration' || t.status === 'track-selection');
 
 const scheduledTournamentsList = computed(() =>
-    allTournaments.value
-        .filter(t => t.status !== 'completed' && isScheduledStatus(t))
+    activeTournaments.value
+        .filter(t => isScheduledStatus(t))
         .sort((a, b) => new Date(a.scheduledTime!).getTime() - new Date(b.scheduledTime!).getTime())
 );
 
 const activeTournamentsList = computed(() =>
-    allTournaments.value.filter(t => t.status !== 'completed' && !isScheduledStatus(t))
+    activeTournaments.value.filter(t => !isScheduledStatus(t))
 );
 
 const formatScheduledTime = (iso: string) =>
@@ -75,41 +94,20 @@ const formatScheduledTime = (iso: string) =>
     });
 
 const groupedPastTournaments = computed(() => {
-  const completed = allTournaments.value.filter(t => t.status === 'completed');
-
-  // Create a map to hold tournaments by seasonId
-  const groups = new Map<string, Tournament[]>();
-
-  // Pre-fill the map with known seasons to maintain the descending 'startDate' order
-  availableSeasons.value.forEach(s => groups.set(s.id, []));
-  groups.set('unassigned', []); // Fallback for tournaments without a season
-
-  // Distribute the completed tournaments into their respective season buckets
-  // (They are already sorted by createdAt desc from the Firestore query)
-  completed.forEach(t => {
-    const sid = t.seasonId || 'unassigned';
-    if (groups.has(sid)) {
-      groups.get(sid)!.push(t);
-    } else {
-      groups.get('unassigned')!.push(t);
-    }
+  const result = availableSeasons.value.map(s => ({
+    seasonId: s.id,
+    seasonName: s.name,
+    tournaments: (seasonTournaments[s.id] || []) as Tournament[],
+    loading: !!seasonLoading[s.id],
+    loaded: !!seasonLoaded[s.id],
+  }));
+  result.push({
+    seasonId: 'unassigned',
+    seasonName: 'Unassigned / Older',
+    tournaments: (seasonTournaments['unassigned'] || []) as Tournament[],
+    loading: !!seasonLoading['unassigned'],
+    loaded: !!seasonLoaded['unassigned'],
   });
-
-  // Format into an array for the template, omitting empty seasons
-  const result = [];
-
-  availableSeasons.value.forEach(season => {
-    const tourneys = groups.get(season.id) || [];
-    if (tourneys.length > 0) {
-      result.push({ seasonId: season.id, seasonName: season.name, tournaments: tourneys });
-    }
-  });
-
-  const unassignedTourneys = groups.get('unassigned') || [];
-  if (unassignedTourneys.length > 0) {
-    result.push({ seasonId: 'unassigned', seasonName: 'Unassigned / Older', tournaments: unassignedTourneys });
-  }
-
   return result;
 });
 
@@ -124,16 +122,58 @@ const fetchSeasons = async () => {
   }
 };
 
-const fetchPublicTournaments = async () => {
+const NON_COMPLETED_STATUSES = ['track-selection', 'registration', 'draft', 'ban', 'pick', 'active'];
+
+const fetchActiveTournaments = async () => {
   homeListLoading.value = true;
   try {
-    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'tournaments'), orderBy('createdAt', 'desc'));
+    const q = query(
+      collection(db, 'artifacts', appId, 'public', 'data', 'tournaments'),
+      where('status', 'in', NON_COMPLETED_STATUSES)
+    );
     const snapshot = await getDocs(q);
-    allTournaments.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tournament));
+    activeTournaments.value = snapshot.docs
+      .map(d => ({ id: d.id, ...d.data() } as Tournament))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   } catch (e) {
-    console.error("Error fetching tournament list", e);
+    console.error("Error fetching active tournaments", e);
   } finally {
     homeListLoading.value = false;
+  }
+};
+
+const fetchSeasonTournaments = async (seasonId: string) => {
+  if (seasonLoaded[seasonId]) return;
+  seasonLoading[seasonId] = true;
+  try {
+    if (seasonId === 'unassigned') {
+      // Load all completed, then filter out those belonging to a known season
+      const q = query(
+        collection(db, 'artifacts', appId, 'public', 'data', 'tournaments'),
+        where('status', '==', 'completed')
+      );
+      const snapshot = await getDocs(q);
+      const knownSeasonIds = new Set(availableSeasons.value.map(s => s.id));
+      seasonTournaments['unassigned'] = snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() } as Tournament))
+        .filter(t => !t.seasonId || !knownSeasonIds.has(t.seasonId))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } else {
+      const q = query(
+        collection(db, 'artifacts', appId, 'public', 'data', 'tournaments'),
+        where('status', '==', 'completed'),
+        where('seasonId', '==', seasonId)
+      );
+      const snapshot = await getDocs(q);
+      seasonTournaments[seasonId] = snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() } as Tournament))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+    seasonLoaded[seasonId] = true;
+  } catch (e) {
+    console.error(`Error fetching tournaments for season ${seasonId}:`, e);
+  } finally {
+    seasonLoading[seasonId] = false;
   }
 };
 
@@ -226,7 +266,7 @@ const formatTournamentStatus = (t: Tournament): string => {
 
 onMounted(() => {
   fetchSeasons();
-  fetchPublicTournaments();
+  fetchActiveTournaments();
   auth.onAuthStateChanged(user => {
     if (user) console.log('[Auth] Your UID:', user.uid);
   });
@@ -243,7 +283,7 @@ onMounted(() => {
 
         <SiteNav />
 
-        <div v-if="!loading" class="max-w-lg mx-auto mt-8 space-y-12">
+        <div class="max-w-lg mx-auto mt-8 space-y-12">
 
           <div class="text-center space-y-4">
             <h1 class="text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Racc Open</h1>
@@ -446,7 +486,7 @@ onMounted(() => {
             <div v-if="showHistory" class="mt-8 space-y-8 animate-fade-in-down">
 
               <div v-if="groupedPastTournaments.length === 0" class="text-center text-slate-600 py-4">
-                No completed tournaments yet.
+                No seasons found.
               </div>
 
               <div v-for="group in groupedPastTournaments" :key="group.seasonId" class="mb-6">
@@ -460,34 +500,54 @@ onMounted(() => {
                     <h3 class="text-lg font-bold text-slate-300 group-hover/season:text-white transition-colors">
                       {{ group.seasonName }}
                     </h3>
-                    <span class="text-xs text-slate-500 font-mono">({{ group.tournaments.length }})</span>
+                    <span v-if="group.loaded" class="text-xs text-slate-500 font-mono">({{ group.tournaments.length }})</span>
                   </div>
 
-                  <i class="ph-bold ph-caret-down text-slate-500 group-hover/season:text-slate-300 transition-transform duration-300"
-                     :class="{ '-rotate-90': collapsedSeasons.includes(group.seasonId) }"></i>
+                  <div class="flex items-center gap-2">
+                    <i v-if="group.loading" class="ph ph-spinner animate-spin text-slate-500 text-sm"></i>
+                    <i v-else class="ph-bold ph-caret-down text-slate-500 group-hover/season:text-slate-300 transition-transform duration-300"
+                       :class="{ '-rotate-90': collapsedSeasons.includes(group.seasonId) }"></i>
+                  </div>
                 </div>
 
-                <div v-show="!collapsedSeasons.includes(group.seasonId)" class="grid md:grid-cols-2 gap-3">
-                  <div v-for="t in group.tournaments" :key="t.id"
-                       @click="selectTournamentFromHome(t.id)"
-                       class="flex items-center justify-between bg-slate-900/50 hover:bg-slate-800 border border-slate-800 hover:border-slate-600 rounded-lg p-4 cursor-pointer transition-colors">
-                    <div>
-                      <h4 class="font-bold text-slate-300">{{ t.name }}</h4>
-                      <p class="text-xs text-slate-500 mt-1 flex items-center gap-2">
-                        <span>{{ new Date(t.createdAt).toLocaleDateString() }}</span>
-                        <span class="text-slate-600">•</span>
-                        <span class="font-mono text-[10px] text-slate-600 tracking-wider">{{ t.id }}</span>
-                      </p>
-                    </div>
-                    <div class="flex flex-col items-end gap-1 flex-shrink-0">
-                      <span class="text-[10px] uppercase font-bold bg-slate-800 text-slate-500 px-2 py-1 rounded border border-slate-700">Completed</span>
-                      <span class="text-[10px] font-bold px-2 py-0.5 rounded border flex items-center gap-1"
-                            :class="t.isOfficial ? 'text-amber-400 border-amber-500/30 bg-amber-900/20' : 'text-slate-500 border-slate-700 bg-slate-800'">
-                        <i :class="t.isOfficial ? 'ph-fill ph-seal-check' : 'ph ph-seal'"></i>
-                        {{ t.isOfficial ? 'Official' : 'Unofficial' }}
-                      </span>
+                <div v-show="!collapsedSeasons.includes(group.seasonId)">
+
+                  <!-- Loading state for this season -->
+                  <div v-if="group.loading" class="flex items-center justify-center py-8 text-slate-500 gap-2">
+                    <i class="ph ph-spinner animate-spin"></i>
+                    <span class="text-sm">Loading...</span>
+                  </div>
+
+                  <!-- Empty state after load -->
+                  <div v-else-if="group.loaded && group.tournaments.length === 0"
+                       class="text-center text-slate-600 py-6 text-sm border border-dashed border-slate-800 rounded-xl">
+                    No completed tournaments in this season.
+                  </div>
+
+                  <!-- Tournament list -->
+                  <div v-else-if="group.loaded" class="grid md:grid-cols-2 gap-3">
+                    <div v-for="t in group.tournaments" :key="t.id"
+                         @click="selectTournamentFromHome(t.id)"
+                         class="flex items-center justify-between bg-slate-900/50 hover:bg-slate-800 border border-slate-800 hover:border-slate-600 rounded-lg p-4 cursor-pointer transition-colors">
+                      <div>
+                        <h4 class="font-bold text-slate-300">{{ t.name }}</h4>
+                        <p class="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                          <span>{{ new Date(t.createdAt).toLocaleDateString() }}</span>
+                          <span class="text-slate-600">•</span>
+                          <span class="font-mono text-[10px] text-slate-600 tracking-wider">{{ t.id }}</span>
+                        </p>
+                      </div>
+                      <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                        <span class="text-[10px] uppercase font-bold bg-slate-800 text-slate-500 px-2 py-1 rounded border border-slate-700">Completed</span>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded border flex items-center gap-1"
+                              :class="t.isOfficial ? 'text-amber-400 border-amber-500/30 bg-amber-900/20' : 'text-slate-500 border-slate-700 bg-slate-800'">
+                          <i :class="t.isOfficial ? 'ph-fill ph-seal-check' : 'ph ph-seal'"></i>
+                          {{ t.isOfficial ? 'Official' : 'Unofficial' }}
+                        </span>
+                      </div>
                     </div>
                   </div>
+
                 </div>
 
               </div>
