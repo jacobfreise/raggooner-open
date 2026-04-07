@@ -52,11 +52,11 @@ jobs:
           projectId: raggooneropen
           entryPoint: ./frontend
 
-      # 5. Deploy FIRESTORE RULES
-      - name: Deploy Firestore Rules
+      # 5. Deploy FIRESTORE + STORAGE RULES
+      - name: Deploy Firestore and Storage Rules
         uses: w9jds/firebase-action@master
         with:
-          args: deploy --only firestore:rules
+          args: deploy --only firestore:rules,storage
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RAGGOONEROPEN }}
           PROJECT_PATH: ./frontend
