@@ -17,8 +17,7 @@ function recalculateTeams(tournament: any): any[] {
 
   const teams = ((tournament.teams ?? []) as any[]).map((t: any) => ({
     ...t,
-    points: 0,
-    finalsPoints: 0,
+    stagePoints: {},
     adjustments: t.adjustments || [],
   }));
 
@@ -28,21 +27,20 @@ function recalculateTeams(tournament: any): any[] {
     );
 
   Object.values(tournament.races ?? {}).forEach((race: any) => {
-    const isFinals = race.stage === "finals";
+    const stageName = race.stage as string;
     Object.entries(race.placements ?? {}).forEach(([pid, pos]) => {
       const pts = activePoints[Number(pos)] || 0;
       const idx = findTeamIdx(pid);
       if (idx !== -1) {
-        if (isFinals) teams[idx].finalsPoints += pts;
-        else teams[idx].points += pts;
+        teams[idx].stagePoints[stageName] = (teams[idx].stagePoints[stageName] ?? 0) + pts;
       }
     });
   });
 
   teams.forEach((t: any) => {
     (t.adjustments || []).forEach((adj: any) => {
-      if (adj.stage === "finals") t.finalsPoints += adj.amount;
-      else t.points += adj.amount;
+      const adjStage = adj.stage as string;
+      t.stagePoints[adjStage] = (t.stagePoints[adjStage] ?? 0) + adj.amount;
     });
   });
 
@@ -77,19 +75,22 @@ export const captainSaveTapResults = onCall(async (request) => {
     throw new HttpsError("failed-precondition", "Tournament is not active.");
   }
 
-  const stage = tournament.stage as string;
-  if (stage === "groups" && team.group !== group) {
+  const currentStageConfig = (tournament.stages ?? [])[tournament.currentStageIndex ?? 0];
+  const stageName = (currentStageConfig?.name ?? tournament.stage ?? "") as string;
+  const teamGroup = (team.stageGroups ?? {})[stageName];
+  if (teamGroup !== group) {
     throw new HttpsError("permission-denied", "Your team is not in that group.");
   }
-  if (stage === "finals" && !team.inFinals) {
-    throw new HttpsError("permission-denied", "Your team did not qualify for finals.");
+  const isQualified = (team.qualifiedStages ?? []).includes(stageName);
+  if (!isQualified) {
+    throw new HttpsError("permission-denied", "Your team did not qualify for this stage.");
   }
 
-  const key = `${stage}-${group}-${raceNumber}`;
+  const key = `${stageName}-${group}-${raceNumber}`;
   const existingRaces = tournament.races ?? {};
   const raceData = {
     id: existingRaces[key]?.id || crypto.randomUUID(),
-    stage,
+    stage: stageName,
     group,
     raceNumber: Number(raceNumber),
     timestamp: new Date().toISOString(),
@@ -144,22 +145,25 @@ export const captainUpdateRacePlacement = onCall(async (request) => {
     throw new HttpsError("failed-precondition", "Tournament is not active.");
   }
 
-  const stage = tournament.stage as string;
-  if (stage === "groups" && team.group !== group) {
+  const currentStageConfig = (tournament.stages ?? [])[tournament.currentStageIndex ?? 0];
+  const stageName = (currentStageConfig?.name ?? tournament.stage ?? "") as string;
+  const teamGroup = (team.stageGroups ?? {})[stageName];
+  if (teamGroup !== group) {
     throw new HttpsError("permission-denied", "Your team is not in that group.");
   }
-  if (stage === "finals" && !team.inFinals) {
-    throw new HttpsError("permission-denied", "Your team did not qualify for finals.");
+  const isQualified = (team.qualifiedStages ?? []).includes(stageName);
+  if (!isQualified) {
+    throw new HttpsError("permission-denied", "Your team did not qualify for this stage.");
   }
 
-  const key = `${stage}-${group}-${raceNumber}`;
+  const key = `${stageName}-${group}-${raceNumber}`;
   const existingRaces = tournament.races ?? {};
   const existingRace = existingRaces[key];
   const raceData = existingRace ?
     { ...existingRace } :
     {
       "id": crypto.randomUUID(),
-      "stage": stage,
+      "stage": stageName,
       "group": group,
       "raceNumber": Number(raceNumber),
       "timestamp": new Date().toISOString(),

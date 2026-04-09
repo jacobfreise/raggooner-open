@@ -8,6 +8,7 @@ import { useRoster } from '../../composables/useRoster.ts';
 import {
   getRankColor,
   getPlayerName,
+  compareTeams,
 } from '../../utils/utils.ts';
 import { getTournamentRules } from '../../utils/rulesData.ts';
 import HallOfFame from "../HallOfFame.vue";
@@ -55,13 +56,8 @@ const adjReason = ref('');
 // This keeps 'currentView' (Groups vs Finals) state inside this component
 const {
   currentView,
-  sortedTeamsA,
-  sortedTeamsB,
-  sortedTeamsC,
-  sortedFinalsTeams,
   canAdvanceToFinals,
   canEndTournament,
-  canShowFinals,
   saving,
   getGroupWildcards,
   advanceToFinals,
@@ -248,15 +244,6 @@ const resetActiveTimer = async () => {
   await props.secureUpdate({ activeTimerStart: new Date().toISOString(), activeTimerStopped: false, activeTimerElapsed: null });
 };
 
-// Helper for 'shouldShowGroup' since it relies on local 'currentView'
-const shouldShowGroup = (group: string) => {
-  if(currentView.value === 'finals') return false;
-
-  const teamCount = props.tournamentProp.teams.length;
-  if(teamCount < 6) return group === 'A';
-  if(teamCount === 9) return ['A', 'B', 'C'].includes(group);
-  return ['A', 'B'].includes(group);
-};
 
 const getRelevantAdjustments = (team: Team, stage: string) => {
   return team.adjustments?.filter(adj => adj.stage === stage) || [];
@@ -301,6 +288,26 @@ const sortedTeamsForModal = computed(() => {
     if (gA !== gB) return gA.localeCompare(gB);
     return a.name.localeCompare(b.name);
   });
+});
+
+const currentStageConfig = computed(() =>
+  tournament.value?.stages[tournament.value?.currentStageIndex ?? 0]
+);
+
+const isLastStage = computed(() => {
+  if (!tournament.value) return false;
+  return tournament.value.currentStageIndex >= tournament.value.stages.length - 1;
+});
+
+const currentStageGroupedTeams = computed(() => {
+  if (!tournament.value || !currentStageConfig.value) return [];
+  const stageName = currentView.value;
+  return currentStageConfig.value.groups.map((group) => ({
+    group,
+    teams: tournament.value!.teams
+      .filter((t) => t.stageGroups[stageName] === group)
+      .sort((a, b) => compareTeams(a, b, true, tournament.value!, stageName)),
+  }));
 });
 
 const handleUmaChange = async (playerId: string, umaId: string) => {
@@ -414,17 +421,16 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
         </h2>
       </div>
 
-      <div v-if="tournament.teams.length >= 6" class="flex gap-2 justify-center">
-        <button @click="currentView = 'groups'"
-                class="pb-3 px-4 md:px-6 text-sm font-bold uppercase tracking-widest border-b-2 transition-all -mb-[1px]"
-                :class="currentView === 'groups' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'">
-          Group Stage
-        </button>
-        <button @click="currentView = 'finals'"
-                :disabled="!canShowFinals"
+      <div v-if="tournament.stages.length > 1" class="flex gap-2 justify-center">
+        <button v-for="(stage, idx) in tournament.stages"
+                :key="stage.name"
+                @click="currentView = stage.name"
+                :disabled="idx > tournament.currentStageIndex"
                 class="pb-3 px-4 md:px-6 text-sm font-bold uppercase tracking-widest border-b-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed -mb-[1px]"
-                :class="currentView === 'finals' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-500 hover:text-slate-300'">
-          Grand Finals
+                :class="currentView === stage.name
+                  ? (idx === tournament.stages.length - 1 ? 'border-amber-500 text-amber-500' : 'border-indigo-500 text-indigo-400')
+                  : 'border-transparent text-slate-500 hover:text-slate-300'">
+          {{ stage.label }}
         </button>
       </div>
 
@@ -460,46 +466,56 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
 
     </div>
 
-    <div v-if="currentView === 'groups' && tournament.teams.length >= 6"
+    <div v-if="!isLastStage && tournament.stages.length > 1"
          class="mb-6 bg-indigo-900/20 border border-indigo-500/20 p-3 rounded-lg flex items-center gap-3 text-sm text-indigo-200">
       <i class="ph-fill ph-info text-indigo-400"></i>
       <span>
         <span v-if="tournament.teams.length === 9">Winners of groups A, B, and C advance automatically.</span>
-        <span v-else>Winners of A & B, plus the highest scoring runner-up advance.</span>
+        <span v-else>Winners of A &amp; B, plus the highest scoring runner-up advance.</span>
       </span>
     </div>
 
 <!--    TEAM POINTS DISPLAYS-->
-    <div :class="tournament?.teams.length === 9 && currentView === 'groups' ? 'grid md:grid-cols-3 gap-8' : 'grid md:grid-cols-2 gap-8'">
+    <div :class="currentStageGroupedTeams.length === 3
+          ? 'grid md:grid-cols-3 gap-8'
+          : currentStageGroupedTeams.length > 1
+            ? 'grid md:grid-cols-2 gap-8'
+            : 'grid gap-8'">
 
-      <div v-if="shouldShowGroup('A')">
+      <div v-for="{ group, teams: groupTeams } in currentStageGroupedTeams" :key="group"
+           :class="isLastStage && currentStageGroupedTeams.length === 1 ? 'col-span-2 max-w-2xl mx-auto w-full' : ''">
+
+        <div v-if="isLastStage && currentStageGroupedTeams.length === 1" class="text-center mb-6">
+          <i class="ph-fill ph-trophy text-amber-500 text-5xl mb-2"></i>
+        </div>
+
         <div class="flex items-center justify-between mb-4 group">
           <div class="flex items-center gap-3">
-            <h3 @click="openWildcardModal('A')"
+            <h3 @click="openWildcardModal(group)"
                 class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"
                 :class="isAdminRef ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">
-              {{ tournament?.teams.length >= 6 ? 'Group A' : 'Standings' }}
+              {{ isLastStage ? (currentStageConfig?.label ?? 'Finals') : (currentStageGroupedTeams.length > 1 ? 'Group ' + group : 'Standings') }}
               <i v-if="isAdminRef" class="ph-bold ph-plus-circle inline-block text-sm opacity-0 group-hover:opacity-100 transition-opacity ml-1"></i>
             </h3>
           </div>
-          <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('A') }} / 5 Races</span>
+          <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount(group) }} / {{ currentStageConfig?.racesRequired ?? 5 }} Races</span>
         </div>
 
-        <div class="space-y-3">
-          <div v-for="(team, idx) in sortedTeamsA" :key="team.id"
+        <div :class="isLastStage ? 'space-y-4' : 'space-y-3'">
+          <div v-for="(team, idx) in groupTeams" :key="team.id"
                class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative hover:z-30"
                :class="[
-              getRankColor(idx),
-              getProgressionStatus(team.id) === 'safe'
+              getRankColor(isLastStage ? getVisualRankIndex(idx, groupTeams) : idx),
+              !isLastStage && getProgressionStatus(team.id) === 'safe'
                   ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'
-                  : (getProgressionStatus(team.id) === 'tied'
+                  : (!isLastStage && getProgressionStatus(team.id) === 'tied'
                       ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'
                       : 'opacity-80 hover:opacity-100')
            ]">
 
             <div class="absolute inset-0 overflow-hidden rounded-lg pointer-events-none">
-              <div v-if="getProgressionStatus(team.id) === 'safe'" class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl select-none">Q</div>
-              <div v-else-if="getProgressionStatus(team.id) === 'tied'" class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl select-none rotate-12">?</div>
+              <div v-if="!isLastStage && getProgressionStatus(team.id) === 'safe'" class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl select-none">Q</div>
+              <div v-else-if="!isLastStage && getProgressionStatus(team.id) === 'tied'" class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl select-none rotate-12">?</div>
             </div>
 
             <div class="relative z-10 flex-1 min-w-0 mr-3">
@@ -541,266 +557,24 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
               </div>
             </div>
 
-            <div class="flex items-center gap-4 relative z-10 min-w-[120px] justify-end">
+            <div class="flex items-center gap-4 relative z-10 justify-end" :class="isLastStage ? 'min-w-[140px]' : 'min-w-[120px]'">
 
               <div class="relative flex flex-col items-end leading-none">
 
-                <div v-if="getRelevantAdjustments(team, 'groups').length > 0"
+                <div v-if="getRelevantAdjustments(team, currentView).length > 0"
                      class="absolute -left-10 top-1/2 -translate-y-1/2 group/adj h-8 w-8 flex items-center justify-center">
 
                   <i class="ph-bold ph-warning-circle text-amber-500 text-2xl cursor-help"></i>
 
                   <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-max min-w-[160px] max-w-[400px]">
                     <div class="bg-slate-900 border border-slate-700 p-2 rounded shadow-xl">
-                      <div v-for="adj in getRelevantAdjustments(team, 'groups')" :key="adj.id"
+                      <div v-for="adj in getRelevantAdjustments(team, currentView)" :key="adj.id"
                            class="text-xs flex justify-between items-center gap-3 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
 
                         <div class="flex-1 flex items-center min-w-0 mr-2">
                           <span class="text-slate-400 truncate mr-1" :title="adj.reason">{{ adj.reason }}:</span>
                           <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold whitespace-nowrap shrink-0">
-                           {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                        </span>
-                        </div>
-
-                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="shrink-0 text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors" title="Delete"><i class="ph-bold ph-trash"></i></button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <span class="text-2xl font-mono font-bold text-white tabular-nums">{{ team.stagePoints[currentView] ?? 0 }}</span>
-                <span class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">PTS</span>
-              </div>
-
-              <div v-if="isAdmin" class="w-8 h-8 flex-shrink-0">
-                <button @click.stop="openAdjustmentModal(team)"
-                        class="w-8 h-8 rounded-full text-slate-600 hover:text-indigo-400 hover:bg-indigo-900/30 flex items-center justify-center transition-all"
-                        title="Add Penalty/Bonus">
-                  <i class="ph-bold ph-gavel text-lg"></i>
-                </button>
-              </div>
-            </div>
-
-          </div>
-
-          <div v-if="getGroupWildcards('A').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
-            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2"><i class="ph-bold ph-ghost"></i> Wildcards</div>
-            <div v-for="wc in getGroupWildcards('A')" :key="wc.id" class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors mb-2">
-              <div>
-                <span class="font-bold text-slate-300">{{ wc.name }}</span> <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span>
-              </div>
-              <div class="text-xl font-mono font-bold text-slate-400">{{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="shouldShowGroup('B')">
-        <div class="flex items-center justify-between mb-4 group">
-          <div class="flex items-center gap-3">
-            <h3 @click="openWildcardModal('B')"
-                class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"
-                :class="isAdminRef ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">
-              {{ 'Group B' }}
-              <i v-if="isAdminRef" class="ph-bold ph-plus-circle inline-block text-sm opacity-0 group-hover:opacity-100 transition-opacity ml-1"></i>
-            </h3>
-          </div>
-          <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('B') }} / 5 Races</span>
-        </div>
-        <div class="space-y-3">
-          <div v-for="(team, idx) in sortedTeamsB" :key="team.id"
-               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative hover:z-30"
-               :class="[
-              getRankColor(idx),
-              getProgressionStatus(team.id) === 'safe'
-                  ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'
-                  : (getProgressionStatus(team.id) === 'tied'
-                      ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'
-                      : 'opacity-80 hover:opacity-100')
-           ]">
-
-            <div class="absolute inset-0 overflow-hidden rounded-lg pointer-events-none">
-              <div v-if="getProgressionStatus(team.id) === 'safe'" class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl select-none">Q</div>
-              <div v-else-if="getProgressionStatus(team.id) === 'tied'" class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl select-none rotate-12">?</div>
-            </div>
-
-            <div class="relative z-10 flex-1 min-w-0 mr-3">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="font-bold text-lg" :style="{ color: team.color }">{{ team.name }}</span>
-                <div v-if="tournament.format === 'uma-draft' && getUnassignedUmaPool(team).length > 0"
-                     class="flex items-center gap-1">
-                  <div v-for="uma in getUnassignedUmaPool(team)" :key="uma" class="relative group/umaicon">
-                    <img :src="getUmaImagePath(uma)" :alt="uma"
-                         class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
-                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-bold text-slate-200 whitespace-nowrap opacity-0 group-hover/umaicon:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
-                      {{ uma }}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="flex flex-col sm:flex-row gap-1.5 mt-2">
-                <div v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                     :key="pid"
-                     @click="openProfile(pid)"
-                     class="flex items-center gap-1.5 bg-slate-900/80 rounded-md px-2 py-1.5 min-w-0 flex-1 overflow-hidden cursor-pointer hover:bg-slate-800/80 transition-colors">
-                  <img v-if="tournament.players[pid]?.uma"
-                       :src="getUmaImagePath(tournament.players[pid]!.uma)"
-                       :alt="tournament.players[pid]!.uma"
-                       class="w-6 h-6 rounded-full object-cover shrink-0 bg-slate-700" />
-                  <i v-else class="ph-fill ph-horse text-base shrink-0 text-slate-500"></i>
-                  <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
-                    <span class="text-[11px] font-semibold truncate leading-tight" :style="{ color: team.color }">
-                      {{ tournament.players[pid]?.name || pid }}
-                    </span>
-                    <span class="text-[10px] text-slate-500 truncate leading-tight">
-                      {{ tournament.players[pid]?.uma || '—' }}
-                    </span>
-                  </div>
-                  <span class="text-xs font-bold tabular-nums shrink-0 ml-0.5" :style="{ color: team.color }">
-                    {{ getRoundPoints(pid) }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-4 relative z-10 min-w-[120px] justify-end">
-
-              <div class="relative flex flex-col items-end leading-none">
-
-                <div v-if="getRelevantAdjustments(team, 'groups').length > 0"
-                     class="absolute -left-10 top-1/2 -translate-y-1/2 group/adj h-8 w-8 flex items-center justify-center">
-
-                  <i class="ph-bold ph-warning-circle text-amber-500 text-2xl cursor-help"></i>
-
-                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-max min-w-[160px] max-w-[400px]">
-                    <div class="bg-slate-900 border border-slate-700 p-2 rounded shadow-xl">
-                      <div v-for="adj in getRelevantAdjustments(team, 'groups')" :key="adj.id"
-                           class="text-xs flex justify-between items-center gap-3 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
-
-                        <div class="flex-1 flex items-center min-w-0 mr-2">
-                          <span class="text-slate-400 truncate mr-1" :title="adj.reason">{{ adj.reason }}:</span>
-                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold whitespace-nowrap shrink-0">
-                           {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                        </span>
-                        </div>
-
-                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="shrink-0 text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors" title="Delete"><i class="ph-bold ph-trash"></i></button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <span class="text-2xl font-mono font-bold text-white tabular-nums">{{ team.stagePoints[currentView] ?? 0 }}</span>
-                <span class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">PTS</span>
-              </div>
-
-              <div v-if="isAdmin" class="w-8 h-8 flex-shrink-0">
-                <button @click.stop="openAdjustmentModal(team)"
-                        class="w-8 h-8 rounded-full text-slate-600 hover:text-indigo-400 hover:bg-indigo-900/30 flex items-center justify-center transition-all"
-                        title="Add Penalty/Bonus">
-                  <i class="ph-bold ph-gavel text-lg"></i>
-                </button>
-              </div>
-            </div>
-
-          </div>
-
-          <div v-if="getGroupWildcards('B').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
-            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2"><i class="ph-bold ph-ghost"></i> Wildcards</div>
-            <div v-for="wc in getGroupWildcards('B')" :key="wc.id" class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors mb-2">
-              <div><span class="font-bold text-slate-300">{{ wc.name }}</span> <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span></div>
-              <div class="text-xl font-mono font-bold text-slate-400">{{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="shouldShowGroup('C')">
-        <div class="flex items-center justify-between mb-4 group">
-          <div class="flex items-center gap-3">
-            <h3 @click="openWildcardModal('C')"
-                class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"
-                :class="isAdminRef ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">
-              {{ 'Group C' }}
-              <i v-if="isAdminRef" class="ph-bold ph-plus-circle inline-block text-sm opacity-0 group-hover:opacity-100 transition-opacity ml-1"></i>
-            </h3>
-          </div>
-          <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('C') }} / 5 Races</span>
-        </div>
-        <div class="space-y-3">
-          <div v-for="(team, idx) in sortedTeamsC" :key="team.id"
-               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center transition-all duration-300 relative hover:z-30"
-               :class="[
-              getRankColor(idx),
-              getProgressionStatus(team.id) === 'safe'
-                  ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] z-10'
-                  : (getProgressionStatus(team.id) === 'tied'
-                      ? 'ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] z-10'
-                      : 'opacity-80 hover:opacity-100')
-           ]">
-
-            <div class="absolute inset-0 overflow-hidden rounded-lg pointer-events-none">
-              <div v-if="getProgressionStatus(team.id) === 'safe'" class="absolute -right-1 -top-2 text-emerald-500/10 font-black text-6xl select-none">Q</div>
-              <div v-else-if="getProgressionStatus(team.id) === 'tied'" class="absolute -right-1 -top-2 text-amber-500/10 font-black text-6xl select-none rotate-12">?</div>
-            </div>
-
-            <div class="relative z-10 flex-1 min-w-0 mr-3">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="font-bold text-lg" :style="{ color: team.color }">{{ team.name }}</span>
-                <div v-if="tournament.format === 'uma-draft' && getUnassignedUmaPool(team).length > 0"
-                     class="flex items-center gap-1">
-                  <div v-for="uma in getUnassignedUmaPool(team)" :key="uma" class="relative group/umaicon">
-                    <img :src="getUmaImagePath(uma)" :alt="uma"
-                         class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
-                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-bold text-slate-200 whitespace-nowrap opacity-0 group-hover/umaicon:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
-                      {{ uma }}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="flex flex-col sm:flex-row gap-1.5 mt-2">
-                <div v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                     :key="pid"
-                     @click="openProfile(pid)"
-                     class="flex items-center gap-1.5 bg-slate-900/80 rounded-md px-2 py-1.5 min-w-0 flex-1 overflow-hidden cursor-pointer hover:bg-slate-800/80 transition-colors">
-                  <img v-if="tournament.players[pid]?.uma"
-                       :src="getUmaImagePath(tournament.players[pid]!.uma)"
-                       :alt="tournament.players[pid]!.uma"
-                       class="w-6 h-6 rounded-full object-cover shrink-0 bg-slate-700" />
-                  <i v-else class="ph-fill ph-horse text-base shrink-0 text-slate-500"></i>
-                  <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
-                    <span class="text-[11px] font-semibold truncate leading-tight" :style="{ color: team.color }">
-                      {{ tournament.players[pid]?.name || pid }}
-                    </span>
-                    <span class="text-[10px] text-slate-500 truncate leading-tight">
-                      {{ tournament.players[pid]?.uma || '—' }}
-                    </span>
-                  </div>
-                  <span class="text-xs font-bold tabular-nums shrink-0 ml-0.5" :style="{ color: team.color }">
-                    {{ getRoundPoints(pid) }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-4 relative z-10 min-w-[120px] justify-end">
-
-              <div class="relative flex flex-col items-end leading-none">
-
-                <div v-if="getRelevantAdjustments(team, 'groups').length > 0"
-                     class="absolute -left-10 top-1/2 -translate-y-1/2 group/adj h-8 w-8 flex items-center justify-center">
-
-                  <i class="ph-bold ph-warning-circle text-amber-500 text-2xl cursor-help"></i>
-
-                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-max min-w-[160px] max-w-[400px]">
-                    <div class="bg-slate-900 border border-slate-700 p-2 rounded shadow-xl">
-                      <div v-for="adj in getRelevantAdjustments(team, 'groups')" :key="adj.id"
-                           class="text-xs flex justify-between items-center gap-3 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
-
-                        <div class="flex-1 flex items-center min-w-0 mr-2">
-                          <span class="text-slate-400 truncate mr-1" :title="adj.reason">{{ adj.reason }}:</span>
-                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold whitespace-nowrap shrink-0">
-                           {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
+                            {{ adj.amount > 0 ? '+' : '' }}{{ adj.amount }}
                           </span>
                         </div>
 
@@ -810,7 +584,9 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
                   </div>
                 </div>
 
-                <span class="text-2xl font-mono font-bold text-white tabular-nums">{{ team.stagePoints[currentView] ?? 0 }}</span>
+                <span :class="isLastStage ? 'text-4xl font-mono font-bold text-indigo-400 tabular-nums' : 'text-2xl font-mono font-bold text-white tabular-nums'">
+                  {{ team.stagePoints[currentView] ?? 0 }}
+                </span>
                 <span class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">PTS</span>
               </div>
 
@@ -825,124 +601,16 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
 
           </div>
 
-          <div v-if="getGroupWildcards('C').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
+          <div v-if="getGroupWildcards(group).length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
             <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2"><i class="ph-bold ph-ghost"></i> Wildcards</div>
-            <div v-for="wc in getGroupWildcards('C')" :key="wc.id" class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors mb-2">
-              <div><span class="font-bold text-slate-300">{{ wc.name }}</span> <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span></div>
-              <div class="text-xl font-mono font-bold text-slate-400">{{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="currentView === 'finals'" class="col-span-2 max-w-2xl mx-auto w-full">
-        <div class="text-center mb-6">
-          <i class="ph-fill ph-trophy text-amber-500 text-5xl mb-2"></i>
-          <div class="flex items-center justify-between mb-4 group">
-            <div class="flex items-center gap-3">
-              <h3 @click="openWildcardModal('Finals')"
-                  class="text-xl font-bold text-indigo-400 heading tracking-wide transition-colors"
-                  :class="isAdminRef ? 'cursor-pointer hover:text-white hover:underline decoration-dashed decoration-indigo-500/50 underline-offset-4' : ''">
-                {{ 'Finals' }}
-                <i v-if="isAdminRef" class="ph-bold ph-plus-circle inline-block text-sm opacity-0 group-hover:opacity-100 transition-opacity ml-1"></i>
-              </h3>
-            </div>
-            <span class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">{{ getRaceCount('Finals') }} / 5 Races</span>
-          </div>
-        </div>
-        <div class="space-y-4">
-          <div v-for="(team, idx) in sortedFinalsTeams"
-               :key="team.id"
-               class="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center hover:z-30 relative"
-               :class="getRankColor(getVisualRankIndex(idx, sortedFinalsTeams))"
-          >
-            <div class="relative z-10 flex-1 min-w-0 mr-3">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="font-bold text-lg" :style="{ color: team.color }">{{ team.name }}</span>
-                <div v-if="tournament.format === 'uma-draft' && getUnassignedUmaPool(team).length > 0"
-                     class="flex items-center gap-1">
-                  <div v-for="uma in getUnassignedUmaPool(team)" :key="uma" class="relative group/umaicon">
-                    <img :src="getUmaImagePath(uma)" :alt="uma"
-                         class="w-5 h-5 rounded-full object-cover bg-slate-700 opacity-80 ring-1 ring-slate-600" />
-                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] font-bold text-slate-200 whitespace-nowrap opacity-0 group-hover/umaicon:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
-                      {{ uma }}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="flex flex-col sm:flex-row gap-1.5 mt-2">
-                <div v-for="pid in [team.captainId, ...team.memberIds].sort((a,b) => getRoundPoints(b) - getRoundPoints(a))"
-                     :key="pid"
-                     @click="openProfile(pid)"
-                     class="flex items-center gap-1.5 bg-slate-900/80 rounded-md px-2 py-1.5 min-w-0 flex-1 overflow-hidden cursor-pointer hover:bg-slate-800/80 transition-colors">
-                  <img v-if="tournament.players[pid]?.uma"
-                       :src="getUmaImagePath(tournament.players[pid]!.uma)"
-                       :alt="tournament.players[pid]!.uma"
-                       class="w-6 h-6 rounded-full object-cover shrink-0 bg-slate-700" />
-                  <i v-else class="ph-fill ph-horse text-base shrink-0 text-slate-500"></i>
-                  <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
-                    <span class="text-[11px] font-semibold truncate leading-tight" :style="{ color: team.color }">
-                      {{ tournament.players[pid]?.name || pid }}
-                    </span>
-                    <span class="text-[10px] text-slate-500 truncate leading-tight">
-                      {{ tournament.players[pid]?.uma || '—' }}
-                    </span>
-                  </div>
-                  <span class="text-xs font-bold tabular-nums shrink-0 ml-0.5" :style="{ color: team.color }">
-                    {{ getRoundPoints(pid) }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-4 relative z-10 min-w-[140px] justify-end">
-
-              <div class="relative flex flex-col items-end leading-none">
-
-                <div v-if="getRelevantAdjustments(team, 'finals').length > 0"
-                     class="absolute -left-10 top-1/2 -translate-y-1/2 group/adj h-8 w-8 flex items-center justify-center">
-
-                  <i class="ph-bold ph-warning-circle text-amber-500 text-2xl cursor-help"></i>
-
-                  <div class="absolute top-full right-0 pt-2 hidden group-hover/adj:block z-50 w-max min-w-[160px] max-w-[400px]">
-                    <div class="bg-slate-900 border border-slate-700 p-2 rounded shadow-xl">
-                      <div v-for="adj in getRelevantAdjustments(team, 'finals')" :key="adj.id" class="text-xs flex justify-between items-center gap-3 mb-1 last:mb-0 border-b border-slate-800 last:border-0 pb-1 last:pb-0">
-
-                        <div class="flex-1 flex items-center min-w-0 mr-2">
-                          <span class="text-slate-400 truncate mr-1" :title="adj.reason">{{ adj.reason }}:</span>
-                          <span :class="adj.amount > 0 ? 'text-green-400' : 'text-red-400'" class="font-bold whitespace-nowrap shrink-0">
-                           {{ adj.amount > 0 ? '+' : ''}}{{ adj.amount }}
-                        </span>
-                        </div>
-
-                        <button v-if="isAdmin" @click.stop="removeTeamAdjustment(team.id, adj.id)" class="shrink-0 text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors"><i class="ph-bold ph-trash"></i></button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <span class="text-4xl font-mono font-bold text-indigo-400 tabular-nums">{{ team.stagePoints[currentView] ?? 0 }}</span>
-                <span class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">PTS</span>
-              </div>
-
-              <div v-if="isAdmin" class="w-8 h-8 flex-shrink-0">
-                <button @click.stop="openAdjustmentModal(team)" class="w-8 h-8 rounded-full text-slate-600 hover:text-indigo-400 hover:bg-indigo-900/30 flex items-center justify-center transition-all">
-                  <i class="ph-bold ph-gavel text-lg"></i>
-                </button>
-              </div>
-            </div>
-
-          </div>
-          <div v-if="getGroupWildcards('Finals').length > 0" class="mt-4 pt-4 border-t border-slate-700/50 border-dashed">
-            <div class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2"><i class="ph-bold ph-ghost"></i> Wildcards</div>
-            <div v-for="wc in getGroupWildcards('Finals')" :key="wc.id" class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors mb-2">
+            <div v-for="wc in getGroupWildcards(group)" :key="wc.id" class="bg-slate-800/50 rounded-lg p-3 border border-slate-700 border-dashed flex justify-between items-center hover:bg-slate-800 transition-colors mb-2">
               <div><span class="font-bold text-slate-300">{{ wc.name }}</span> <span v-if="wc.uma" class="text-xs text-slate-500 ml-2">({{ wc.uma }})</span></div>
               <div class="text-xl font-mono font-bold text-slate-400">{{ wc.points }} <span class="text-xs font-sans font-normal text-slate-600">PTS</span></div>
             </div>
           </div>
         </div>
 
-        <div v-if="tournament.status === 'completed'" class="mt-8 flex flex-col text-center items-center p-6 bg-indigo-900/20 border border-indigo-500/30 rounded-xl">
+        <div v-if="isLastStage && tournament.status === 'completed'" class="mt-8 flex flex-col text-center items-center p-6 bg-indigo-900/20 border border-indigo-500/30 rounded-xl">
           <h3 class="text-2xl font-bold text-indigo-300 mb-2">Tournament Complete</h3>
 
           <p class="text-slate-300 mb-4">
@@ -964,7 +632,7 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
       <button @click="advanceToFinals"
               :disabled="!isAdminRef || saving"
               class="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 text-lg font-bold py-3 px-8 rounded-lg shadow-lg shadow-amber-900/20 animate-pulse">
-        Initialize Finals Stage
+        Advance to {{ tournament.stages[tournament.currentStageIndex + 1]?.label ?? 'Next Stage' }}
       </button>
     </div>
 

@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { doc, onSnapshot, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { FirestoreUpdate, Tournament, GlobalPlayer, Season } from '../types';
-import { recalculateTournamentScores, migrateRaces, migratePlayers } from "../utils/utils.ts";
+import { recalculateTournamentScores, migrateRaces, migratePlayers, migrateTournament } from "../utils/utils.ts";
 import { POINTS_SYSTEM } from "../utils/constants.ts";
 import { useAdmin } from '../composables/useAdmin';
 import { useCaptainActions } from '../composables/useCaptainActions';
@@ -164,14 +164,16 @@ const subscribeToTournament = (id: string) => {
   currentUnsubscribe = onSnapshot(getTournamentRef(id), (docSnap) => {
     if (isDeleting.value) return;
     if (docSnap.exists()) {
-      const data = docSnap.data() as Tournament;
+      let data = docSnap.data() as Tournament;
 
       //BACKWARDS COMPATIBILITY FIXES
       //old tournaments used password
-      if (data.password) delete data.password;
+      if (data.password) delete (data as any).password;
       //migrate races, players to maps from arrays
       data.races = migrateRaces(data.races);
       data.players = migratePlayers(data.players);
+      //migrate old schema (team.points, team.group, etc.) to N-stage schema
+      data = migrateTournament(data);
       //calculates scores on snapshot, instead of write
       const { teams, players, wildcards } = recalculateTournamentScores(data);
       data.teams = teams;

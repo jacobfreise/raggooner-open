@@ -1,5 +1,5 @@
 import type {Player, Race, Team, Tournament, Wildcard} from "../types.ts";
-import {POINTS_SYSTEM as DEFAULT_POINTS} from "./constants.ts";
+import {POINTS_SYSTEM as DEFAULT_POINTS, getStagePreset} from "./constants.ts";
 
 export const raceKey = (stage: string, group: string, raceNumber: number) =>
     `${stage}-${group}-${raceNumber}`;
@@ -34,6 +34,81 @@ export const migrateRaces = (races: any): Record<string, Race> => {
         return map;
     }
     return races as Record<string, Race>;
+};
+
+/**
+ * Lazy migration: converts old-schema Firestore documents to the new N-stage schema.
+ * Safe to call on already-migrated documents — all transforms are idempotent.
+ *
+ * Old → New mappings:
+ *   tournament.stage ('groups'|'finals') → currentStageIndex
+ *   tournament missing stages             → stages derived from team count
+ *   team.points                           → stagePoints['groups']
+ *   team.finalsPoints                     → stagePoints['finals']
+ *   team.group                            → stageGroups['groups']
+ *   team.inFinals                         → qualifiedStages includes 'finals'
+ */
+export const migrateTournament = (data: any): Tournament => {
+    // --- stages / currentStageIndex ---
+    if (!data.stages || !Array.isArray(data.stages) || data.stages.length === 0) {
+        data.stages = getStagePreset(data.teams?.length ?? 0);
+    }
+    if (data.currentStageIndex == null) {
+        // Map legacy `tournament.stage` string to index
+        const stageNames = (data.stages as Array<{name: string}>).map((s) => s.name);
+        const legacyStage: string = data.stage ?? 'groups';
+        const idx = stageNames.indexOf(legacyStage);
+        data.currentStageIndex = idx >= 0 ? idx : 0;
+    }
+
+    // --- teams ---
+    if (Array.isArray(data.teams)) {
+        data.teams = data.teams.map((team: any) => {
+            // stagePoints
+            if (!team.stagePoints) {
+                team.stagePoints = {};
+            }
+            if (team.points != null && team.stagePoints['groups'] == null) {
+                team.stagePoints['groups'] = team.points;
+            }
+            if (team.finalsPoints != null && team.stagePoints['finals'] == null) {
+                team.stagePoints['finals'] = team.finalsPoints;
+            }
+
+            // stageGroups
+            if (!team.stageGroups) {
+                team.stageGroups = {};
+            }
+            if (team.group != null && team.stageGroups['groups'] == null) {
+                team.stageGroups['groups'] = team.group;
+            }
+
+            // qualifiedStages
+            if (!team.qualifiedStages) {
+                team.qualifiedStages = [];
+                // All teams are at minimum in the first stage
+                const firstStage = (data.stages as Array<{name: string}>)[0]?.name;
+                if (firstStage && !team.qualifiedStages.includes(firstStage)) {
+                    team.qualifiedStages.push(firstStage);
+                }
+                if (team.inFinals) {
+                    const lastStage = (data.stages as Array<{name: string}>)[data.stages.length - 1]?.name;
+                    if (lastStage && !team.qualifiedStages.includes(lastStage)) {
+                        team.qualifiedStages.push(lastStage);
+                    }
+                }
+            }
+
+            // Ensure finals stageGroups when inFinals
+            if (team.inFinals && !team.stageGroups['finals']) {
+                team.stageGroups['finals'] = 'A';
+            }
+
+            return team;
+        });
+    }
+
+    return data as Tournament;
 };
 
 // Compare two teams (Returns positive if A is better, negative if B is better)
