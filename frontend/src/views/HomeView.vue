@@ -5,7 +5,7 @@ import { collection, doc, getDocs, orderBy, query, where, writeBatch, setDoc } f
 import { auth, db } from '../firebase';
 import type { Tournament, Season, TournamentCreator } from '../types';
 import { TOURNAMENT_FORMATS } from "../utils/constants.ts";
-import { getStatusColor } from "../utils/utils.ts";
+import { getStatusColor, migrateTournament } from "../utils/utils.ts";
 import { useUserRoles } from '../composables/useUserRoles';
 import { useAuth } from '../composables/useAuth';
 import { useGlobalSettings } from '../composables/useGlobalSettings';
@@ -133,7 +133,7 @@ const fetchActiveTournaments = async () => {
     );
     const snapshot = await getDocs(q);
     activeTournaments.value = snapshot.docs
-      .map(d => ({ id: d.id, ...d.data() } as Tournament))
+      .map(d => migrateTournament({ id: d.id, ...d.data() }))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   } catch (e) {
     console.error("Error fetching active tournaments", e);
@@ -155,7 +155,7 @@ const fetchSeasonTournaments = async (seasonId: string) => {
       const snapshot = await getDocs(q);
       const knownSeasonIds = new Set(availableSeasons.value.map(s => s.id));
       seasonTournaments['unassigned'] = snapshot.docs
-        .map(d => ({ id: d.id, ...d.data() } as Tournament))
+        .map(d => migrateTournament({ id: d.id, ...d.data() }))
         .filter(t => !t.seasonId || !knownSeasonIds.has(t.seasonId))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } else {
@@ -166,7 +166,7 @@ const fetchSeasonTournaments = async (seasonId: string) => {
       );
       const snapshot = await getDocs(q);
       seasonTournaments[seasonId] = snapshot.docs
-        .map(d => ({ id: d.id, ...d.data() } as Tournament))
+        .map(d => migrateTournament({ id: d.id, ...d.data() }))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
     seasonLoaded[seasonId] = true;
