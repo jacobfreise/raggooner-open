@@ -23,16 +23,22 @@ const makePlayer = (id: string, isCaptain = false, uma = '') => ({
   id, name: `Player ${id}`, isCaptain, uma,
 });
 
+const SMALL_PRESET = [
+  { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+];
+
 const makeTeam = (overrides: Partial<Team> = {}): Team => ({
   id: 'team1', captainId: 'p1', memberIds: [], name: 'Team 1',
-  points: 0, finalsPoints: 0, group: 'A', ...overrides,
+  stagePoints: { finals: 0 }, stageGroups: { finals: 'A' }, qualifiedStages: ['finals'],
+  ...overrides,
 });
 
 const makeTournament = (overrides: Partial<Tournament> = {}): Tournament => ({
   id: 't1',
   name: 'Test',
   status: 'registration',
-  stage: 'groups',
+  stages: SMALL_PRESET,
+  currentStageIndex: 0,
   playerIds: [],
   players: {},
   teams: [],
@@ -309,7 +315,7 @@ describe('useRoster', () => {
       await addWildcard({ id: 'wc1', name: 'Wildcard Player' });
       expect(secureUpdate).toHaveBeenCalledWith(expect.objectContaining({
         'players.wc1': expect.objectContaining({ id: 'wc1', name: 'Wildcard Player', isCaptain: false }),
-        wildcards: expect.objectContaining({ _union: { playerId: 'wc1', group: 'Finals' } }),
+        wildcards: expect.objectContaining({ _union: expect.objectContaining({ playerId: 'wc1', group: 'Finals' }) }),
       }));
       expect(showWildcardModal.value).toBe(false);
     });

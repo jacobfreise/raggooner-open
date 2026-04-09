@@ -193,8 +193,8 @@ const subscribeToTournament = (id: string) => {
 
       tournament.value = data;
       if (!localAdminPassword.value) autoLoginIfSuperAdmin();
-      if (!hasInitialViewLoaded.value && tournament.value.stage === 'finals') {
-        currentView.value = 'finals';
+      if (!hasInitialViewLoaded.value && tournament.value.currentStageIndex > 0) {
+        currentView.value = tournament.value.stages[tournament.value.currentStageIndex]?.name ?? '';
         hasInitialViewLoaded.value = true;
       }
     } else {

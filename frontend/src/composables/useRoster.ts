@@ -2,7 +2,7 @@ import { ref, computed, type Ref } from 'vue';
 import {arrayUnion, arrayRemove, deleteField} from 'firebase/firestore';
 import type { Tournament, Player, Wildcard, FirestoreUpdate } from '../types';
 import { UMA_DICT } from '../utils/umaData';
-import {getPlayerName, getPlayerUma} from "../utils/utils.ts";
+import {getPlayerName, getPlayerUma, getCurrentStageName} from "../utils/utils.ts";
 
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
@@ -20,7 +20,7 @@ export function useRoster(
 
     // Wildcard State
     const showWildcardModal = ref(false);
-    const wildcardTargetGroup = ref<'A' | 'B' | 'C' | 'Finals' | ''>('');
+    const wildcardTargetGroup = ref<string>('');
 
     // --- COMPUTED: VALIDATION ---
     const validTeamCount = computed(() => {
@@ -111,7 +111,7 @@ export function useRoster(
     };
 
     // --- WILDCARD LOGIC ---
-    const openWildcardModal = (group: 'A' | 'B' | 'C' | 'Finals') => {
+    const openWildcardModal = (group: string) => {
         if (!isAdmin.value) return;
         wildcardTargetGroup.value = group;
         showWildcardModal.value = true;
@@ -131,7 +131,8 @@ export function useRoster(
         // 2. Create the Wildcard Entry
         const newWildcard: Wildcard = {
             playerId: newPlayer.id,
-            group: wildcardTargetGroup.value as any
+            stage: tournament.value ? getCurrentStageName(tournament.value) : '',
+            group: wildcardTargetGroup.value
         };
 
         // 3. Update Firestore

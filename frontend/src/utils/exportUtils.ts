@@ -3,6 +3,8 @@ import type {Tournament, Team, Player, Race, Wildcard} from '../types';
 export const generateDiscordReport = (t: Tournament, shortened = false): string => {
     const lines: string[] = [];
     const playerMap = new Map(Object.values(t.players).map(p => [p.id, p]));
+    const firstStage = t.stages[0]?.name ?? 'groups';
+    const lastStage = t.stages[t.stages.length - 1]?.name ?? 'finals';
 
     // ==========================================
     // HEADER - Ultra compact
@@ -12,23 +14,25 @@ export const generateDiscordReport = (t: Tournament, shortened = false): string 
     lines.push('```');
 
     // ==========================================
-    // GROUP STAGES
+    // GROUP STAGES (all non-final stages)
     // ==========================================
     const groupNames = ['A', 'B', 'C'] as const;
     const groupEmojis = { A: '🔵', B: '🔴', C: '🟢' };
 
     groupNames.forEach(groupName => {
         const groupRaces = Object.values(t.races)
-            .filter(r => r.stage === 'groups' && r.group === groupName)
+            .filter(r => r.stage === firstStage && r.group === groupName)
             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-        const groupTeams = t.teams.filter(team => team.group === groupName);
-        const groupWildcards = t.wildcards?.filter(w => w.group === groupName) || [];
+        const groupTeams = t.teams.filter(team => team.stageGroups[firstStage] === groupName);
+        const groupWildcards = t.wildcards?.filter(w => w.stage === firstStage && w.group === groupName) || [];
 
         if (groupRaces.length > 0 && (groupTeams.length > 0 || groupWildcards.length > 0)) {
             lines.push(buildCompactStageSection(
                 `${groupEmojis[groupName]}Group  ${groupName}`,
                 groupName,
+                firstStage,
+                lastStage,
                 groupTeams,
                 groupRaces,
                 t.wildcards || [],
@@ -42,16 +46,18 @@ export const generateDiscordReport = (t: Tournament, shortened = false): string 
     // FINALS
     // ==========================================
     const finalsRaces = Object.values(t.races)
-        .filter(r => r.stage === 'finals')
+        .filter(r => r.stage === lastStage)
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-    const finalsTeams = t.teams.filter(team => team.inFinals);
-    const finalsWildcards = t.wildcards?.filter(w => w.group === 'Finals') || [];
+    const finalsTeams = t.teams.filter(team => team.qualifiedStages.includes(lastStage));
+    const finalsWildcards = t.wildcards?.filter(w => w.stage === lastStage) || [];
 
     if (finalsRaces.length > 0 && (finalsTeams.length > 0 || finalsWildcards.length > 0)) {
         lines.push(buildCompactStageSection(
             '🏁 Finals',
-            'Finals',
+            lastStage,
+            lastStage,
+            lastStage,
             finalsTeams,
             finalsRaces,
             t.wildcards || [],
@@ -80,6 +86,8 @@ export const generateDiscordReport = (t: Tournament, shortened = false): string 
 const buildCompactStageSection = (
     title: string,
     groupIdentifier: string,
+    stageName: string,
+    lastStage: string,
     teams: Team[],
     races: Race[],
     wildcards: Wildcard[],
@@ -87,25 +95,25 @@ const buildCompactStageSection = (
     shortened = false
 ): string => {
     const lines: string[] = [];
-    const currentStage = groupIdentifier === 'Finals' ? 'finals' : 'groups';
+    const isLastStage = stageName === lastStage;
 
     // Header
     lines.push(`**${title}**`);
 
     // Prepare Teams
     const rankedTeams = teams.map(team => {
-        const totalScore = currentStage === 'finals' ? (team.finalsPoints || 0) : team.points;
+        const totalScore = team.stagePoints[stageName] ?? 0;
         let fullRosterIds = [team.captainId, ...team.memberIds];
 
         fullRosterIds.sort((idA, idB) => {
             const playerA = playerMap.get(idA);
             const playerB = playerMap.get(idB);
-            const scoreA = currentStage === 'finals' ? (playerA?.finalsPoints || 0) : (playerA?.groupPoints || 0);
-            const scoreB = currentStage === 'finals' ? (playerB?.finalsPoints || 0) : (playerB?.groupPoints || 0);
+            const scoreA = playerA?.stagePoints?.[stageName] ?? 0;
+            const scoreB = playerB?.stagePoints?.[stageName] ?? 0;
             return scoreB - scoreA;
         });
 
-        const relevantAdjustments = team.adjustments?.filter(adj => adj.stage === currentStage) || [];
+        const relevantAdjustments = team.adjustments?.filter(adj => adj.stage === stageName) || [];
 
         return { ...team, totalScore, fullRosterIds, relevantAdjustments };
     }).sort((a, b) => b.totalScore - a.totalScore);
@@ -121,7 +129,9 @@ const buildCompactStageSection = (
 
         const medal = currentRank <= 3 ? medals[currentRank - 1] : `${currentRank}.`;
 
-        const qMark = (currentStage === 'groups' && team.inFinals) ? ' ✅' : (currentStage === 'groups' && !team.inFinals) ? ' ❌' : '';
+        const qMark = !isLastStage
+            ? (team.qualifiedStages.includes(lastStage) ? ' ✅' : ' ❌')
+            : '';
 
         // Main line: Medal Team — Points
         lines.push(`${medal} **${team.name}**${qMark} — **${team.totalScore}**`);
@@ -134,11 +144,10 @@ const buildCompactStageSection = (
             lines.push(`_${adjText}_`);
         }
 
-        // ✅ Players: Name (Uma) Pts — all in ONE line
         // Players with individual scores
         const playerLines = team.fullRosterIds.map(pid => {
             const p = playerMap.get(pid);
-            const score = currentStage === 'finals' ? (p?.finalsPoints || 0) : (p?.groupPoints || 0);
+            const score = p?.stagePoints?.[stageName] ?? 0;
             const isCaptain = pid === team.captainId;
             const icon = isCaptain ? '👑' : '  ';
             const uma = p?.uma ? `(${p.uma})` : '';
@@ -151,7 +160,7 @@ const buildCompactStageSection = (
     });
 
     // Wildcards - Ultra compact
-    const activeWildcards = wildcards.filter(w => w.group === groupIdentifier);
+    const activeWildcards = wildcards.filter(w => w.stage === stageName && w.group === groupIdentifier);
     if (activeWildcards.length > 0) {
         const wcText = activeWildcards
             .map(w => {
@@ -198,6 +207,8 @@ const buildCompactStageSection = (
 export const generateDiscordReportSplit = (t: Tournament, shortened = false): string[] => {
     const messages: string[] = [];
     const playerMap = new Map(Object.values(t.players).map(p => [p.id, p]));
+    const firstStage = t.stages[0]?.name ?? 'groups';
+    const lastStage = t.stages[t.stages.length - 1]?.name ?? 'finals';
 
     // Message 1: Header + Groups
     const msg1: string[] = [];
@@ -209,13 +220,15 @@ export const generateDiscordReportSplit = (t: Tournament, shortened = false): st
     const groupEmojis = { A: '🔵', B: '🔴', C: '🟢' };
 
     groupNames.forEach(groupName => {
-        const groupRaces = Object.values(t.races).filter(r => r.stage === 'groups' && r.group === groupName);
-        const groupTeams = t.teams.filter(team => team.group === groupName);
+        const groupRaces = Object.values(t.races).filter(r => r.stage === firstStage && r.group === groupName);
+        const groupTeams = t.teams.filter(team => team.stageGroups[firstStage] === groupName);
 
         if (groupRaces.length > 0 && groupTeams.length > 0) {
             msg1.push(buildCompactStageSection(
                 `${groupEmojis[groupName]} ${groupName}`,
                 groupName,
+                firstStage,
+                lastStage,
                 groupTeams,
                 groupRaces,
                 t.wildcards || [],
@@ -228,14 +241,16 @@ export const generateDiscordReportSplit = (t: Tournament, shortened = false): st
     messages.push(msg1.join('\n'));
 
     // Message 2: Finals (if exists)
-    const finalsRaces = Object.values(t.races).filter(r => r.stage === 'finals');
-    const finalsTeams = t.teams.filter(team => team.inFinals);
+    const finalsRaces = Object.values(t.races).filter(r => r.stage === lastStage);
+    const finalsTeams = t.teams.filter(team => team.qualifiedStages.includes(lastStage));
 
     if (finalsRaces.length > 0 && finalsTeams.length > 0) {
         const msg2: string[] = [];
         msg2.push(buildCompactStageSection(
             '🏁 Finals',
-            'Finals',
+            lastStage,
+            lastStage,
+            lastStage,
             finalsTeams,
             finalsRaces,
             t.wildcards || [],
@@ -264,6 +279,8 @@ export const generateDiscordReportSplit = (t: Tournament, shortened = false): st
 export const generateDiscordReportSplit3 = (t: Tournament, shortened = false): string[] => {
     const messages: string[] = [];
     const playerMap = new Map(Object.values(t.players).map(p => [p.id, p]));
+    const firstStage = t.stages[0]?.name ?? 'groups';
+    const lastStage = t.stages[t.stages.length - 1]?.name ?? 'finals';
 
     const groupEmojis = { A: '🔵', B: '🔴', C: '🟢' };
 
@@ -273,12 +290,14 @@ export const generateDiscordReportSplit3 = (t: Tournament, shortened = false): s
     msg1.push(`🏆 ${t.name.toUpperCase()}`);
     msg1.push('```');
 
-    const groupARaces = Object.values(t.races).filter(r => r.stage === 'groups' && r.group === 'A');
-    const groupATeams = t.teams.filter(team => team.group === 'A');
+    const groupARaces = Object.values(t.races).filter(r => r.stage === firstStage && r.group === 'A');
+    const groupATeams = t.teams.filter(team => team.stageGroups[firstStage] === 'A');
     if (groupARaces.length > 0 && groupATeams.length > 0) {
         msg1.push(buildCompactStageSection(
             `${groupEmojis.A} A`,
             'A',
+            firstStage,
+            lastStage,
             groupATeams,
             groupARaces,
             t.wildcards || [],
@@ -291,12 +310,14 @@ export const generateDiscordReportSplit3 = (t: Tournament, shortened = false): s
     // Message 2: Group B (+ Group C if exists)
     const msg2: string[] = [];
     (['B', 'C'] as const).forEach(groupName => {
-        const groupRaces = Object.values(t.races).filter(r => r.stage === 'groups' && r.group === groupName);
-        const groupTeams = t.teams.filter(team => team.group === groupName);
+        const groupRaces = Object.values(t.races).filter(r => r.stage === firstStage && r.group === groupName);
+        const groupTeams = t.teams.filter(team => team.stageGroups[firstStage] === groupName);
         if (groupRaces.length > 0 && groupTeams.length > 0) {
             msg2.push(buildCompactStageSection(
                 `${groupEmojis[groupName]} ${groupName}`,
                 groupName,
+                firstStage,
+                lastStage,
                 groupTeams,
                 groupRaces,
                 t.wildcards || [],
@@ -310,14 +331,16 @@ export const generateDiscordReportSplit3 = (t: Tournament, shortened = false): s
     }
 
     // Message 3: Finals + Bans
-    const finalsRaces = Object.values(t.races).filter(r => r.stage === 'finals');
-    const finalsTeams = t.teams.filter(team => team.inFinals);
+    const finalsRaces = Object.values(t.races).filter(r => r.stage === lastStage);
+    const finalsTeams = t.teams.filter(team => team.qualifiedStages.includes(lastStage));
 
     if (finalsRaces.length > 0 && finalsTeams.length > 0) {
         const msg3: string[] = [];
         msg3.push(buildCompactStageSection(
             '🏁 Finals',
-            'Finals',
+            lastStage,
+            lastStage,
+            lastStage,
             finalsTeams,
             finalsRaces,
             t.wildcards || [],

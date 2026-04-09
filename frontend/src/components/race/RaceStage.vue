@@ -40,7 +40,7 @@ const emit = defineEmits<{
         </div>
       </div>
 
-      <button v-if="(isAdmin || canCaptainEdit) && (tournament.stage === 'finals' && groupData.stageId === 'finals' || tournament.stage ==='groups' && groupData.stageId === 'groups')"
+      <button v-if="(isAdmin || canCaptainEdit) && tournament.stages[tournament.currentStageIndex]?.name === groupData.stageId"
               @click="$emit('update:raceInputMode', raceInputMode === 'tap' ? 'dropdown' : 'tap')"
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all shrink-0"
               :class="raceInputMode === 'tap' ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300' : 'bg-amber-600/20 border-amber-500/50 text-amber-300'">

@@ -13,7 +13,8 @@ const makeTournament = (override: Partial<Tournament> = {}): Tournament => ({
     id: 't1',
     name: 'Test',
     status: 'registration',
-    stage: 'groups',
+    stages: [],
+    currentStageIndex: 0,
     playerIds: [],
     players: {},
     teams: [],
@@ -83,7 +84,8 @@ describe('generateDraftStructure', () => {
             players: Object.fromEntries(captains.map(p => [p.id, p])),
         })
         const { teams } = generateDraftStructure(t)
-        expect(teams.every(t => t.group === 'A')).toBe(true)
+        const firstStageName = Object.keys(teams[0]!.stageGroups)[0]!
+        expect(teams.every(t => t.stageGroups[firstStageName] === 'A')).toBe(true)
     })
 
     it('assigns groups A and B for 6-team tournament', () => {
@@ -92,7 +94,8 @@ describe('generateDraftStructure', () => {
             players: Object.fromEntries(captains.map(p => [p.id, p])),
         })
         const { teams } = generateDraftStructure(t)
-        const groups = new Set(teams.map(t => t.group))
+        const firstStageName = Object.keys(teams[0]!.stageGroups)[0]!
+        const groups = new Set(teams.map(t => t.stageGroups[firstStageName]))
         expect(groups.has('A')).toBe(true)
         expect(groups.has('B')).toBe(true)
         expect(groups.has('C')).toBe(false)
@@ -104,7 +107,8 @@ describe('generateDraftStructure', () => {
             players: Object.fromEntries(captains.map(p => [p.id, p])),
         })
         const { teams } = generateDraftStructure(t)
-        const groups = new Set(teams.map(t => t.group))
+        const firstStageName = Object.keys(teams[0]!.stageGroups)[0]!
+        const groups = new Set(teams.map(t => t.stageGroups[firstStageName]))
         expect(groups).toEqual(new Set(['A', 'B', 'C']))
     })
 

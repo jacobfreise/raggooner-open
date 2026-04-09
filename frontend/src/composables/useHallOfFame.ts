@@ -683,7 +683,7 @@ const categories: FameCategory[] = [
 
             t.teams.forEach(team => {
                 // Calculate total team points across all stages
-                const teamTotalPoints = (team.points || 0) + (team.finalsPoints || 0);
+                const teamTotalPoints = Object.values(team.stagePoints).reduce((s, v) => s + v, 0);
                 if (teamTotalPoints === 0) return; // Avoid division by zero
 
                 // Find all members of this specific team
@@ -864,7 +864,7 @@ const categories: FameCategory[] = [
             let liability: Player | null = null;
 
             t.teams.forEach(team => {
-                const teamTotal = (team.points || 0) + (team.finalsPoints || 0);
+                const teamTotal = Object.values(team.stagePoints).reduce((s, v) => s + v, 0);
                 if (teamTotal === 0) return; // Skip teams with 0 points
 
                 // Identify team members
@@ -1228,9 +1228,10 @@ const categories: FameCategory[] = [
             if (relevantRaces.length < 3) return [];
 
             // 2. IDENTIFY EVENTUAL WINNER
+            const lastStage1 = t.stages[t.stages.length - 1]?.name ?? 'finals';
             const sortedTeams = t.teams
-                .filter(t => t.inFinals)
-                .sort((a, b) => compareTeams(a, b, true, t, true))!;
+                .filter(tm => tm.qualifiedStages.includes(lastStage1))
+                .sort((a, b) => compareTeams(a, b, true, t, lastStage1))!;
 
             const winnerId = sortedTeams[0]!.id;
 
@@ -1297,9 +1298,10 @@ const categories: FameCategory[] = [
             if (relevantRaces.length < 3) return [];
 
             // 2. IDENTIFY EVENTUAL WINNER (To ensure the fumbler actually lost)
+            const lastStage2 = t.stages[t.stages.length - 1]?.name ?? 'finals';
             const sortedTeams = t.teams
-                .filter(t => t.inFinals)
-                .sort((a, b) => compareTeams(a, b, true, t, true))!;
+                .filter(tm => tm.qualifiedStages.includes(lastStage2))
+                .sort((a, b) => compareTeams(a, b, true, t, lastStage2))!;
 
             const championId = sortedTeams[0]!.id;
 

@@ -20,6 +20,15 @@ import type { Player, Race, Team, Tournament } from '../types'
 
 // --- Fixtures ---
 
+const TWO_STAGE_PRESET = [
+    { name: 'groups', label: 'Group Stage', groups: ['A', 'B'], racesRequired: 5, teamsAdvancingPerGroup: 1 },
+    { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+]
+
+const SMALL_PRESET = [
+    { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+]
+
 const makePlayer = (id: string, name: string, isCaptain = false): Player => ({
     id, name, isCaptain, uma: `uma-${id}`,
 })
@@ -29,13 +38,13 @@ const makeTeam = (id: string, captainId: string, override: Partial<Team> = {}): 
     captainId,
     memberIds: [],
     name: `Team ${id}`,
-    points: 0,
-    finalsPoints: 0,
-    group: 'A',
+    stagePoints: { groups: 0 },
+    stageGroups: { groups: 'A' },
+    qualifiedStages: ['groups'],
     ...override,
 })
 
-const makeRace = (id: string, group: 'A' | 'B' | 'C', raceNumber: number, placements: Record<string, number>, stage: 'groups' | 'finals' = 'groups'): Race => ({
+const makeRace = (id: string, group: string, raceNumber: number, placements: Record<string, number>, stage: string = 'groups'): Race => ({
     id,
     stage,
     group,
@@ -48,7 +57,8 @@ const makeTournament = (override: Partial<Tournament> = {}): Tournament => ({
     id: 't1',
     name: 'Test Tournament',
     status: 'active',
-    stage: 'groups',
+    stages: TWO_STAGE_PRESET,
+    currentStageIndex: 0,
     playerIds: [],
     players: {},
     teams: [],
@@ -69,37 +79,37 @@ describe('raceKey', () => {
 describe('compareTeams', () => {
     it('sorts higher-points team first (returns negative when a > b)', () => {
         const t = makeTournament()
-        const a = makeTeam('a', 'p1', { points: 100 })
-        const b = makeTeam('b', 'p2', { points: 50 })
+        const a = makeTeam('a', 'p1', { stagePoints: { groups: 100 } })
+        const b = makeTeam('b', 'p2', { stagePoints: { groups: 50 } })
         expect(compareTeams(a, b, false, t)).toBeLessThan(0)
     })
 
     it('returns 0 when both teams are perfectly tied with no tiebreaker', () => {
         const t = makeTournament({ usePlacementTiebreaker: false })
-        const a = makeTeam('a', 'p1', { points: 50 })
-        const b = makeTeam('b', 'p2', { points: 50 })
+        const a = makeTeam('a', 'p1', { stagePoints: { groups: 50 } })
+        const b = makeTeam('b', 'p2', { stagePoints: { groups: 50 } })
         expect(compareTeams(a, b, false, t)).toBe(0)
     })
 
-    it('uses finalsPoints when isFinals = true', () => {
-        const t = makeTournament()
-        const a = makeTeam('a', 'p1', { points: 0, finalsPoints: 100 })
-        const b = makeTeam('b', 'p2', { points: 100, finalsPoints: 0 })
+    it('uses stageName=finals when stageName = finals', () => {
+        const t = makeTournament({ stages: TWO_STAGE_PRESET, currentStageIndex: 1 })
+        const a = makeTeam('a', 'p1', { stagePoints: { groups: 0, finals: 100 }, stageGroups: { groups: 'A', finals: 'A' }, qualifiedStages: ['groups', 'finals'] })
+        const b = makeTeam('b', 'p2', { stagePoints: { groups: 100, finals: 0 }, stageGroups: { groups: 'A', finals: 'A' }, qualifiedStages: ['groups', 'finals'] })
         // a has more finals points → a sorts first → result < 0
-        expect(compareTeams(a, b, false, t, true)).toBeLessThan(0)
+        expect(compareTeams(a, b, false, t, 'finals')).toBeLessThan(0)
     })
 
     it('falls back to id comparison when useIdFallback = true and points are equal', () => {
         const t = makeTournament({ usePlacementTiebreaker: false })
-        const a = makeTeam('a', 'p1', { points: 50 })
-        const b = makeTeam('b', 'p2', { points: 50 })
+        const a = makeTeam('a', 'p1', { stagePoints: { groups: 50 } })
+        const b = makeTeam('b', 'p2', { stagePoints: { groups: 50 } })
         expect(compareTeams(a, b, true, t)).not.toBe(0)
     })
 
     it('uses placement countback: more 1st places sorts first', () => {
         const cap1 = 'p1', cap2 = 'p2'
-        const team1 = makeTeam('t1', cap1, { group: 'A', points: 50 })
-        const team2 = makeTeam('t2', cap2, { group: 'A', points: 50 })
+        const team1 = makeTeam('t1', cap1, { stageGroups: { groups: 'A' }, stagePoints: { groups: 50 } })
+        const team2 = makeTeam('t2', cap2, { stageGroups: { groups: 'A' }, stagePoints: { groups: 50 } })
         const t = makeTournament({
             teams: [team1, team2],
             races: {
@@ -115,8 +125,8 @@ describe('compareTeams', () => {
 describe('recalculateTournamentScores', () => {
     it('assigns correct points based on default point system', () => {
         const cap1 = 'p1', cap2 = 'p2'
-        const team1 = makeTeam('t1', cap1, { group: 'A' })
-        const team2 = makeTeam('t2', cap2, { group: 'A' })
+        const team1 = makeTeam('t1', cap1, { stageGroups: { groups: 'A' } })
+        const team2 = makeTeam('t2', cap2, { stageGroups: { groups: 'A' } })
         const t = makeTournament({
             teams: [team1, team2],
             players: {
@@ -129,13 +139,13 @@ describe('recalculateTournamentScores', () => {
         })
 
         const { teams } = recalculateTournamentScores(t)
-        expect(teams.find(t => t.id === 't1')!.points).toBe(25) // 1st place
-        expect(teams.find(t => t.id === 't2')!.points).toBe(18) // 2nd place
+        expect(teams.find(t => t.id === 't1')!.stagePoints['groups']).toBe(25) // 1st place
+        expect(teams.find(t => t.id === 't2')!.stagePoints['groups']).toBe(18) // 2nd place
     })
 
     it('separates group and finals points', () => {
         const cap1 = 'p1'
-        const team1 = makeTeam('t1', cap1, { group: 'A' })
+        const team1 = makeTeam('t1', cap1, { stageGroups: { groups: 'A', finals: 'A' }, qualifiedStages: ['groups', 'finals'] })
         const t = makeTournament({
             teams: [team1],
             players: { [cap1]: makePlayer(cap1, 'Alice', true) },
@@ -147,14 +157,14 @@ describe('recalculateTournamentScores', () => {
 
         const { teams } = recalculateTournamentScores(t)
         const t1 = teams.find(t => t.id === 't1')!
-        expect(t1.points).toBe(25)      // groups: 1st = 25
-        expect(t1.finalsPoints).toBe(18) // finals: 2nd = 18
+        expect(t1.stagePoints['groups']).toBe(25)      // groups: 1st = 25
+        expect(t1.stagePoints['finals']).toBe(18)      // finals: 2nd = 18
     })
 
     it('applies point adjustments (penalties/bonuses)', () => {
         const cap1 = 'p1'
         const team1 = makeTeam('t1', cap1, {
-            group: 'A',
+            stageGroups: { groups: 'A' },
             adjustments: [{ id: 'adj1', amount: -10, reason: 'Penalty', stage: 'groups' }],
         })
         const t = makeTournament({
@@ -166,12 +176,12 @@ describe('recalculateTournamentScores', () => {
         })
 
         const { teams } = recalculateTournamentScores(t)
-        expect(teams.find(t => t.id === 't1')!.points).toBe(15) // 25 - 10
+        expect(teams.find(t => t.id === 't1')!.stagePoints['groups']).toBe(15) // 25 - 10
     })
 
     it('tallies player-level totalPoints', () => {
         const cap1 = 'p1'
-        const team1 = makeTeam('t1', cap1, { group: 'A' })
+        const team1 = makeTeam('t1', cap1, { stageGroups: { groups: 'A' } })
         const t = makeTournament({
             teams: [team1],
             players: { [cap1]: makePlayer(cap1, 'Alice', true) },
@@ -262,7 +272,7 @@ describe('UI Helpers', () => {
         })
 
         it('applies finals ring', () => {
-            expect(getPositionStyle(1, 'finals')).toContain('ring-2')
+            expect(getPositionStyle(1, 'finals', 'finals')).toContain('ring-2')
         })
     })
 

@@ -12,8 +12,16 @@ import type {Tournament, Player, Team, Race, FirestoreUpdate} from '../types';
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
+const TWO_STAGE_PRESET = [
+    { name: 'groups', label: 'Group Stage', groups: ['A', 'B'], racesRequired: 5, teamsAdvancingPerGroup: 1 },
+    { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+];
+const SMALL_PRESET = [
+    { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+];
+
 const makePlayer = (id: string, name: string, isCaptain = false): Player => ({
-    id, name, isCaptain, uma: `uma-${id}`, totalPoints: 0, groupPoints: 0, finalsPoints: 0,
+    id, name, isCaptain, uma: `uma-${id}`, totalPoints: 0,
 });
 
 const makeTeam = (
@@ -23,15 +31,19 @@ const makeTeam = (
     points = 0,
     overrides: Partial<Team> = {},
 ): Team => ({
-    id, captainId, memberIds: [], name: `Team ${id}`, points, finalsPoints: 0, group, ...overrides,
+    id, captainId, memberIds: [], name: `Team ${id}`,
+    stagePoints: { groups: points },
+    stageGroups: { groups: group },
+    qualifiedStages: ['groups'],
+    ...overrides,
 });
 
 // raceNumber defaults to 1; pass as 5th arg if needed
 const makeRace = (
     id: string,
     placements: Record<string, number>,
-    stage: 'groups' | 'finals' = 'groups',
-    group: 'A' | 'B' | 'C' = 'A',
+    stage: string = 'groups',
+    group: string = 'A',
     raceNumber = 1,
 ): Race => ({ id, placements, stage, group, raceNumber, timestamp: new Date().toISOString() });
 
@@ -39,7 +51,8 @@ const makeTournament = (override: Partial<Tournament> = {}): Tournament => ({
     id: 't1',
     name: 'Test',
     status: 'active',
-    stage: 'groups',
+    stages: TWO_STAGE_PRESET,
+    currentStageIndex: 0,
     playerIds: [],
     players: {},
     teams: [],
@@ -93,7 +106,7 @@ describe('useGameLogic', () => {
 
         it('getRaceCount counts only races for the current view stage and specified group', () => {
             const tournament = ref(makeTournament({
-                stage: 'groups',
+                currentStageIndex: 0,
                 races: {
                     'groups-A-1': makeRace('ga1', {}, 'groups', 'A'),
                     'groups-A-2': makeRace('ga2', {}, 'groups', 'A'),
@@ -123,7 +136,7 @@ describe('useGameLogic', () => {
 
         it('getRoundPoints filters to current view stage only', () => {
             const tournament = ref(makeTournament({
-                stage: 'groups',
+                currentStageIndex: 0,
                 races: {
                     r_group: makeRace('r_group', { p1: 1 }, 'groups'),
                     r_final: makeRace('r_final', { p1: 1 }, 'finals'), // not counted in groups view
@@ -135,15 +148,15 @@ describe('useGameLogic', () => {
 
         it('getGroupWildcards returns wildcards for the specified group sorted by round points', () => {
             const tournament = ref(makeTournament({
-                stage: 'groups',
+                currentStageIndex: 0,
                 players: {
                     w1: makePlayer('w1', 'Wild 1'),
                     w2: makePlayer('w2', 'Wild 2'),
                 },
                 wildcards: [
-                    { playerId: 'w1', group: 'A' },
-                    { playerId: 'w2', group: 'A' },
-                    { playerId: 'w1', group: 'B' }, // different group, excluded
+                    { playerId: 'w1', stage: 'groups', group: 'A' },
+                    { playerId: 'w2', stage: 'groups', group: 'A' },
+                    { playerId: 'w1', stage: 'groups', group: 'B' }, // different group, excluded
                 ],
                 races: {
                     r1: makeRace('r1', { w1: 2, w2: 1 }, 'groups'),
@@ -193,11 +206,11 @@ describe('useGameLogic', () => {
 
         it('sortedFinalsTeams returns only inFinals teams sorted by finalsPoints', () => {
             const teams = [
-                makeTeam('t1', 'c1', 'A', 0, { inFinals: true, finalsPoints: 50 }),
-                makeTeam('t2', 'c2', 'A', 0, { inFinals: false, finalsPoints: 100 }),
-                makeTeam('t3', 'c3', 'A', 0, { inFinals: true, finalsPoints: 30 }),
+                makeTeam('t1', 'c1', 'A', 0, { stagePoints: { groups: 0, finals: 50 }, stageGroups: { groups: 'A', finals: 'A' }, qualifiedStages: ['groups', 'finals'] }),
+                makeTeam('t2', 'c2', 'A', 0, { stagePoints: { groups: 0 }, stageGroups: { groups: 'A' }, qualifiedStages: ['groups'] }),
+                makeTeam('t3', 'c3', 'A', 0, { stagePoints: { groups: 0, finals: 30 }, stageGroups: { groups: 'A', finals: 'A' }, qualifiedStages: ['groups', 'finals'] }),
             ];
-            const { sortedFinalsTeams } = useGameLogic(ref(makeTournament({ teams, stage: 'finals' })), secureUpdate);
+            const { sortedFinalsTeams } = useGameLogic(ref(makeTournament({ teams, stages: TWO_STAGE_PRESET, currentStageIndex: 1 })), secureUpdate);
             expect(sortedFinalsTeams.value.map(t => t.id)).toEqual(['t1', 't3']);
         });
 
@@ -230,11 +243,16 @@ describe('useGameLogic', () => {
 
     describe('Progression Logic', () => {
         it('identifies safe and tied teams for 9-team (3 groups) scenario', () => {
-            const teams = Array.from({ length: 9 }, (_, i) => ({
-                ...makeTeam(`t${i}`, `p${i}`, i < 3 ? 'A' : i < 6 ? 'B' : 'C'),
-                points: i === 0 ? 50 : i === 1 ? 50 : i === 3 ? 100 : i === 6 ? 100 : 0,
-            }));
-            const { projectedProgression } = useGameLogic(ref(makeTournament({ teams })), secureUpdate);
+            const pts = [50, 50, 0, 100, 0, 0, 100, 0, 0];
+            const grp = (i: number) => i < 3 ? 'A' as const : i < 6 ? 'B' as const : 'C' as const;
+            const teams = Array.from({ length: 9 }, (_, i) =>
+                makeTeam(`t${i}`, `p${i}`, grp(i), pts[i]!)
+            );
+            const preset9 = [
+                { name: 'groups', label: 'Group Stage', groups: ['A', 'B', 'C'], racesRequired: 5, teamsAdvancingPerGroup: 1 },
+                { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+            ];
+            const { projectedProgression } = useGameLogic(ref(makeTournament({ teams, stages: preset9 })), secureUpdate);
             expect(projectedProgression.value.tied.map(t => t.id)).toContain('t0');
             expect(projectedProgression.value.tied.map(t => t.id)).toContain('t1');
             expect(projectedProgression.value.safe).toContain('t3');
@@ -243,11 +261,16 @@ describe('useGameLogic', () => {
         });
 
         it('identifies safe teams for 8-team (2 groups, top 2) scenario', () => {
-            const teams = Array.from({ length: 8 }, (_, i) => ({
-                ...makeTeam(`t${i}`, `p${i}`, i < 4 ? 'A' : 'B'),
-                points: i === 0 ? 100 : i === 1 ? 80 : i === 2 ? 60 : 0,
-            }));
-            const { projectedProgression } = useGameLogic(ref(makeTournament({ teams })), secureUpdate);
+            const pts = [100, 80, 60, 0, 0, 0, 0, 0];
+            const grp = (i: number) => i < 4 ? 'A' as const : 'B' as const;
+            const teams = Array.from({ length: 8 }, (_, i) =>
+                makeTeam(`t${i}`, `p${i}`, grp(i), pts[i]!)
+            );
+            const preset8 = [
+                { name: 'groups', label: 'Group Stage', groups: ['A', 'B'], racesRequired: 5, teamsAdvancingPerGroup: 2 },
+                { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+            ];
+            const { projectedProgression } = useGameLogic(ref(makeTournament({ teams, stages: preset8 })), secureUpdate);
             expect(projectedProgression.value.safe).toContain('t0');
             expect(projectedProgression.value.safe).toContain('t1');
         });
@@ -278,12 +301,16 @@ describe('useGameLogic', () => {
                 ...Object.fromEntries(Array.from({ length: 5 }, (_, i) => [`gb${i}`, makeRace(`gb${i}`, {}, 'groups', 'B')])),
                 ...Object.fromEntries(Array.from({ length: 5 }, (_, i) => [`gc${i}`, makeRace(`gc${i}`, {}, 'groups', 'C')])),
             };
-            const { canAdvanceToFinals } = useGameLogic(ref(makeTournament({ teams, races })), secureUpdate);
+            const preset9 = [
+                { name: 'groups', label: 'Group Stage', groups: ['A', 'B', 'C'], racesRequired: 5, teamsAdvancingPerGroup: 1 },
+                { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+            ];
+            const { canAdvanceToFinals } = useGameLogic(ref(makeTournament({ teams, races, stages: preset9 })), secureUpdate);
             expect(canAdvanceToFinals.value).toBe(true);
         });
 
         it('canAdvanceToFinals is false when already in finals stage', () => {
-            const { canAdvanceToFinals } = useGameLogic(ref(makeTournament({ stage: 'finals' })), secureUpdate);
+            const { canAdvanceToFinals } = useGameLogic(ref(makeTournament({ stages: TWO_STAGE_PRESET, currentStageIndex: 1 })), secureUpdate);
             expect(canAdvanceToFinals.value).toBe(false);
         });
 
@@ -305,21 +332,21 @@ describe('useGameLogic', () => {
             const races = Object.fromEntries(
                 Array.from({ length: 5 }, (_, i) => [`f${i}`, makeRace(`f${i}`, {}, 'finals')])
             );
-            const { canEndTournament } = useGameLogic(ref(makeTournament({ races })), secureUpdate);
+            const { canEndTournament } = useGameLogic(ref(makeTournament({ races, stages: TWO_STAGE_PRESET, currentStageIndex: 1 })), secureUpdate);
             expect(canEndTournament.value).toBe(true);
         });
 
         it('canEndTournament is false when fewer than 5 finals races', () => {
             const races = { f1: makeRace('f1', {}, 'finals') };
-            const { canEndTournament } = useGameLogic(ref(makeTournament({ races })), secureUpdate);
+            const { canEndTournament } = useGameLogic(ref(makeTournament({ races, stages: TWO_STAGE_PRESET, currentStageIndex: 1 })), secureUpdate);
             expect(canEndTournament.value).toBe(false);
         });
 
         it('canShowFinals is true only when stage is finals', () => {
-            const { canShowFinals: showGroups } = useGameLogic(ref(makeTournament({ stage: 'groups' })), secureUpdate);
+            const { canShowFinals: showGroups } = useGameLogic(ref(makeTournament({ stages: TWO_STAGE_PRESET, currentStageIndex: 0 })), secureUpdate);
             expect(showGroups.value).toBeFalsy();
 
-            const { canShowFinals: showFinals } = useGameLogic(ref(makeTournament({ stage: 'finals' })), secureUpdate);
+            const { canShowFinals: showFinals } = useGameLogic(ref(makeTournament({ stages: TWO_STAGE_PRESET, currentStageIndex: 1 })), secureUpdate);
             expect(showFinals.value).toBeTruthy();
         });
     });
@@ -333,7 +360,11 @@ describe('useGameLogic', () => {
                 makeTeam('b1', 'c3', 'B', 45), makeTeam('b2', 'c4', 'B', 25), makeTeam('b3', 'c5', 'B', 5),
                 makeTeam('c1', 'c6', 'C', 40), makeTeam('c2', 'c7', 'C', 20), makeTeam('c3', 'c8', 'C', 15),
             ];
-            const { isAdvancing } = useGameLogic(ref(makeTournament({ teams, usePlacementTiebreaker: false })), secureUpdate);
+            const preset9 = [
+                { name: 'groups', label: 'Group Stage', groups: ['A', 'B', 'C'], racesRequired: 5, teamsAdvancingPerGroup: 1 },
+                { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+            ];
+            const { isAdvancing } = useGameLogic(ref(makeTournament({ teams, stages: preset9, usePlacementTiebreaker: false })), secureUpdate);
             expect(isAdvancing('a1')).toBe(true);
             expect(isAdvancing('b1')).toBe(true);
             expect(isAdvancing('c1')).toBe(true);
@@ -418,7 +449,7 @@ describe('useGameLogic', () => {
             ];
             const { advanceToFinals } = useGameLogic(ref(makeTournament({ teams, usePlacementTiebreaker: false })), secureUpdate);
             await advanceToFinals();
-            expect(secureUpdate).toHaveBeenCalledWith(expect.objectContaining({ stage: 'finals' }));
+            expect(secureUpdate).toHaveBeenCalledWith(expect.objectContaining({ currentStageIndex: 1 }));
         });
 
         it('advanceToFinals opens tiebreaker modal when runners-up are tied', async () => {
@@ -435,7 +466,7 @@ describe('useGameLogic', () => {
             expect(secureUpdate).not.toHaveBeenCalled();
         });
 
-        it('finalizeFinals marks correct teams as inFinals and advances stage', async () => {
+        it('finalizeFinals marks correct teams with qualifiedStages and advances stage', async () => {
             const teams = [
                 makeTeam('t1', 'c1', 'A'), makeTeam('t2', 'c2', 'A'), makeTeam('t3', 'c3', 'A'),
             ];
@@ -450,11 +481,11 @@ describe('useGameLogic', () => {
             await confirmTiebreakerSelection();
 
             const call = secureUpdate.mock.calls[0]![0] as any;
-            expect(call.stage).toBe('finals');
+            expect(call.currentStageIndex).toBe(1);
             const finalTeams: Team[] = call.teams;
-            expect(finalTeams.find(t => t.id === 't1')!.inFinals).toBe(true);
-            expect(finalTeams.find(t => t.id === 't2')!.inFinals).toBe(true);
-            expect(finalTeams.find(t => t.id === 't3')!.inFinals).toBe(false);
+            expect(finalTeams.find(t => t.id === 't1')!.qualifiedStages).toContain('finals');
+            expect(finalTeams.find(t => t.id === 't2')!.qualifiedStages).toContain('finals');
+            expect(finalTeams.find(t => t.id === 't3')!.qualifiedStages).not.toContain('finals');
         });
 
         it('confirmTiebreakerSelection does nothing when tiebreakersNeeded > 0', async () => {
@@ -560,16 +591,16 @@ describe('useGameLogic', () => {
             expect(ids).not.toContain('m3');
         });
 
-        it('activeStagePlayers with Finals returns only inFinals team members', () => {
+        it('activeStagePlayers with Finals returns only qualified team members', () => {
             const teams = [
-                { ...makeTeam('t1', 'c1', 'A', 0), inFinals: true, finalsPoints: 50, memberIds: ['m1'] },
-                { ...makeTeam('t2', 'c2', 'A', 0), inFinals: false, finalsPoints: 20, memberIds: ['m2'] },
+                { ...makeTeam('t1', 'c1', 'A', 0), stagePoints: { groups: 0, finals: 50 }, stageGroups: { groups: 'A', finals: 'A' }, qualifiedStages: ['groups', 'finals'], memberIds: ['m1'] },
+                { ...makeTeam('t2', 'c2', 'A', 0), stagePoints: { groups: 0 }, stageGroups: { groups: 'A' }, qualifiedStages: ['groups'], memberIds: ['m2'] },
             ];
             const players = {
                 c1: makePlayer('c1', 'Cap A', true), m1: makePlayer('m1', 'M1'),
                 c2: makePlayer('c2', 'Cap B', true), m2: makePlayer('m2', 'M2'),
             };
-            const tournament = ref(makeTournament({ teams, players, stage: 'finals' }));
+            const tournament = ref(makeTournament({ teams, players, stages: TWO_STAGE_PRESET, currentStageIndex: 1 }));
             const { activeStagePlayers } = useGameLogic(tournament, secureUpdate);
             const ids = activeStagePlayers('Finals').map(p => p.id);
             expect(ids).toContain('c1');
@@ -808,21 +839,21 @@ describe('useGameLogic', () => {
     describe('Winning Teams & Visual Rank', () => {
         it('winningTeams returns only the single top team when there is a clear leader', () => {
             const teams = [
-                makeTeam('t1', 'c1', 'A', 0, { inFinals: true, finalsPoints: 100 }),
-                makeTeam('t2', 'c2', 'A', 0, { inFinals: true, finalsPoints: 50 }),
+                makeTeam('t1', 'c1', 'A', 0, { stagePoints: { groups: 0, finals: 100 }, stageGroups: { groups: 'A', finals: 'A' }, qualifiedStages: ['groups', 'finals'] }),
+                makeTeam('t2', 'c2', 'A', 0, { stagePoints: { groups: 0, finals: 50 }, stageGroups: { groups: 'A', finals: 'A' }, qualifiedStages: ['groups', 'finals'] }),
             ];
-            const { winningTeams } = useGameLogic(ref(makeTournament({ teams, stage: 'finals', usePlacementTiebreaker: false })), secureUpdate);
+            const { winningTeams } = useGameLogic(ref(makeTournament({ teams, stages: TWO_STAGE_PRESET, currentStageIndex: 1, usePlacementTiebreaker: false })), secureUpdate);
             expect(winningTeams.value).toHaveLength(1);
             expect(winningTeams.value[0]!.id).toBe('t1');
         });
 
         it('winningTeams returns all teams tied at the top', () => {
             const teams = [
-                makeTeam('t1', 'c1', 'A', 0, { inFinals: true, finalsPoints: 100 }),
-                makeTeam('t2', 'c2', 'A', 0, { inFinals: true, finalsPoints: 100 }),
-                makeTeam('t3', 'c3', 'A', 0, { inFinals: true, finalsPoints: 50 }),
+                makeTeam('t1', 'c1', 'A', 0, { stagePoints: { groups: 0, finals: 100 }, stageGroups: { groups: 'A', finals: 'A' }, qualifiedStages: ['groups', 'finals'] }),
+                makeTeam('t2', 'c2', 'A', 0, { stagePoints: { groups: 0, finals: 100 }, stageGroups: { groups: 'A', finals: 'A' }, qualifiedStages: ['groups', 'finals'] }),
+                makeTeam('t3', 'c3', 'A', 0, { stagePoints: { groups: 0, finals: 50 }, stageGroups: { groups: 'A', finals: 'A' }, qualifiedStages: ['groups', 'finals'] }),
             ];
-            const { winningTeams } = useGameLogic(ref(makeTournament({ teams, stage: 'finals', usePlacementTiebreaker: false })), secureUpdate);
+            const { winningTeams } = useGameLogic(ref(makeTournament({ teams, stages: TWO_STAGE_PRESET, currentStageIndex: 1, usePlacementTiebreaker: false })), secureUpdate);
             expect(winningTeams.value).toHaveLength(2);
             const ids = winningTeams.value.map(t => t.id);
             expect(ids).toContain('t1');
@@ -909,7 +940,7 @@ describe('useGameLogic', () => {
                 c2: makePlayer('c2', 'Cap 2', true),
                 wc1: makePlayer('wc1', 'Wildcard 1'),
             };
-            const wildcards = [{ playerId: 'wc1', group: 'A', points: 10 }] as any;
+            const wildcards = [{ playerId: 'wc1', group: 'A', stage: 'groups', points: 10 }] as any;
             const { activeStagePlayers } = useGameLogic(
                 ref(makeTournament({ teams, players, wildcards })), secureUpdate
             );

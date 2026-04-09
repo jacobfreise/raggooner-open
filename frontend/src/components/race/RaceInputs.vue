@@ -73,14 +73,16 @@ const visibleStages = computed(() => {
 });
 
 // Resolves whether the captain can edit a given group.
-// Groups: captain's team group must match. Finals: team must be inFinals.
 const captainEditableGroupId = computed((): string | null => {
   const team = props.captainTeam;
   if (!team || !props.tournamentProp.captainActionsEnabled || props.isAdmin) return null;
-  const stage = tournament.value.stage;
-  if (stage === 'groups') return team.group;
-  if (stage === 'finals' && (team.inFinals ?? false)) return 'Finals';
-  return null;
+  const t = tournament.value;
+  const stageName = t.stages[t.currentStageIndex]?.name ?? '';
+  const isLastStage = t.currentStageIndex >= t.stages.length - 1;
+  if (isLastStage) {
+    return team.qualifiedStages.includes(stageName) ? stageName : null;
+  }
+  return team.stageGroups[stageName] ?? null;
 });
 
 // Routed handlers — admin uses secureUpdate via useGameLogic; captain uses Cloud Functions.

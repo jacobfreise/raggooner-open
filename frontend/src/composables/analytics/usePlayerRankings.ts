@@ -186,9 +186,13 @@ export function usePlayerRankings(
 
     // 3. Count races, wins, dominance (total + per-stage)
     const tournamentHasGroupsMap = new Map<string, boolean>();
+    const tournamentLastStageMap = new Map<string, string>();
     filteredTournaments.value.forEach(t => {
-      const uniqueGroups = new Set(t.teams.map(tm => tm.group));
+      const firstStage = t.stages[0]?.name ?? 'groups';
+      const lastStage = t.stages[t.stages.length - 1]?.name ?? 'finals';
+      const uniqueGroups = new Set(t.teams.map(tm => tm.stageGroups[firstStage]));
       tournamentHasGroupsMap.set(t.id, uniqueGroups.size > 1);
+      tournamentLastStageMap.set(t.id, lastStage);
     });
 
     filteredRaces.value.forEach(race => {
@@ -198,7 +202,8 @@ export function usePlayerRankings(
       const t = filteredTournaments.value.find(tourney => tourney.id === race.tournamentId);
       const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
       const hasGroups = tournamentHasGroupsMap.get(race.tournamentId) ?? false;
-      const isFinalsRace = race.stage === 'finals' || !hasGroups;
+      const lastStage = tournamentLastStageMap.get(race.tournamentId) ?? 'finals';
+      const isFinalsRace = race.stage === lastStage || !hasGroups;
 
       Object.entries(race.placements).forEach(([playerId, position]) => {
         const stats = playerStats.get(playerId);
@@ -343,9 +348,13 @@ export function usePlayerRankings(
     });
 
     const hasGroupsMap = new Map<string, boolean>();
+    const lastStageMap = new Map<string, string>();
     filteredTournaments.value.forEach(t => {
-      const uniqueGroups = new Set(t.teams.map(tm => tm.group));
+      const firstStage = t.stages[0]?.name ?? 'groups';
+      const lastStage = t.stages[t.stages.length - 1]?.name ?? 'finals';
+      const uniqueGroups = new Set(t.teams.map(tm => tm.stageGroups[firstStage]));
       hasGroupsMap.set(t.id, uniqueGroups.size > 1);
+      lastStageMap.set(t.id, lastStage);
     });
 
     filteredRaces.value.forEach(race => {
@@ -358,7 +367,8 @@ export function usePlayerRankings(
       const row = umaRows.find(r => r.name === umaName);
       if (row) {
         const hasGroups = hasGroupsMap.get(race.tournamentId) ?? false;
-        const isFinalsRace = race.stage === 'finals' || !hasGroups;
+        const lastStageForRace = lastStageMap.get(race.tournamentId) ?? 'finals';
+        const isFinalsRace = race.stage === lastStageForRace || !hasGroups;
         row.opponentsFaced += (playersInRace - 1);
         row.opponentsBeaten += (playersInRace - position);
         if (isFinalsRace) {
@@ -458,9 +468,11 @@ export function usePlayerRankings(
       const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
       const teams = t?.teams || [];
       const playerTeam = teams.find(tm => (part.teamId && tm.id === part.teamId) || tm.captainId === playerId || tm.memberIds.includes(playerId));
-      const uniqueGroupSet = new Set(teams.map(tm => tm.group));
+      const firstStage = t?.stages[0]?.name ?? 'groups';
+      const lastStage = t ? t.stages[t.stages.length - 1]?.name ?? 'finals' : 'finals';
+      const uniqueGroupSet = new Set(teams.map(tm => tm.stageGroups[firstStage]));
       const hasGroups = uniqueGroupSet.size > 1;
-      const finalistTeams = teams.filter(tm => tm.inFinals);
+      const finalistTeams = teams.filter(tm => tm.qualifiedStages.includes(lastStage));
 
       const winningTeam = t ? (getWinningTeam(t) ?? null) : null;
 
@@ -472,35 +484,36 @@ export function usePlayerRankings(
         if (teams.length === 0 && tStatus === 'active') finalsStatus = '-';
         else if (winningTeam && playerTeam.id === winningTeam.id && tStatus === 'completed') finalsStatus = 'winner';
         else if (!hasGroups) finalsStatus = 'no-groups';
-        else if (playerTeam.inFinals) finalsStatus = 'finals';
+        else if (playerTeam.qualifiedStages.includes(lastStage)) finalsStatus = 'finals';
         else if (hasGroups) finalsStatus = 'eliminated';
 
         let teamRank = null;
         if (finalsStatus === 'winner') teamRank = 1;
         else if (finalsStatus === 'finals' && t) {
-          const sorted = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true));
+          const sorted = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, lastStage));
           teamRank = sorted.findIndex(tm => tm.id === playerTeam.id) + 1 || null;
         } else if (finalsStatus === 'eliminated' && t) {
-          const groupTeams = teams.filter(tm => tm.group === playerTeam.group);
-          const sorted = [...groupTeams].sort((a, b) => compareTeams(a, b, true, t, false));
+          const groupTeams = teams.filter(tm => tm.stageGroups[firstStage] === playerTeam.stageGroups[firstStage]);
+          const sorted = [...groupTeams].sort((a, b) => compareTeams(a, b, true, t, firstStage));
           teamRank = sorted.findIndex(tm => tm.id === playerTeam.id) + 1 || null;
         } else if (finalsStatus === 'no-groups' && t) {
           const { teams: scoredTeams } = recalculateTournamentScores(t);
           const sorted = [...scoredTeams].sort((a, b) => {
-            const aTotal = (a.points || 0) + (a.finalsPoints || 0);
-            const bTotal = (b.points || 0) + (b.finalsPoints || 0);
+            const aTotal = Object.values(a.stagePoints).reduce((s, v) => s + v, 0);
+            const bTotal = Object.values(b.stagePoints).reduce((s, v) => s + v, 0);
             return bTotal !== aTotal ? bTotal - aTotal : a.id.localeCompare(b.id);
           });
           teamRank = sorted.findIndex(tm => tm.id === playerTeam.id) + 1 || null;
         }
 
-        const teamGroups = new Set<string>([playerTeam.group]);
-        if (playerTeam.inFinals) teamGroups.add('Finals');
+        const playerGroup = playerTeam.stageGroups[firstStage];
+        const teamGroups = new Set<string>(playerGroup ? [playerGroup] : []);
+        if (playerTeam.qualifiedStages.includes(lastStage)) teamGroups.add(lastStage);
         const stats = computeRaceStats(part.tournamentId, pointSystem, hasGroups ? teamGroups : undefined);
         let groupRowStats = emptyStats, finalsRowStats = emptyStats;
         if (hasGroups) {
-          groupRowStats = computeRaceStats(part.tournamentId, pointSystem, new Set([playerTeam.group]), 'groups');
-          finalsRowStats = computeRaceStats(part.tournamentId, pointSystem, undefined, 'finals');
+          groupRowStats = computeRaceStats(part.tournamentId, pointSystem, playerGroup ? new Set([playerGroup]) : undefined, firstStage);
+          finalsRowStats = computeRaceStats(part.tournamentId, pointSystem, undefined, lastStage);
         } else {
           finalsRowStats = stats;
         }

@@ -117,7 +117,7 @@ const getGifForRace = (group: string, raceNum: number) => {
                 <div v-for="pos in activeStagePlayers(group.id).length" :key="pos" class="flex items-center gap-2">
                   <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold" :class="getPositionStyle(pos)">{{ pos }}</div>
                   <select
-                      :disabled="!isAdminRef || tournament.stage !== 'groups'"
+                      :disabled="!isAdminRef || tournament.stages[tournament.currentStageIndex]?.name === tournament.stages[tournament.stages.length - 1]?.name"
                       :value="getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)"
                       @change="updateRacePlacement(group.id, raceNum, pos, ($event.target as HTMLSelectElement).value)"
                       :style="{ color: getPlayerColor(getPlayerAtPosition(group.id, raceNum, pos, tournament, currentView)) }"
@@ -155,7 +155,7 @@ const getGifForRace = (group: string, raceNum: number) => {
                              alt="Winner GIF" />
                       </div>
 
-                      <button v-if="isAdminRef && tournament.stage === 'groups'"
+                      <button v-if="isAdminRef && tournament.currentStageIndex < tournament.stages.length - 1"
                               @click="toggleEditRace(currentView, group.id, raceNum)"
                               class="z-10 relative px-1.5 rounded bg-slate-800/80 hover:bg-indigo-600 text-slate-400 hover:text-white transition-all backdrop-blur-sm">
                         <i class="ph-bold ph-pencil-simple"></i>
@@ -261,7 +261,7 @@ const getGifForRace = (group: string, raceNum: number) => {
               <div v-for="pos in activeStagePlayers('Finals').length" :key="pos" class="flex items-center gap-2">
                 <div class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold" :class="getPositionStyle(pos)">{{ pos }}</div>
                 <select
-                    :disabled="!isAdminRef || !(tournament.stage === 'finals' && tournament.status === 'active')"
+                    :disabled="!isAdminRef || !(tournament.currentStageIndex >= tournament.stages.length - 1 && tournament.status === 'active')"
                     :value="getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)"
                     @change="updateRacePlacement('Finals', raceNum, pos, ($event.target as HTMLSelectElement).value)"
                     :style="{ color: getPlayerColor(getPlayerAtPosition('Finals', raceNum, pos, tournament, currentView)) }"

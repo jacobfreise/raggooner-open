@@ -2,6 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref, nextTick } from 'vue';
 import { useDiagrams } from './useDiagrams';
 
+const SMALL_STAGE = [
+  { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+];
+const TWO_STAGE = [
+  { name: 'groups', label: 'Group Stage', groups: ['A', 'B'], racesRequired: 5, teamsAdvancingPerGroup: 1 },
+  { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+];
+
 describe('useDiagrams', () => {
   const players = ref([
     { id: 'p1', name: 'Alice' },
@@ -9,8 +17,8 @@ describe('useDiagrams', () => {
   ] as any);
 
   const filteredTournaments = ref([
-    { id: 't1', name: 'T1', createdAt: '2024-01-01' },
-    { id: 't2', name: 'T2', createdAt: '2024-02-01' },
+    { id: 't1', name: 'T1', createdAt: '2024-01-01', stages: SMALL_STAGE, currentStageIndex: 0, teams: [] },
+    { id: 't2', name: 'T2', createdAt: '2024-02-01', stages: SMALL_STAGE, currentStageIndex: 0, teams: [] },
   ] as any);
 
   const filteredRaces = ref([
@@ -42,10 +50,10 @@ describe('useDiagrams', () => {
     const { diagramSelectedPlayerIds, toggleDiagramPlayer } = useDiagrams(
       players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
-    
+
     toggleDiagramPlayer('p1');
     expect(diagramSelectedPlayerIds.value).toContain('p1');
-    
+
     toggleDiagramPlayer('p1');
     expect(diagramSelectedPlayerIds.value).not.toContain('p1');
   });
@@ -54,13 +62,13 @@ describe('useDiagrams', () => {
     const { diagramSelectedPlayerIds, playerTimelineData } = useDiagrams(
       players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
-    
+
     diagramSelectedPlayerIds.value = ['p1'];
     expect(playerTimelineData.value.datasets).toHaveLength(1);
     expect(playerTimelineData.value.datasets[0].label).toBe('Alice');
     expect(playerTimelineData.value.xLabels).toHaveLength(2);
     expect(playerTimelineData.value.xLabels).toEqual(['T1', 'T2']);
-    
+
     // Check points calculation (dominance)
     // T1: Alice 1st of 2 -> 100
     // T2: Alice 2nd of 2 -> 0
@@ -71,12 +79,12 @@ describe('useDiagrams', () => {
     const { diagramSelectedUmaNames, umaTimelineData } = useDiagrams(
       players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
-    
+
     diagramSelectedUmaNames.value = ['Special Week'];
     expect(umaTimelineData.value.datasets).toHaveLength(1);
     expect(umaTimelineData.value.datasets[0].label).toBe('Special Week');
     expect(umaTimelineData.value.xLabels).toHaveLength(2);
-    
+
     // T1: Special Week (Alice) 1st of 2 -> 100
     // T2: Special Week (Alice) 2nd of 2 -> 0
     expect(umaTimelineData.value.datasets[0].points).toEqual([100, 0]);
@@ -86,10 +94,10 @@ describe('useDiagrams', () => {
     const { diagramSelectedPlayerIds, diagramMode, playerTimelineData } = useDiagrams(
       players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
-    
+
     diagramSelectedPlayerIds.value = ['p1'];
     diagramMode.value = 'cumulative';
-    
+
     // T1: 100% (1/1)
     // T2: (1+0) / (1+1) = 50%
     expect(playerTimelineData.value.datasets[0].points).toEqual([100, 50]);
@@ -99,10 +107,10 @@ describe('useDiagrams', () => {
     const { diagramSelectedPlayerIds, diagramMetric, playerTimelineData } = useDiagrams(
       players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
-    
+
     diagramSelectedPlayerIds.value = ['p1'];
     diagramMetric.value = 'avg-points';
-    
+
     // psys[1] = 25
     // psys[2] = 18
     // T1: Alice 1st -> 25
@@ -114,7 +122,7 @@ describe('useDiagrams', () => {
     const { diagramAvailableUmas } = useDiagrams(
       players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
-    
+
     expect(diagramAvailableUmas.value).toEqual(['Silence Suzuka', 'Special Week']);
   });
 
@@ -122,7 +130,7 @@ describe('useDiagrams', () => {
     const { diagramSelectedPlayerIds, toggleDiagramPlayer, diagramSelectedUmaNames, toggleDiagramUma, MAX_DIAGRAM_PLAYERS, MAX_DIAGRAM_UMAS } = useDiagrams(
       players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
-    
+
     for (let i = 0; i < MAX_DIAGRAM_PLAYERS + 2; i++) {
       toggleDiagramPlayer(`p${i}`);
     }
@@ -138,10 +146,10 @@ describe('useDiagrams', () => {
     const { diagramSelectedUmaNames, diagramMetric, umaTimelineData } = useDiagrams(
       players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
-    
+
     diagramSelectedUmaNames.value = ['Special Week'];
     diagramMetric.value = 'avg-points';
-    
+
     // T1: Special Week (p1) 1st -> 25
     // T2: Special Week (p1) 2nd -> 18
     expect(umaTimelineData.value.datasets[0].points).toEqual([25, 18]);
@@ -151,7 +159,7 @@ describe('useDiagrams', () => {
     const { diagramSelectedPlayerIds } = useDiagrams(
       players, filteredTournaments, filteredRaces, playerRankings, activeTab, ref('total' as any)
     );
-    
+
     diagramSelectedPlayerIds.value = [];
     activeTab.value = 'diagrams';
     await nextTick();
@@ -163,11 +171,11 @@ describe('useDiagrams', () => {
       { tournamentId: 't1', placements: { p1: 1, p2: 2 }, umaMapping: { p1: 'Special Week', p2: 'Silence Suzuka' } },
       { tournamentId: 't2', placements: { p2: 1, p3: 2 }, umaMapping: { p2: 'Silence Suzuka', p3: 'Special Week' } }
     ] as any);
-    
+
     const { playerTimelineData: ptd2, diagramSelectedPlayerIds: dsids2 } = useDiagrams(
       players, filteredTournaments, mixedRaces2, playerRankings, activeTab, ref('total' as any)
     );
-    
+
     dsids2.value = ['p1', 'p2'];
     // p1: in T1, but NOT in T2 (as p1)
     // p2: in T1 and T2
@@ -227,8 +235,8 @@ describe('useDiagrams', () => {
     // T1 has groups race for p1 → after filter, tRaces=[] → raceCount=0 → null
     // T2 has finals race for p1 → tRaces=[race] → normal cumulative
     const multiGroupTournaments2 = ref([
-      { id: 't1', name: 'T1', createdAt: '2024-01-01', teams: [{ id: 'a', group: 'A' }, { id: 'b', group: 'B' }] },
-      { id: 't2', name: 'T2', createdAt: '2024-02-01', teams: [{ id: 'c', group: 'A' }, { id: 'd', group: 'B' }] },
+      { id: 't1', name: 'T1', createdAt: '2024-01-01', stages: TWO_STAGE, currentStageIndex: 0, teams: [{ id: 'a', stageGroups: { groups: 'A' } }, { id: 'b', stageGroups: { groups: 'B' } }] },
+      { id: 't2', name: 'T2', createdAt: '2024-02-01', stages: TWO_STAGE, currentStageIndex: 0, teams: [{ id: 'c', stageGroups: { groups: 'A' } }, { id: 'd', stageGroups: { groups: 'B' } }] },
     ] as any);
     const stagedPlayerRaces = ref([
       { tournamentId: 't1', stage: 'groups', placements: { p1: 1, p2: 2 }, umaMapping: { p1: 'Special Week', p2: 'Silence Suzuka' } },
@@ -253,8 +261,8 @@ describe('useDiagrams', () => {
   it('filters races by stage view in UMA timeline', () => {
     // Tournaments with teams in 2 groups so hasGroups=true
     const multiGroupTournaments = ref([
-      { id: 't1', name: 'T1', createdAt: '2024-01-01', teams: [{ id: 'a', group: 'A' }, { id: 'b', group: 'B' }] },
-      { id: 't2', name: 'T2', createdAt: '2024-02-01', teams: [{ id: 'c', group: 'A' }, { id: 'd', group: 'B' }] },
+      { id: 't1', name: 'T1', createdAt: '2024-01-01', stages: TWO_STAGE, currentStageIndex: 0, teams: [{ id: 'a', stageGroups: { groups: 'A' } }, { id: 'b', stageGroups: { groups: 'B' } }] },
+      { id: 't2', name: 'T2', createdAt: '2024-02-01', stages: TWO_STAGE, currentStageIndex: 0, teams: [{ id: 'c', stageGroups: { groups: 'A' } }, { id: 'd', stageGroups: { groups: 'B' } }] },
     ] as any);
     const stagedRaces = ref([
       { tournamentId: 't1', stage: 'groups', placements: { p1: 1, p2: 2 }, umaMapping: { p1: 'Special Week', p2: 'Silence Suzuka' } },

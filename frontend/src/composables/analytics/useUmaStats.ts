@@ -118,9 +118,13 @@ export function useUmaStats(
 
     // Build tournament groups map for stage classification
     const tournamentHasGroupsMap = new Map<string, boolean>();
+    const tournamentLastStageMap = new Map<string, string>();
     filteredTournaments.value.forEach(t => {
-      const uniqueGroups = new Set((t.teams ?? []).map(tm => tm.group));
+      const firstStage = t.stages[0]?.name ?? 'groups';
+      const lastStage = t.stages[t.stages.length - 1]?.name ?? 'finals';
+      const uniqueGroups = new Set((t.teams ?? []).map(tm => tm.stageGroups[firstStage]));
       tournamentHasGroupsMap.set(t.id, uniqueGroups.size > 1);
+      tournamentLastStageMap.set(t.id, lastStage);
     });
 
     // 2. Process Races & Picks
@@ -129,7 +133,8 @@ export function useUmaStats(
       if (playersInRace <= 1) return;
 
       const hasGroups = tournamentHasGroupsMap.get(race.tournamentId) ?? false;
-      const isFinalsRace = race.stage === 'finals' || !hasGroups;
+      const lastStage = tournamentLastStageMap.get(race.tournamentId) ?? 'finals';
+      const isFinalsRace = race.stage === lastStage || !hasGroups;
 
       Object.entries(race.umaMapping || {}).forEach(([playerId, uma]) => {
         if (!uma) return;
@@ -276,9 +281,13 @@ export function useUmaStats(
     if (umaParts.length === 0) return [];
 
     const tournamentHasGroupsMap = new Map<string, boolean>();
+    const tournamentLastStageMap3 = new Map<string, string>();
     filteredTournaments.value.forEach(t => {
-      const uniqueGroups = new Set((t.teams ?? []).map(tm => tm.group));
+      const firstStage = t.stages[0]?.name ?? 'groups';
+      const lastStage = t.stages[t.stages.length - 1]?.name ?? 'finals';
+      const uniqueGroups = new Set((t.teams ?? []).map(tm => tm.stageGroups[firstStage]));
       tournamentHasGroupsMap.set(t.id, uniqueGroups.size > 1);
+      tournamentLastStageMap3.set(t.id, lastStage);
     });
 
     const rows = umaParts.map(part => {
@@ -294,6 +303,7 @@ export function useUmaStats(
       let groupOpponentsFaced = 0, groupOpponentsBeaten = 0, finalsOpponentsFaced = 0, finalsOpponentsBeaten = 0;
       const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
       const hasGroups = tournamentHasGroupsMap.get(part.tournamentId) ?? false;
+      const lastStageForPart = tournamentLastStageMap3.get(part.tournamentId) ?? 'finals';
 
       tournamentRaces.forEach(race => {
         const position = race.placements[part.playerId];
@@ -301,7 +311,7 @@ export function useUmaStats(
         const playersInRace = Object.keys(race.placements).length;
         if (playersInRace <= 1) return;
         const pts = pointSystem[position] || 0;
-        const isFinalsRace = race.stage === 'finals' || !hasGroups;
+        const isFinalsRace = race.stage === lastStageForPart || !hasGroups;
         races++;
         totalPosition += position;
         totalPoints += pts;
@@ -329,9 +339,11 @@ export function useUmaStats(
       const wildcards = t?.wildcards || [];
       const playerWildcards = wildcards.filter((wc: any) => wc.playerId === part.playerId);
       const winningTeam = t ? (getWinningTeam(t) ?? null) : null;
-      const uniqueGroupSet = new Set(teams.map(tm => tm.group));
+      const firstStagePart = t?.stages[0]?.name ?? 'groups';
+      const lastStagePart = t ? t.stages[t.stages.length - 1]?.name ?? 'finals' : 'finals';
+      const uniqueGroupSet = new Set(teams.map(tm => tm.stageGroups[firstStagePart]));
       const hasGroupsTournament = uniqueGroupSet.size > 1;
-      const finalistTeams = teams.filter(tm => tm.inFinals);
+      const finalistTeams = teams.filter(tm => tm.qualifiedStages.includes(lastStagePart));
 
       let finalsStatus: string = '-';
       let teamRank: number | null = null;
@@ -342,22 +354,22 @@ export function useUmaStats(
         if (teams.length === 0 && tStatus === 'active') finalsStatus = '-';
         else if (winningTeam && playerTeam.id === winningTeam.id && tStatus === 'completed') finalsStatus = 'winner';
         else if (!hasGroupsTournament) finalsStatus = 'no-groups';
-        else if (playerTeam.inFinals) finalsStatus = 'finals';
+        else if (playerTeam.qualifiedStages.includes(lastStagePart)) finalsStatus = 'finals';
         else if (hasGroupsTournament) finalsStatus = 'eliminated';
 
         if (finalsStatus === 'winner') teamRank = 1;
         else if (finalsStatus === 'finals' && t) {
-          const sorted = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, true));
+          const sorted = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, lastStagePart));
           teamRank = sorted.findIndex(tm => tm.id === playerTeam.id) + 1 || null;
         } else if (finalsStatus === 'eliminated' && t) {
-          const groupTeams = teams.filter(tm => tm.group === playerTeam.group);
-          const sorted = [...groupTeams].sort((a, b) => compareTeams(a, b, true, t, false));
+          const groupTeams = teams.filter(tm => tm.stageGroups[firstStagePart] === playerTeam.stageGroups[firstStagePart]);
+          const sorted = [...groupTeams].sort((a, b) => compareTeams(a, b, true, t, firstStagePart));
           teamRank = sorted.findIndex(tm => tm.id === playerTeam.id) + 1 || null;
         } else if (finalsStatus === 'no-groups' && t) {
           const { teams: scoredTeams } = recalculateTournamentScores(t);
           const sorted = [...scoredTeams].sort((a, b) => {
-            const aTotal = (a.points || 0) + (a.finalsPoints || 0);
-            const bTotal = (b.points || 0) + (b.finalsPoints || 0);
+            const aTotal = Object.values(a.stagePoints).reduce((s, v) => s + v, 0);
+            const bTotal = Object.values(b.stagePoints).reduce((s, v) => s + v, 0);
             return bTotal !== aTotal ? bTotal - aTotal : a.id.localeCompare(b.id);
           });
           teamRank = sorted.findIndex(tm => tm.id === playerTeam.id) + 1 || null;
@@ -413,9 +425,13 @@ export function useUmaStats(
     if (umaParts.length === 0) return [];
 
     const tournamentHasGroupsMap = new Map<string, boolean>();
+    const tournamentLastStageMap4 = new Map<string, string>();
     filteredTournaments.value.forEach(t => {
-      const uniqueGroups = new Set((t.teams ?? []).map(tm => tm.group));
+      const firstStage = t.stages[0]?.name ?? 'groups';
+      const lastStage = t.stages[t.stages.length - 1]?.name ?? 'finals';
+      const uniqueGroups = new Set((t.teams ?? []).map(tm => tm.stageGroups[firstStage]));
       tournamentHasGroupsMap.set(t.id, uniqueGroups.size > 1);
+      tournamentLastStageMap4.set(t.id, lastStage);
     });
 
     const playerMap = new Map<string, any>();
@@ -439,6 +455,7 @@ export function useUmaStats(
       const t = filteredTournaments.value.find(tourney => tourney.id === part.tournamentId);
       const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
       const hasGroups = tournamentHasGroupsMap.get(part.tournamentId) ?? false;
+      const lastStageForEntry = tournamentLastStageMap4.get(part.tournamentId) ?? 'finals';
       const tournamentRaces = filteredRaces.value.filter(r => r.tournamentId === part.tournamentId);
 
       tournamentRaces.forEach(race => {
@@ -447,7 +464,7 @@ export function useUmaStats(
         const playersInRace = Object.keys(race.placements).length;
         if (playersInRace <= 1) return;
         const pts = pointSystem[position] || 0;
-        const isFinalsRace = race.stage === 'finals' || !hasGroups;
+        const isFinalsRace = race.stage === lastStageForEntry || !hasGroups;
         entry.races++;
         entry.totalPosition += position;
         entry.totalPoints += pts;

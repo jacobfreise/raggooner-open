@@ -1,6 +1,7 @@
 import { writeBatch, doc } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import type { Tournament, Player, Team } from '../types';
+import { getStagePreset } from './constants';
 
 // Mock data
 const UMAS = ['Special Week', 'Silence Suzuka', 'Tokai Teio', 'Maruzensky', 'Fuji Kiseki', 'Oguri Cap', 'Gold Ship', 'Vodka', 'Daiwa Scarlet', 'Taiki Shuttle'];
@@ -52,26 +53,31 @@ export const seedDatabase = async (db: any, auth: any, appId: string) => {
                     name: `Player ${i + 1}`,
                     isCaptain: false,
                     uma: UMAS[Math.floor(Math.random() * UMAS.length)]!,
-                    totalPoints: 0, groupPoints: 0, finalsPoints: 0
+                    totalPoints: 0,
+                    stagePoints: {}
                 });
             }
 
             // Generate Teams & Assign Players
+            const preset = getStagePreset(config.tCount);
+            const firstStageName = preset[0]!.name;
+
             for (let i = 0; i < config.tCount; i++) {
                 const teamPlayers = players.slice(i * playersPerTeam, (i + 1) * playersPerTeam);
 
                 const captain = teamPlayers[0]!;
                 captain.isCaptain = true; // Set captain status
+                const groupLabel = config.tCount < 6 ? 'A' : groups[i % groups.length]!;
 
                 teams.push({
                     id: `t_${Math.random().toString(36).substring(2, 9)}`,
                     name: TEAM_NAMES[i % TEAM_NAMES.length]!,
                     captainId: captain.id,
                     memberIds: teamPlayers.slice(1).map(p => p.id),
-                    points: 0, finalsPoints: 0,
-                    group: config.tCount < 6 ? 'A' : groups[i % groups.length]!,
+                    stagePoints: {},
+                    stageGroups: { [firstStageName]: groupLabel },
+                    qualifiedStages: [firstStageName],
                     color: TEAM_COLORS[i % TEAM_COLORS.length],
-                    inFinals: config.tCount < 6,
                     adjustments: []
                 });
             }
@@ -81,7 +87,8 @@ export const seedDatabase = async (db: any, auth: any, appId: string) => {
                 id,
                 name: config.name,
                 status: 'active', // Set to active so you can test them immediately
-                stage: config.tCount < 6 ? 'finals' : 'groups',
+                stages: preset,
+                currentStageIndex: 0,
                 players: Object.fromEntries(players.map(p => [p.id, p])),
                 playerIds: players.map(p => p.id),
                 teams,

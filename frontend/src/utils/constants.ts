@@ -1,5 +1,5 @@
 // Constants
-import type { TournamentFormat, UserRole } from '../types.ts';
+import type { StageConfig, TournamentFormat, UserRole } from '../types.ts';
 
 export type Permission =
     | 'create_official_tournament'   // can mark a tournament as official
@@ -58,6 +58,48 @@ export const TEAM_COLORS = [
     '#22d3ee', // Cyan
     '#f43f5e', // Rose
 ];
+
+// ---------------------------------------------------------------------------
+// Stage presets — ordered from first stage to last (finals)
+// teamsAdvancingPerGroup: 0 means this is the final stage (no advancement)
+// ---------------------------------------------------------------------------
+
+// 2 groups of 3, top 1 per group + best runner-up wildcard → 3-team finals
+export const STAGE_PRESET_6: StageConfig[] = [
+    { name: 'groups', label: 'Group Stage', groups: ['A', 'B'], racesRequired: 5, teamsAdvancingPerGroup: 1 },
+    { name: 'finals', label: 'Finals',      groups: ['A'],       racesRequired: 5, teamsAdvancingPerGroup: 0 },
+];
+
+// 2 groups of 4, top 2 per group → 4-team finals
+export const STAGE_PRESET_8: StageConfig[] = [
+    { name: 'groups', label: 'Group Stage', groups: ['A', 'B'], racesRequired: 5, teamsAdvancingPerGroup: 2 },
+    { name: 'finals', label: 'Finals',      groups: ['A'],       racesRequired: 5, teamsAdvancingPerGroup: 0 },
+];
+
+// 3 groups of 3, top 1 per group → 3-team finals
+export const STAGE_PRESET_9: StageConfig[] = [
+    { name: 'groups', label: 'Group Stage', groups: ['A', 'B', 'C'], racesRequired: 5, teamsAdvancingPerGroup: 1 },
+    { name: 'finals', label: 'Finals',       groups: ['A'],            racesRequired: 5, teamsAdvancingPerGroup: 0 },
+];
+
+// Small tournament (< 6 teams): single finals stage, no groups
+export const STAGE_PRESET_SMALL: StageConfig[] = [
+    { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+];
+
+// 3-stage bracket: quarterfinals → semifinals → finals
+export const STAGE_PRESET_3_STAGE: StageConfig[] = [
+    { name: 'quarterfinals', label: 'Quarterfinals', groups: ['A', 'B', 'C', 'D'], racesRequired: 5, teamsAdvancingPerGroup: 1 },
+    { name: 'semifinals',    label: 'Semifinals',    groups: ['A', 'B'],            racesRequired: 5, teamsAdvancingPerGroup: 2 },
+    { name: 'finals',        label: 'Finals',        groups: ['A'],                 racesRequired: 5, teamsAdvancingPerGroup: 0 },
+];
+
+export const getStagePreset = (numTeams: number): StageConfig[] => {
+    if (numTeams === 9) return STAGE_PRESET_9;
+    if (numTeams === 8) return STAGE_PRESET_8;
+    if (numTeams === 6) return STAGE_PRESET_6;
+    return STAGE_PRESET_SMALL;
+};
 
 export const TOURNAMENT_FORMATS: Record<string, TournamentFormat> = {
     'uma-ban': {

@@ -18,13 +18,20 @@ vi.mock('./useAuth', () => ({
 import { useCaptainActions } from './useCaptainActions';
 import { httpsCallable } from 'firebase/functions';
 
+const TWO_STAGE_PRESET = [
+  { name: 'groups', label: 'Group Stage', groups: ['A', 'B'], racesRequired: 5, teamsAdvancingPerGroup: 1 },
+  { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+];
+
 const makeTeam = (overrides: Partial<Team> = {}): Team => ({
   id: 'team1', captainId: 'p1', memberIds: ['p2'], name: 'Team 1',
-  points: 0, finalsPoints: 0, group: 'A', ...overrides,
+  stagePoints: { groups: 0 }, stageGroups: { groups: 'A' }, qualifiedStages: ['groups'],
+  ...overrides,
 });
 
 const makeTournament = (overrides: Partial<Tournament> = {}): Tournament => ({
-  id: 't1', name: 'Test', status: 'draft', stage: 'groups',
+  id: 't1', name: 'Test', status: 'draft',
+  stages: TWO_STAGE_PRESET, currentStageIndex: 0,
   playerIds: [], players: {}, teams: [], races: {}, createdAt: new Date().toISOString(),
   captainActionsEnabled: true, ...overrides,
 });
@@ -146,8 +153,8 @@ describe('useCaptainActions', () => {
 
     it('returns true for correct group in groups stage', () => {
       mockLinkedPlayer.value = { id: 'p1' };
-      const team = makeTeam({ captainId: 'p1', group: 'B' });
-      const t = makeTournament({ teams: [team], stage: 'groups' });
+      const team = makeTeam({ captainId: 'p1', stageGroups: { groups: 'B' }, qualifiedStages: ['groups'] });
+      const t = makeTournament({ teams: [team], currentStageIndex: 0 });
       const { canCaptainEditGroup } = useCaptainActions(ref(t));
       expect(canCaptainEditGroup('B')).toBe(true);
       expect(canCaptainEditGroup('A')).toBe(false);
@@ -155,16 +162,16 @@ describe('useCaptainActions', () => {
 
     it('returns true in finals stage when team qualified', () => {
       mockLinkedPlayer.value = { id: 'p1' };
-      const team = makeTeam({ captainId: 'p1', inFinals: true });
-      const t = makeTournament({ teams: [team], stage: 'finals' });
+      const team = makeTeam({ captainId: 'p1', stageGroups: { groups: 'A', finals: 'A' }, qualifiedStages: ['groups', 'finals'] });
+      const t = makeTournament({ teams: [team], currentStageIndex: 1 });
       const { canCaptainEditGroup } = useCaptainActions(ref(t));
       expect(canCaptainEditGroup('A')).toBe(true);
     });
 
     it('returns false in finals stage when team did not qualify', () => {
       mockLinkedPlayer.value = { id: 'p1' };
-      const team = makeTeam({ captainId: 'p1', inFinals: false });
-      const t = makeTournament({ teams: [team], stage: 'finals' });
+      const team = makeTeam({ captainId: 'p1', stageGroups: { groups: 'A' }, qualifiedStages: ['groups'] });
+      const t = makeTournament({ teams: [team], currentStageIndex: 1 });
       const { canCaptainEditGroup } = useCaptainActions(ref(t));
       expect(canCaptainEditGroup('A')).toBe(false);
     });

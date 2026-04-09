@@ -4,6 +4,13 @@ import {POINTS_SYSTEM as DEFAULT_POINTS} from "./constants.ts";
 export const raceKey = (stage: string, group: string, raceNumber: number) =>
     `${stage}-${group}-${raceNumber}`;
 
+// --- Stage helpers ---
+export const getCurrentStage = (t: Tournament) => t.stages[t.currentStageIndex];
+export const getCurrentStageName = (t: Tournament): string => getCurrentStage(t)?.name ?? '';
+export const getLastStageName = (t: Tournament): string => t.stages[t.stages.length - 1]?.name ?? '';
+export const getFirstStageName = (t: Tournament): string => t.stages[0]?.name ?? '';
+export const isAtLastStage = (t: Tournament): boolean => t.currentStageIndex >= t.stages.length - 1;
+
 export const migratePlayers = (players: any): Record<string, Player> => {
     if (!players) return {};
     if (Array.isArray(players)) {
@@ -30,9 +37,11 @@ export const migrateRaces = (races: any): Record<string, Race> => {
 };
 
 // Compare two teams (Returns positive if A is better, negative if B is better)
-export const compareTeams = (a: Team, b: Team, useIdFallback = true, tournament: Tournament, isFinals?: boolean) => {
-    const aPoints = isFinals ? a.finalsPoints : a.points;
-    const bPoints = isFinals ? b.finalsPoints : b.points;
+// stageName: the stage to compare points on. Defaults to the tournament's current stage.
+export const compareTeams = (a: Team, b: Team, useIdFallback = true, tournament: Tournament, stageName?: string) => {
+    const stage = stageName ?? getCurrentStageName(tournament);
+    const aPoints = a.stagePoints[stage] ?? 0;
+    const bPoints = b.stagePoints[stage] ?? 0;
 
     // Priority 1: Points
     if (bPoints !== aPoints) {
@@ -43,8 +52,8 @@ export const compareTeams = (a: Team, b: Team, useIdFallback = true, tournament:
 
     if (useTiebreaker) {
         // Priority 2: Countback (Most 1sts, then 2nds, etc.)
-        const placementsA = getTeamPlacements(a, tournament, isFinals);
-        const placementsB = getTeamPlacements(b, tournament, isFinals);
+        const placementsA = getTeamPlacements(a, tournament, stage);
+        const placementsB = getTeamPlacements(b, tournament, stage);
 
         for (let i = 1; i <= 18; i++) {
             const countA = placementsA[i] || 0;
@@ -64,18 +73,20 @@ export const compareTeams = (a: Team, b: Team, useIdFallback = true, tournament:
 };
 
 // 1. Get placement counts for a specific team (e.g. {1: 3, 2: 1, 3: 0})
-const getTeamPlacements = (team: Team, tournament: Tournament, isFinals?: boolean) => {
+const getTeamPlacements = (team: Team, tournament: Tournament, stageName?: string) => {
     const counts: Record<number, number> = {};
     if (!tournament) return counts;
 
-    // Get all members (Captain + Members)
-    const roster = [team.captainId, ...(team.memberIds || [])];
+    const stage = stageName ?? getCurrentStageName(tournament);
+    const isLastStage = stage === getLastStageName(tournament);
+    const teamGroup = team.stageGroups[stage];
 
-    // For finals tiebreaker use finals races; for groups use the team's own group races
+    // For the last stage use all races in that stage; for earlier stages filter by group
     const relevantRaces = Object.values(tournament.races).filter(r =>
-        isFinals ? r.stage === 'finals' : (r.stage === 'groups' && r.group === team.group)
+        isLastStage ? r.stage === stage : (r.stage === stage && r.group === teamGroup)
     );
 
+    const roster = [team.captainId, ...(team.memberIds || [])];
     relevantRaces.forEach(race => {
         roster.forEach(pid => {
             const pos = race.placements[pid];
@@ -91,11 +102,10 @@ const getTeamPlacements = (team: Team, tournament: Tournament, isFinals?: boolea
 export const recalculateTournamentScores = (t: Tournament): { teams: Team[], players: Record<string, Player>, wildcards: Wildcard[] } => {
     const activePointsSystem = t.pointsSystem || DEFAULT_POINTS;
 
-    // 1. Clone to avoid mutation issues
+    // 1. Clone to avoid mutation issues; reset stagePoints
     const teams = t.teams.map(team => ({
         ...team,
-        points: 0,
-        finalsPoints: 0,
+        stagePoints: {} as Record<string, number>,
         adjustments: team.adjustments || []
     }));
 
@@ -103,8 +113,7 @@ export const recalculateTournamentScores = (t: Tournament): { teams: Team[], pla
         Object.entries(t.players).map(([k, p]) => [k, {
             ...p,
             totalPoints: 0,
-            groupPoints: 0,
-            finalsPoints: 0
+            stagePoints: {} as Record<string, number>
         }])
     );
 
@@ -119,7 +128,7 @@ export const recalculateTournamentScores = (t: Tournament): { teams: Team[], pla
 
     // 2. Process ALL Races
     Object.values(t.races).forEach(race => {
-        const isFinals = race.stage === 'finals';
+        const stageName = race.stage;
 
         Object.entries(race.placements).forEach(([pid, pos]) => {
             const numericPos = Number(pos);
@@ -128,24 +137,19 @@ export const recalculateTournamentScores = (t: Tournament): { teams: Team[], pla
             // Update Team
             const tIdx = findTeamIdx(pid);
             if (tIdx !== -1) {
-                // Added '!' after teams[tIdx]
-                if (isFinals) teams[tIdx]!.finalsPoints += points;
-                else teams[tIdx]!.points += points;
+                const team = teams[tIdx]!;
+                team.stagePoints[stageName] = (team.stagePoints[stageName] ?? 0) + points;
             }
 
             // Update Player
             const player = players[pid];
             if (player) {
                 player.totalPoints = (player.totalPoints || 0) + points;
-
-                if (isFinals) {
-                    player.finalsPoints = (player.finalsPoints || 0) + points;
-                } else {
-                    player.groupPoints = (player.groupPoints || 0) + points;
-                }
+                player.stagePoints = player.stagePoints || {};
+                player.stagePoints[stageName] = (player.stagePoints[stageName] ?? 0) + points;
             }
 
-            //Update Wildcard
+            // Update Wildcard
             const wIdx = findWildcardIdx(pid);
             if (wIdx !== -1) {
                 wildcards[wIdx]!.points = (wildcards[wIdx]!.points || 0) + points;
@@ -157,11 +161,7 @@ export const recalculateTournamentScores = (t: Tournament): { teams: Team[], pla
     teams.forEach(team => {
         if (team.adjustments) {
             team.adjustments.forEach(adj => {
-                if (adj.stage === 'finals') {
-                    team.finalsPoints += adj.amount;
-                } else {
-                    team.points += adj.amount;
-                }
+                team.stagePoints[adj.stage] = (team.stagePoints[adj.stage] ?? 0) + adj.amount;
             });
         }
     });
@@ -183,14 +183,14 @@ export const getStatusColor = (status: string) => {
             return 'bg-slate-500/20 text-slate-400 border-slate-500/50';
     }
 };
-export const getPositionStyle = (pos?: number, stage?: string) => {
+export const getPositionStyle = (pos?: number, stage?: string, lastStageName?: string) => {
     if (!pos) return 'bg-slate-900 border-slate-800 text-slate-600';
     let style = 'bg-slate-800 border-slate-600 text-slate-400';
     if (pos === 1) style = 'bg-amber-500/10 border-amber-500 text-amber-500';
     if (pos === 2) style = 'bg-slate-300/10 border-slate-300 text-slate-300';
     if (pos === 3) style = 'bg-orange-700/10 border-orange-700 text-orange-600';
 
-    if (stage === 'finals') {
+    if (stage && stage === lastStageName) {
         style += ' ring-2 ring-amber-500/30';
     }
     return style;

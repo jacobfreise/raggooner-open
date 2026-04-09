@@ -1,25 +1,23 @@
 import type {Team, Tournament} from "../types.ts";
-import {TEAM_COLORS} from "./constants.ts";
+import {TEAM_COLORS, getStagePreset} from "./constants.ts";
 
 export function generateDraftStructure(tournament: Tournament) {
     const captains = Object.values(tournament.players).filter(p => p.isCaptain);
     const draftOrderCaptains = [...captains].sort(() => Math.random() - 0.5);
 
-    let groupDeck: string[] = [];
     const numTeams = captains.length;
+    const preset = getStagePreset(numTeams);
+    const firstStageName = preset[0]!.name;
 
-    // --- LOGIC UPDATE HERE ---
+    // Build a flat deck of group labels matching the first stage's group distribution
+    let groupDeck: string[] = [];
     if (numTeams === 9) {
-        // 3 Groups of 3
         groupDeck = ['A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'];
     } else if (numTeams === 8) {
-        // 2 Groups of 4
         groupDeck = ['A', 'A', 'A', 'A', 'B', 'B', 'B', 'B'];
     } else if (numTeams === 6) {
-        // 2 Groups of 3
         groupDeck = ['A', 'A', 'A', 'B', 'B', 'B'];
     } else {
-        // Small tournament (Main Event)
         groupDeck = Array(numTeams).fill('A');
     }
 
@@ -31,11 +29,10 @@ export function generateDraftStructure(tournament: Tournament) {
         captainId: cap.id,
         memberIds: [],
         name: `Team ${cap.name}`,
-        points: 0,
-        finalsPoints: 0,
-        group: groupDeck[index] as 'A' | 'B' | 'C',
+        stagePoints: {},
+        stageGroups: { [firstStageName]: groupDeck[index]! },
+        qualifiedStages: [firstStageName],
         color: TEAM_COLORS[index % TEAM_COLORS.length],
-        inFinals: numTeams < 6
     }));
 
     const draftOrder: string[] = [];

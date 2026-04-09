@@ -68,7 +68,8 @@ export function useDiagrams(
   const tournamentHasGroupsMap = computed(() => {
     const map = new Map<string, boolean>();
     filteredTournaments.value.forEach(t => {
-      const uniqueGroups = new Set((t.teams ?? []).map(tm => tm.group));
+      const firstStage = t.stages[0]?.name ?? 'groups';
+      const uniqueGroups = new Set((t.teams ?? []).map(tm => tm.stageGroups[firstStage]));
       map.set(t.id, uniqueGroups.size > 1);
     });
     return map;
@@ -120,9 +121,10 @@ export function useDiagrams(
       const points: (number | null)[] = sortedT.map(t => {
         const psys = tournamentPointSystemMap.value.get(t.id) ?? POINTS_SYSTEM;
         const hasGroups = tournamentHasGroupsMap.value.get(t.id) ?? false;
+        const lastStage = t.stages[t.stages.length - 1]?.name ?? 'finals';
         const allTRaces = filteredRaces.value.filter(r => r.tournamentId === t.id);
         const tRaces = stageView.value === 'total' ? allTRaces : allTRaces.filter(r => {
-          const isFinalsRace = r.stage === 'finals' || !hasGroups;
+          const isFinalsRace = r.stage === lastStage || !hasGroups;
           return stageView.value === 'finals' ? isFinalsRace : !isFinalsRace;
         });
         const uma = allTRaces.find(r => r.umaMapping[playerId])?.umaMapping[playerId] ?? null;
@@ -202,9 +204,10 @@ export function useDiagrams(
       const points: (number | null)[] = sortedT.map(t => {
         const psys = tournamentPointSystemMap.value.get(t.id) ?? POINTS_SYSTEM;
         const hasGroups = tournamentHasGroupsMap.value.get(t.id) ?? false;
+        const lastStage = t.stages[t.stages.length - 1]?.name ?? 'finals';
         const allTRaces = filteredRaces.value.filter(r => r.tournamentId === t.id);
         const tRaces = stageView.value === 'total' ? allTRaces : allTRaces.filter(r => {
-          const isFinalsRace = r.stage === 'finals' || !hasGroups;
+          const isFinalsRace = r.stage === lastStage || !hasGroups;
           return stageView.value === 'finals' ? isFinalsRace : !isFinalsRace;
         });
 

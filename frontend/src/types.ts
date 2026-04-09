@@ -14,13 +14,13 @@ export interface Player {
     // via deriveFromTournaments(). The Cloud Function computes these from races
     // directly for recentResults. Do not add Firestore writes for these fields.
     totalPoints?: number;
-    groupPoints?: number;
-    finalsPoints?: number;
+    stagePoints?: Record<string, number>; // keyed by stage name, e.g. { groups: 42, finals: 18 }
 }
 
 export interface Wildcard {
     playerId: string;
-    group: 'A' | 'B' | 'C' | 'Finals';
+    stage: string;  // stage name, e.g. 'semifinals'
+    group: string;  // group label within that stage, e.g. 'A'
     points?: number;
 }
 
@@ -28,7 +28,7 @@ export interface PointAdjustment {
     id: string;
     reason: string;
     amount: number; // Positive for bonus, negative for penalty
-    stage: 'groups' | 'finals';
+    stage: string;  // stage name, e.g. 'groups', 'semifinals', 'finals'
 }
 
 export interface Team {
@@ -36,19 +36,18 @@ export interface Team {
     captainId: string;
     memberIds: string[];
     name: string;
-    points: number;
-    finalsPoints: number;
+    stagePoints: Record<string, number>;   // points per stage, e.g. { groups: 42, finals: 18 }
+    stageGroups: Record<string, string>;   // group per stage, e.g. { groups: 'A', semifinals: 'B' }
+    qualifiedStages: string[];             // stages this team has qualified into
     adjustments?: PointAdjustment[];
-    group: 'A' | 'B' | 'C';
-    inFinals?: boolean;
     color?: string;
     umaPool?: string[];
 }
 
 export interface Race {
     id: string;
-    stage: 'groups' | 'finals';
-    group: 'A' | 'B' | 'C';
+    stage: string;  // stage name, e.g. 'groups', 'quarterfinals', 'finals'
+    group: string;  // group label, e.g. 'A', 'B'
     raceNumber: number;
     timestamp: string;
     placements: Record<string, number>; // playerId: position
@@ -176,6 +175,14 @@ export interface TournamentCreator {
     avatarUrl?: string;
 }
 
+export interface StageConfig {
+    name: string;                  // e.g. 'groups', 'quarterfinals', 'semifinals', 'finals'
+    label: string;                 // display name shown in UI
+    groups: string[];              // group labels, e.g. ['A', 'B', 'C']
+    racesRequired: number;         // races needed before advancement (typically 5)
+    teamsAdvancingPerGroup: number; // qualifiers per group (0 = last stage / no advancement)
+}
+
 export interface Tournament {
     id: string;
     name: string;
@@ -185,7 +192,8 @@ export interface Tournament {
     status: 'track-selection' | 'registration' | 'draft' | 'active' | 'ban' | 'pick' | 'completed';
     selectedTrack?: string;
     selectedCondition?: Condition;
-    stage: 'groups' | 'finals';
+    stages: StageConfig[];       // ordered list of stages, first = earliest
+    currentStageIndex: number;   // index into stages[]
     playerIds: string[];
     players: Record<string, Player>;
     wildcards?: Wildcard[];

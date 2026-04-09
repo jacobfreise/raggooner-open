@@ -62,9 +62,14 @@ describe('analyticsUtils', () => {
 
     it('returns finalist winner if finalists exist', () => {
       const tournament = {
+        stages: [
+          { name: 'groups', label: 'Group Stage', groups: ['A', 'B'], racesRequired: 5, teamsAdvancingPerGroup: 1 },
+          { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+        ],
+        currentStageIndex: 1,
         teams: [
-          { id: 't1', inFinals: true, captainId: 'p1', memberIds: [], group: 'A', adjustments: [] },
-          { id: 't2', inFinals: true, captainId: 'p2', memberIds: [], group: 'B', adjustments: [] },
+          { id: 't1', captainId: 'p1', memberIds: [], stagePoints: { groups: 0, finals: 0 }, stageGroups: { groups: 'A', finals: 'A' }, qualifiedStages: ['groups', 'finals'], adjustments: [] },
+          { id: 't2', captainId: 'p2', memberIds: [], stagePoints: { groups: 0, finals: 0 }, stageGroups: { groups: 'B', finals: 'A' }, qualifiedStages: ['groups', 'finals'], adjustments: [] },
         ],
         players: {
           p1: { id: 'p1', name: 'P1', isCaptain: true, uma: '' },
@@ -82,21 +87,34 @@ describe('analyticsUtils', () => {
 
     it('returns undefined if multiple groups exist and no finalists', () => {
       const tournament = {
+        stages: [
+          { name: 'groups', label: 'Group Stage', groups: ['A', 'B'], racesRequired: 5, teamsAdvancingPerGroup: 1 },
+          { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+        ],
+        currentStageIndex: 0,
         teams: [
-          { id: 't1', group: 'A', inFinals: false },
-          { id: 't2', group: 'B', inFinals: false },
-        ]
+          { id: 't1', stageGroups: { groups: 'A' }, qualifiedStages: ['groups'], stagePoints: {}, adjustments: [] },
+          { id: 't2', stageGroups: { groups: 'B' }, qualifiedStages: ['groups'], stagePoints: {}, adjustments: [] },
+        ],
+        players: {}, races: {}, pointsSystem: {}
       } as any;
       expect(getWinningTeam(tournament)).toBeUndefined();
     });
 
     it('returns top team if single group and no finalists', () => {
       const tournament = {
-        teams: [
-          { id: 't1', group: 'A', inFinals: false, points: 100 },
-          { id: 't2', group: 'A', inFinals: false, points: 80 },
+        stages: [
+          { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
         ],
-        players: {},
+        currentStageIndex: 0,
+        teams: [
+          { id: 't1', captainId: 'p1', memberIds: [], stageGroups: { finals: 'A' }, qualifiedStages: ['finals'], stagePoints: { finals: 100 }, adjustments: [] },
+          { id: 't2', captainId: 'p2', memberIds: [], stageGroups: { finals: 'A' }, qualifiedStages: ['finals'], stagePoints: { finals: 80 }, adjustments: [] },
+        ],
+        players: {
+          p1: { id: 'p1', name: 'P1', isCaptain: true, uma: '' },
+          p2: { id: 'p2', name: 'P2', isCaptain: true, uma: '' },
+        },
         races: {},
         pointsSystem: {}
       } as any;
@@ -105,11 +123,18 @@ describe('analyticsUtils', () => {
 
     it('breaks ties in getWinningTeam using ID comparison', () => {
       const tournament = {
-        teams: [
-          { id: 'team_b', group: 'A', inFinals: false, points: 100 },
-          { id: 'team_a', group: 'A', inFinals: false, points: 100 },
+        stages: [
+          { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
         ],
-        players: {},
+        currentStageIndex: 0,
+        teams: [
+          { id: 'team_b', captainId: 'pb', memberIds: [], stageGroups: { finals: 'A' }, qualifiedStages: ['finals'], stagePoints: { finals: 100 }, adjustments: [] },
+          { id: 'team_a', captainId: 'pa', memberIds: [], stageGroups: { finals: 'A' }, qualifiedStages: ['finals'], stagePoints: { finals: 100 }, adjustments: [] },
+        ],
+        players: {
+          pa: { id: 'pa', name: 'PA', isCaptain: true, uma: '' },
+          pb: { id: 'pb', name: 'PB', isCaptain: true, uma: '' },
+        },
         races: {},
         pointsSystem: {}
       } as any;

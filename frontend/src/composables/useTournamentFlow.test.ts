@@ -14,14 +14,34 @@ import { ref } from 'vue'
 import { useTournamentFlow } from './useTournamentFlow'
 import type {FirestoreUpdate, Tournament} from '../types'
 
+const SMALL_PRESET = [
+    { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+]
+
+const TWO_STAGE_PRESET = [
+    { name: 'groups', label: 'Group Stage', groups: ['A', 'B'], racesRequired: 5, teamsAdvancingPerGroup: 1 },
+    { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+]
+
+const makeTeam = (id: string, captainId: string) => ({
+    id,
+    captainId,
+    memberIds: [],
+    name: id,
+    stagePoints: { finals: 0 },
+    stageGroups: { finals: 'A' },
+    qualifiedStages: ['finals'],
+})
+
 const makeTournament = (override: Partial<Tournament> = {}): Tournament => ({
     id: 't1',
     name: 'Test',
     status: 'registration',
-    stage: 'groups',
+    stages: SMALL_PRESET,
+    currentStageIndex: 0,
     playerIds: [],
     players: {},
-    teams: [{ id: 'team-1', captainId: 'p1', memberIds: [], name: 'A', points: 0, finalsPoints: 0, group: 'A' }],
+    teams: [makeTeam('team-1', 'p1')],
     races: {},
     createdAt: new Date().toISOString(),
     ...override,
@@ -69,23 +89,21 @@ describe('useTournamentFlow — uma-ban format', () => {
         }))
     })
 
-    it('ban → active: sets status to active with correct stage for small tournament', async () => {
-        const tournament = ref(makeTournament({ format: 'uma-ban', status: 'ban', teams: [{ id: 't1', captainId: 'p1', memberIds: [], name: 'A', points: 0, finalsPoints: 0, group: 'A' }] }))
+    it('ban → active: sets status to active with small preset for small tournament', async () => {
+        const tournament = ref(makeTournament({ format: 'uma-ban', status: 'ban', teams: [makeTeam('t1', 'p1')] }))
         const { advancePhase } = useTournamentFlow(tournament, secureUpdate)
 
         await advancePhase()
 
         expect(secureUpdate).toHaveBeenCalledWith(expect.objectContaining({
             status: 'active',
-            stage: 'finals', // < 6 teams → finals
+            stages: SMALL_PRESET,
+            currentStageIndex: 0,
         }))
     })
 
-    it('ban → active: sets stage to groups for large tournament (≥ 6 teams)', async () => {
-        const teams = Array.from({ length: 6 }, (_, i) => ({
-            id: `t${i}`, captainId: `p${i}`, memberIds: [], name: `T${i}`,
-            points: 0, finalsPoints: 0, group: 'A' as const,
-        }))
+    it('ban → active: sets stages for large tournament (≥ 6 teams)', async () => {
+        const teams = Array.from({ length: 6 }, (_, i) => makeTeam(`t${i}`, `p${i}`))
         const tournament = ref(makeTournament({ format: 'uma-ban', status: 'ban', teams }))
         const { advancePhase } = useTournamentFlow(tournament, secureUpdate)
 
@@ -93,7 +111,7 @@ describe('useTournamentFlow — uma-ban format', () => {
 
         expect(secureUpdate).toHaveBeenCalledWith(expect.objectContaining({
             status: 'active',
-            stage: 'groups',
+            currentStageIndex: 0,
         }))
     })
 
@@ -174,14 +192,15 @@ describe('useTournamentFlow — uma-draft format', () => {
         expect(secureUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'active' }))
     })
 
-    it('pick → active: sets stage to finals for small tournament', async () => {
+    it('pick → active: sets stages and currentStageIndex for small tournament', async () => {
         const tournament = ref(makeTournament({ format: 'uma-draft', status: 'pick' }))
         const { advancePhase } = useTournamentFlow(tournament, secureUpdate)
 
         await advancePhase()
 
         expect(secureUpdate).toHaveBeenCalledWith(expect.objectContaining({
-            stage: 'finals',
+            stages: SMALL_PRESET,
+            currentStageIndex: 0,
         }))
     })
 

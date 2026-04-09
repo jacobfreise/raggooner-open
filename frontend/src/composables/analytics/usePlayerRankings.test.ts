@@ -1,6 +1,24 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ref, nextTick } from 'vue';
+import { ref } from 'vue';
 import { usePlayerRankings } from './usePlayerRankings';
+
+// Standard stage presets for tests
+const TWO_STAGE = [
+  { name: 'groups', label: 'Group Stage', groups: ['A', 'B'], racesRequired: 5, teamsAdvancingPerGroup: 1 },
+  { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+];
+const SMALL_STAGE = [
+  { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+];
+
+const makeTeam = (id: string, captainId: string, group: string, inFinals: boolean) => ({
+  id, captainId, memberIds: [],
+  stageGroups: inFinals
+    ? { groups: group, finals: 'A' }
+    : { groups: group },
+  qualifiedStages: inFinals ? ['groups', 'finals'] : ['groups'],
+  stagePoints: {},
+});
 
 describe('usePlayerRankings', () => {
   const players = ref([] as any);
@@ -18,15 +36,17 @@ describe('usePlayerRankings', () => {
       { id: 'p2', name: 'Bob', metadata: {} },
     ];
     filteredTournaments.value = [
-      { 
-        id: 't1', 
-        name: 'T1', 
-        status: 'completed', 
+      {
+        id: 't1',
+        name: 'T1',
+        status: 'completed',
         createdAt: '2024-01-01',
+        stages: TWO_STAGE,
+        currentStageIndex: 1,
         teams: [
-          { id: 'team1', captainId: 'p1', memberIds: [], inFinals: true, group: 'A' },
-          { id: 'team2', captainId: 'p2', memberIds: [], inFinals: false, group: 'A' }
-        ], 
+          makeTeam('team1', 'p1', 'A', true),
+          makeTeam('team2', 'p2', 'A', false),
+        ],
         races: {
           'groups-A-1': { stage: 'groups', group: 'A', raceNumber: 1, placements: { p1: 1, p2: 2 } }
         },
@@ -110,7 +130,7 @@ describe('usePlayerRankings', () => {
       players, filteredTournaments, filteredParticipations, filteredRaces, minTournaments, tierCriterion, ref('total' as any)
     );
     playerSortKey.value = 'name';
-    playerSortDesc.value = false; 
+    playerSortDesc.value = false;
     expect(playerRankings.value[0].player.name).toBe('Alice');
     togglePlayerSort('name');
     expect(playerRankings.value[0].player.name).toBe('Bob');
@@ -137,10 +157,10 @@ describe('usePlayerRankings', () => {
       { playerId: 'p1', tournamentId: 't2', totalPoints: 100 }
     ] as any);
     const multiUmaTourneys = ref([
-      { id: 't1', status: 'completed', teams: [], players: { p1: { id: 'p1' }, p2: { id: 'p2' } }, races: {} },
-      { id: 't2', status: 'completed', teams: [], players: { p1: { id: 'p1' }, p2: { id: 'p2' } }, races: {} }
+      { id: 't1', status: 'completed', stages: SMALL_STAGE, currentStageIndex: 0, teams: [], players: { p1: { id: 'p1' }, p2: { id: 'p2' } }, races: {} },
+      { id: 't2', status: 'completed', stages: SMALL_STAGE, currentStageIndex: 0, teams: [], players: { p1: { id: 'p1' }, p2: { id: 'p2' } }, races: {} }
     ] as any);
-    
+
     const { playerRankings } = usePlayerRankings(
       multiPlayers, multiUmaTourneys, multiUmaParts, multiUmaRaces, minTournaments, tierCriterion
     );
@@ -151,16 +171,20 @@ describe('usePlayerRankings', () => {
   it('calculates complex tournament standings in expanded view', () => {
     const complexPlayers = ref([{ id: 'p1', name: 'Alice' }, { id: 'p2', name: 'Bob' }, { id: 'p3', name: 'Charlie' }] as any);
     const complexTournaments = ref([
-      { 
-        id: 't_winner', name: 'Winner', status: 'completed', teams: [
-          { id: 'team_alice', captainId: 'p1', memberIds: [], inFinals: true, group: 'A' },
-          { id: 'team_bob', captainId: 'p2', memberIds: [], inFinals: true, group: 'B' }
+      {
+        id: 't_winner', name: 'Winner', status: 'completed',
+        stages: TWO_STAGE, currentStageIndex: 1,
+        teams: [
+          makeTeam('team_alice', 'p1', 'A', true),
+          makeTeam('team_bob', 'p2', 'B', true),
         ], races: {}, players: { p1: { id: 'p1' }, p2: { id: 'p2' } }
       },
       {
-        id: 't_eliminated', name: 'Eliminated', status: 'completed', teams: [
-          { id: 'team_alice2', captainId: 'p1', memberIds: [], inFinals: false, group: 'A' },
-          { id: 'team_charlie', captainId: 'p3', memberIds: [], inFinals: true, group: 'B' }
+        id: 't_eliminated', name: 'Eliminated', status: 'completed',
+        stages: TWO_STAGE, currentStageIndex: 1,
+        teams: [
+          makeTeam('team_alice2', 'p1', 'A', false),
+          makeTeam('team_charlie', 'p3', 'B', true),
         ], races: {}, players: { p1: { id: 'p1' }, p3: { id: 'p3' } }
       }
     ] as any);
@@ -180,8 +204,8 @@ describe('usePlayerRankings', () => {
 
   it('sorts expanded player tournaments by points', () => {
     const sortTournaments = ref([
-      { id: 't1', name: 'T1', createdAt: '2024-01-01', status: 'completed', teams: [{ id: 'team1', captainId: 'p1', memberIds: [], group: 'A' }], races: {}, players: { p1: { id: 'p1' } } },
-      { id: 't2', name: 'T2', createdAt: '2024-02-01', status: 'completed', teams: [{ id: 'team2', captainId: 'p1', memberIds: [], group: 'A' }], races: {}, players: { p1: { id: 'p1' } } }
+      { id: 't1', name: 'T1', createdAt: '2024-01-01', status: 'completed', stages: SMALL_STAGE, currentStageIndex: 0, teams: [{ id: 'team1', captainId: 'p1', memberIds: [], stageGroups: { finals: 'A' }, qualifiedStages: ['finals'], stagePoints: {} }], races: {}, players: { p1: { id: 'p1' } } },
+      { id: 't2', name: 'T2', createdAt: '2024-02-01', status: 'completed', stages: SMALL_STAGE, currentStageIndex: 0, teams: [{ id: 'team2', captainId: 'p1', memberIds: [], stageGroups: { finals: 'A' }, qualifiedStages: ['finals'], stagePoints: {} }], races: {}, players: { p1: { id: 'p1' } } }
     ] as any);
     const sortParts = ref([
       { playerId: 'p1', tournamentId: 't1', totalPoints: 50, teamId: 'team1' },
@@ -199,12 +223,12 @@ describe('usePlayerRankings', () => {
     togglePlayerExpand('p1');
     playerTournamentSortKey.value = 'totalPoints';
     playerTournamentSortDesc.value = true;
-    
+
     const res = expandedPlayerTournaments.value;
-    
+
     // T2 has 1st place (25 pts), T1 has 2nd place (18 pts). T2 first.
     expect(res[0].tournamentId).toBe('t2');
-    
+
     togglePlayerTournamentSort('totalPoints');
     expect(expandedPlayerTournaments.value[0].tournamentId).toBe('t1');
   });
@@ -212,6 +236,7 @@ describe('usePlayerRankings', () => {
   it('handles player with no team and no wildcards (hasGroups=false path)', () => {
     const noTeamTournaments = ref([{
       id: 't1', name: 'T1', status: 'completed', createdAt: '2024-01-01',
+      stages: SMALL_STAGE, currentStageIndex: 0,
       teams: [], races: {}, players: { p1: { id: 'p1' } }
     }] as any);
     const noTeamParts = ref([
@@ -231,7 +256,11 @@ describe('usePlayerRankings', () => {
     // Multi-group tournament so hasGroups=true, but p1 has no team → hits lines 521-522
     const multiGroupNoTeam = ref([{
       id: 't1', name: 'T1', status: 'completed', createdAt: '2024-01-01',
-      teams: [{ id: 'team1', captainId: 'p2', memberIds: [], group: 'A' }, { id: 'team2', captainId: 'p3', memberIds: [], group: 'B' }],
+      stages: TWO_STAGE, currentStageIndex: 0,
+      teams: [
+        makeTeam('team1', 'p2', 'A', false),
+        makeTeam('team2', 'p3', 'B', false),
+      ],
       races: {}, players: { p1: { id: 'p1' }, p2: { id: 'p2' }, p3: { id: 'p3' } }
     }] as any);
     const noTeamParts2 = ref([
@@ -250,15 +279,15 @@ describe('usePlayerRankings', () => {
   it('accesses expandedPlayerRaces computed and exercises all sort branches', () => {
     // Two races for p1 to trigger sort comparisons
     const multiRaceTournaments = ref([
-      { id: 't1', name: 'B Tournament', status: 'completed', createdAt: '2024-01-01', teams: [], races: {}, players: { p1: { id: 'p1' }, p2: { id: 'p2' } } },
-      { id: 't2', name: 'A Tournament', status: 'completed', createdAt: '2024-02-01', teams: [], races: {}, players: { p1: { id: 'p1' }, p2: { id: 'p2' } } },
+      { id: 't1', name: 'B Tournament', status: 'completed', createdAt: '2024-01-01', stages: SMALL_STAGE, currentStageIndex: 0, teams: [], races: {}, players: { p1: { id: 'p1' }, p2: { id: 'p2' } } },
+      { id: 't2', name: 'A Tournament', status: 'completed', createdAt: '2024-02-01', stages: SMALL_STAGE, currentStageIndex: 0, teams: [], races: {}, players: { p1: { id: 'p1' }, p2: { id: 'p2' } } },
     ] as any);
     const multiRaceParts = ref([
       { playerId: 'p1', tournamentId: 't1', totalPoints: 25, teamId: 'team1' },
       { playerId: 'p1', tournamentId: 't2', totalPoints: 18, teamId: 'team2' },
     ] as any);
     const multiRaces = ref([
-      { tournamentId: 't1', stage: 'groups', group: 'A', raceNumber: 1, placements: { p1: 1, p2: 2 }, umaMapping: { p1: 'Special Week', p2: 'Silence Suzuka' } },
+      { tournamentId: 't1', stage: 'finals', group: 'A', raceNumber: 1, placements: { p1: 1, p2: 2 }, umaMapping: { p1: 'Special Week', p2: 'Silence Suzuka' } },
       { tournamentId: 't2', stage: 'finals', group: 'A', raceNumber: 1, placements: { p1: 2, p2: 1 }, umaMapping: { p1: 'Silence Suzuka', p2: 'Special Week' } },
     ] as any);
 
@@ -296,9 +325,10 @@ describe('usePlayerRankings', () => {
   it('covers group race stats in playerRankings and expandedPlayerUmas (lines 221-226, 253-258, 353-357, 368-369, 381-387)', () => {
     const twoUmaTournaments = ref([{
       id: 't1', name: 'T1', status: 'completed', createdAt: '2024-01-01',
+      stages: TWO_STAGE, currentStageIndex: 0,
       teams: [
-        { id: 'team1', captainId: 'p1', memberIds: [], group: 'A' },
-        { id: 'team2', captainId: 'p2', memberIds: [], group: 'B' }
+        makeTeam('team1', 'p1', 'A', false),
+        makeTeam('team2', 'p2', 'B', false),
       ],
       players: { p1: { id: 'p1' }, p2: { id: 'p2' } },
       races: {}
@@ -340,8 +370,9 @@ describe('usePlayerRankings', () => {
   it('wildcard path in expandedPlayerTournaments (lines 511-514)', () => {
     const wildcardTournament = ref([{
       id: 't1', name: 'T1', status: 'completed', createdAt: '2024-01-01',
-      teams: [{ id: 'team2', captainId: 'p2', memberIds: [], group: 'A' }],
-      wildcards: [{ playerId: 'p1', group: 'A', points: 10 }],
+      stages: TWO_STAGE, currentStageIndex: 0,
+      teams: [makeTeam('team2', 'p2', 'A', false)],
+      wildcards: [{ playerId: 'p1', group: 'A', stage: 'groups', points: 10 }],
       races: {},
       players: { p1: { id: 'p1' }, p2: { id: 'p2' } }
     }] as any);
@@ -359,8 +390,8 @@ describe('usePlayerRankings', () => {
 
   it('expandedPlayerRaces sort returns 0 for equal values and covers race guards (lines 551, 553, 587)', () => {
     const eqTournaments = ref([
-      { id: 't1', name: 'T1', status: 'completed', createdAt: '2024-01-01', teams: [], races: {}, players: { p1: { id: 'p1' } } },
-      { id: 't2', name: 'T2', status: 'completed', createdAt: '2024-02-01', teams: [], races: {}, players: { p1: { id: 'p1' } } },
+      { id: 't1', name: 'T1', status: 'completed', createdAt: '2024-01-01', stages: SMALL_STAGE, currentStageIndex: 0, teams: [], races: {}, players: { p1: { id: 'p1' } } },
+      { id: 't2', name: 'T2', status: 'completed', createdAt: '2024-02-01', stages: SMALL_STAGE, currentStageIndex: 0, teams: [], races: {}, players: { p1: { id: 'p1' } } },
     ] as any);
     const eqParts = ref([
       { playerId: 'p1', tournamentId: 't1', totalPoints: 18, teamId: 'team1' },

@@ -1,6 +1,7 @@
 import {ref, type Ref} from "vue";
 import type {FirestoreUpdate, Tournament} from "../types";
 import { generateDraftStructure, generateUmaDraftOrder } from "../utils/draftUtils";
+import { getStagePreset } from "../utils/constants";
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
 
@@ -19,7 +20,6 @@ export function useTournamentFlow(
         try {
             const t = tournament.value;
             const formatId = t.format || 'uma-ban'; // Fallback to ban format
-            const isSmallTournament = t.teams.length < 6;
 
             // ==========================================
             // FORMAT: DRAFT PICK (Registration -> Player Draft -> Uma Ban -> Uma Draft -> Active -> Completed)
@@ -63,7 +63,8 @@ export function useTournamentFlow(
                     case 'pick': {
                         await secureUpdate({
                             status: 'active',
-                            stage: isSmallTournament ? 'finals' : 'groups',
+                            stages: getStagePreset(t.teams.length),
+                            currentStageIndex: 0,
                             banTimerStart: null,
                             playedAt: new Date().toISOString(),
                             activeTimerStart: new Date().toISOString(),
@@ -109,7 +110,8 @@ export function useTournamentFlow(
                     case 'ban': {
                         await secureUpdate({
                             status: 'active',
-                            stage: isSmallTournament ? 'finals' : 'groups',
+                            stages: getStagePreset(t.teams.length),
+                            currentStageIndex: 0,
                             banTimerStart: null,
                             playedAt: new Date().toISOString(),
                             activeTimerStart: new Date().toISOString(),

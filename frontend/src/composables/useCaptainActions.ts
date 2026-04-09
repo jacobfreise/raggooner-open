@@ -3,6 +3,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import { useAuth } from './useAuth';
 import type { Team, Tournament } from '../types';
+import { getCurrentStageName, isAtLastStage } from '../utils/utils';
 
 export function useCaptainActions(tournament: Ref<Tournament | null>, appId: string = 'default-app') {
     const { linkedPlayer } = useAuth();
@@ -33,14 +34,15 @@ export function useCaptainActions(tournament: Ref<Tournament | null>, appId: str
     });
 
     // Returns true when the captain can submit race results for a given group.
-    // Groups stage: captain's team must be in that group.
-    // Finals stage: captain's team must have qualified.
+    // Last stage: captain's team must have qualified.
+    // Earlier stages: captain's team must be in that group.
     const canCaptainEditGroup = (group: string): boolean => {
         if (!isCaptain.value || !captainTeam.value || !tournament.value) return false;
-        const stage = tournament.value.stage;
-        if (stage === 'groups') return captainTeam.value.group === group;
-        if (stage === 'finals') return captainTeam.value.inFinals ?? false;
-        return false;
+        const stageName = getCurrentStageName(tournament.value);
+        if (isAtLastStage(tournament.value)) {
+            return captainTeam.value.qualifiedStages.includes(stageName);
+        }
+        return captainTeam.value.stageGroups[stageName] === group;
     };
 
     // --- Cloud function callers ---

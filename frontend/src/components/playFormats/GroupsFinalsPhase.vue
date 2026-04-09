@@ -258,7 +258,7 @@ const shouldShowGroup = (group: string) => {
   return ['A', 'B'].includes(group);
 };
 
-const getRelevantAdjustments = (team: Team, stage: 'groups' | 'finals') => {
+const getRelevantAdjustments = (team: Team, stage: string) => {
   return team.adjustments?.filter(adj => adj.stage === stage) || [];
 };
 
@@ -294,8 +294,11 @@ const sortedTeamsForModal = computed(() => {
   if (isCaptainUmaSession.value && props.captainTeam) {
     return [props.captainTeam];
   }
+  const firstStage = props.tournamentProp.stages[0]?.name ?? 'groups';
   return [...props.tournamentProp.teams].sort((a, b) => {
-    if (a.group !== b.group) return a.group.localeCompare(b.group);
+    const gA = a.stageGroups[firstStage] ?? '';
+    const gB = b.stageGroups[firstStage] ?? '';
+    if (gA !== gB) return gA.localeCompare(gB);
     return a.name.localeCompare(b.name);
   });
 });
@@ -565,7 +568,7 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
                   </div>
                 </div>
 
-                <span class="text-2xl font-mono font-bold text-white tabular-nums">{{ team.points }}</span>
+                <span class="text-2xl font-mono font-bold text-white tabular-nums">{{ team.stagePoints[currentView] ?? 0 }}</span>
                 <span class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">PTS</span>
               </div>
 
@@ -687,7 +690,7 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
                   </div>
                 </div>
 
-                <span class="text-2xl font-mono font-bold text-white tabular-nums">{{ team.points }}</span>
+                <span class="text-2xl font-mono font-bold text-white tabular-nums">{{ team.stagePoints[currentView] ?? 0 }}</span>
                 <span class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">PTS</span>
               </div>
 
@@ -807,7 +810,7 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
                   </div>
                 </div>
 
-                <span class="text-2xl font-mono font-bold text-white tabular-nums">{{ team.points }}</span>
+                <span class="text-2xl font-mono font-bold text-white tabular-nums">{{ team.stagePoints[currentView] ?? 0 }}</span>
                 <span class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">PTS</span>
               </div>
 
@@ -918,7 +921,7 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
                   </div>
                 </div>
 
-                <span class="text-4xl font-mono font-bold text-indigo-400 tabular-nums">{{ team.finalsPoints || 0 }}</span>
+                <span class="text-4xl font-mono font-bold text-indigo-400 tabular-nums">{{ team.stagePoints[currentView] ?? 0 }}</span>
                 <span class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">PTS</span>
               </div>
 
@@ -1173,7 +1176,7 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
           <div class="space-y-8">
             <div v-for="team in sortedTeamsForModal" :key="team.id" class="space-y-3">
               <h4 class="font-bold text-lg flex items-center gap-2">
-                <span v-if="tournament.teams.length > 5" class="text-xs font-mono px-2 py-0.5 rounded border bg-slate-800 border-slate-700 text-slate-400">Group {{ team.group }}</span>
+                <span v-if="tournament.teams.length > 5" class="text-xs font-mono px-2 py-0.5 rounded border bg-slate-800 border-slate-700 text-slate-400">Group {{ team.stageGroups[tournament.stages[0]?.name ?? 'groups'] }}</span>
                 <span :style="{ color: team.color }">{{ team.name }}</span>
               </h4>
 
@@ -1302,19 +1305,19 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
 
         <div class="flex flex-wrap justify-center gap-4 mb-8">
 
-          <div v-for="group in ['A', 'B', 'C'].filter(g => tiedTeams.some(t => t.group === g))" :key="group"
+          <div v-for="group in ['A', 'B', 'C'].filter(g => tiedTeams.some(t => t.stageGroups[currentView] === g))" :key="group"
                class="bg-slate-950/50 rounded-lg p-3 border border-slate-800 flex flex-col gap-3 w-64 shrink-0">
 
             <div class="text-xs font-bold text-slate-500 uppercase tracking-widest text-center border-b border-slate-800 pb-2">
               Group {{ group }}
             </div>
 
-            <div v-if="tournament.teams.some(t => t.group === group && guaranteedIds.includes(t.id) && !tiedTeams.some(tt => tt.id === t.id))"
+            <div v-if="tournament.teams.some(t => t.stageGroups[currentView] === group && guaranteedIds.includes(t.id) && !tiedTeams.some(tt => tt.id === t.id))"
                  class="space-y-2">
 
               <div class="text-[10px] text-emerald-500/70 font-bold uppercase tracking-wider px-1">Qualified</div>
 
-              <div v-for="team in tournament.teams.filter(t => t.group === group && guaranteedIds.includes(t.id) && !tiedTeams.some(tt => tt.id === t.id)).sort((a,b) => b.points - a.points)"
+              <div v-for="team in tournament.teams.filter(t => t.stageGroups[currentView] === group && guaranteedIds.includes(t.id) && !tiedTeams.some(tt => tt.id === t.id)).sort((a,b) => (b.stagePoints[currentView] ?? 0) - (a.stagePoints[currentView] ?? 0))"
                    :key="team.id"
                    class="bg-emerald-900/10 border border-emerald-500/20 rounded p-2 flex justify-between items-center opacity-70 grayscale-[0.3]">
 
@@ -1322,18 +1325,18 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
                   <div class="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-[10px] font-bold ring-1 ring-emerald-500/50">Q</div>
                   <div class="text-sm font-bold text-slate-300 truncate" :style="{ color: team.color }">{{ team.name }}</div>
                 </div>
-                <div class="text-xs font-mono text-slate-500">{{ team.points }} pts</div>
+                <div class="text-xs font-mono text-slate-500">{{ team.stagePoints[currentView] ?? 0 }} pts</div>
               </div>
 
               <div class="border-t border-slate-800 border-dashed my-2"></div>
             </div>
 
-            <div v-if="tournament.teams.some(t => t.group === group && guaranteedIds.includes(t.id) && !tiedTeams.some(tt => tt.id === t.id))"
+            <div v-if="tournament.teams.some(t => t.stageGroups[currentView] === group && guaranteedIds.includes(t.id) && !tiedTeams.some(tt => tt.id === t.id))"
                  class="text-[10px] text-amber-500/70 font-bold uppercase tracking-wider px-1 mb-1">
               Contenders
             </div>
 
-            <button v-for="team in tiedTeams.filter(t => t.group === group)" :key="team.id"
+            <button v-for="team in tiedTeams.filter(t => t.stageGroups[currentView] === group)" :key="team.id"
                     @click="resolveManually(team)"
                     class="relative text-left p-3 rounded-lg border transition-all duration-200 group hover:shadow-lg"
                     :class="guaranteedIds.includes(team.id)
@@ -1346,7 +1349,7 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
               </div>
 
               <div class="font-bold text-base mb-1 pr-6 truncate" :style="{ color: team.color }">{{ team.name }}</div>
-              <div class="text-xs font-mono text-slate-400 mb-3">{{ team.points }} pts</div>
+              <div class="text-xs font-mono text-slate-400 mb-3">{{ team.stagePoints[currentView] ?? 0 }} pts</div>
 
               <div class="space-y-1">
                 <div v-for="pid in [team.captainId, ...team.memberIds]" :key="pid" class="flex items-center gap-1.5">

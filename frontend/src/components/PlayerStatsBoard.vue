@@ -42,7 +42,9 @@ const playerEliminated = (playerId: string) => {
   const team = props.tournament.teams.find(t =>
       t.captainId === playerId || t.memberIds.includes(playerId)
   );
-  return team ? !team.inFinals : false;
+  if (!team) return false;
+  const lastStage = props.tournament.stages[props.tournament.stages.length - 1]?.name ?? 'finals';
+  return !team.qualifiedStages.includes(lastStage);
 };
 
 const getPhaseTotal = (results: any[]) => {

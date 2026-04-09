@@ -195,7 +195,8 @@ const createTournament = async () => {
       name: newTournamentName.value,
       seasonId: selectedSeasonId.value || undefined,
       status: 'track-selection',
-      stage: 'groups',
+      stages: [],         // set when tournament goes active (based on team count)
+      currentStageIndex: 0,
       players: {},
       teams: [],
       races: {},
@@ -248,7 +249,7 @@ const selectTournamentFromHome = (id: string) => {
 
 const formatTournamentStatus = (t: Tournament): string => {
   if (t.status === 'active') {
-    return t.stage === 'groups' ? 'Group Stage' : 'Finals';
+    return t.stages[t.currentStageIndex]?.label ?? 'Active';
   }
 
   const statusMap: Record<Tournament['status'], string> = {

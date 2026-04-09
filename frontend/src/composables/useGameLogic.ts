@@ -1,7 +1,7 @@
 import {ref, computed, type Ref, watch} from 'vue';
 import type {Tournament, Team, Race, FirestoreUpdate, Player, PointAdjustment} from '../types';
 import { POINTS_SYSTEM as DEFAULT_POINTS } from '../utils/constants';
-import {compareTeams, getPlayerUma, getPlayerName, raceKey, recalculateTournamentScores} from '../utils/utils';
+import {compareTeams, getPlayerUma, getPlayerName, raceKey, recalculateTournamentScores, getCurrentStageName, getLastStageName, isAtLastStage} from '../utils/utils';
 import {
     arrayRemove,
     arrayUnion,
@@ -9,7 +9,7 @@ import {
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
 
-const currentView = ref<'groups' | 'finals'>('groups');
+const currentView = ref<string>('');
 const saving = ref(false);
 
 export function useGameLogic(
@@ -17,9 +17,9 @@ export function useGameLogic(
     secureUpdate: SecureUpdateFn
 ) {
 
-    watch(() => tournament.value?.stage, (newStage) => {
-        if (newStage === 'finals' || newStage === 'groups') {
-            currentView.value = newStage;
+    watch(() => tournament.value?.currentStageIndex, () => {
+        if (tournament.value) {
+            currentView.value = getCurrentStageName(tournament.value);
         }
     }, { immediate: true });
 
@@ -87,27 +87,31 @@ export function useGameLogic(
 
     const sortedTeamsA = computed<Team[]>(() => {
         if (!tournament.value) return [];
-        const teams = tournament.value.teams.filter(t => tournament.value!.teams.length < 6 || t.group === 'A');
-        return teams.sort((a, b) => compareTeams(a, b, true, tournament.value!));
+        const stageName = currentView.value;
+        const teams = tournament.value.teams.filter(t => t.stageGroups[stageName] === 'A');
+        return teams.sort((a, b) => compareTeams(a, b, true, tournament.value!, stageName));
     });
 
     const sortedTeamsB = computed<Team[]>(() => {
         if (!tournament.value) return [];
-        const teams = tournament.value.teams.filter(t => t.group === 'B');
-        return teams.sort((a, b) => compareTeams(a, b, true, tournament.value!));
+        const stageName = currentView.value;
+        const teams = tournament.value.teams.filter(t => t.stageGroups[stageName] === 'B');
+        return teams.sort((a, b) => compareTeams(a, b, true, tournament.value!, stageName));
     });
 
     const sortedTeamsC = computed<Team[]>(() => {
         if (!tournament.value) return [];
-        const teams = tournament.value.teams.filter(t => t.group === 'C');
-        return teams.sort((a, b) => compareTeams(a, b, true, tournament.value!));
+        const stageName = currentView.value;
+        const teams = tournament.value.teams.filter(t => t.stageGroups[stageName] === 'C');
+        return teams.sort((a, b) => compareTeams(a, b, true, tournament.value!, stageName));
     });
 
     const sortedFinalsTeams = computed<Team[]>(() => {
         if (!tournament.value) return [];
-        return tournament.value.teams!
-            .filter(t => t.inFinals)
-            .sort((a, b) => compareTeams(a, b, true, tournament.value!, true))!;
+        const lastStage = getLastStageName(tournament.value);
+        return tournament.value.teams
+            .filter(t => t.qualifiedStages.includes(lastStage))
+            .sort((a, b) => compareTeams(a, b, true, tournament.value!, lastStage));
     });
 
     const sortedRaces = computed<Race[]>(() => {
@@ -118,26 +122,22 @@ export function useGameLogic(
     // --- COMPUTED: PROGRESSION ---
     const canAdvanceToFinals = computed(() => {
         if (!tournament.value) return false;
-        if (tournament.value.stage === 'finals') return false;
+        if (isAtLastStage(tournament.value)) return false;
 
-        const countA = getRaceCount('A');
-        const countB = getRaceCount('B');
-        const countC = getRaceCount('C');
-        const teamCount = tournament.value.teams.length;
-
-        if (teamCount === 9) return countA >= 5 && countB >= 5 && countC >= 5;
-        if (teamCount >= 6) return countA >= 5 && countB >= 5;
-        return false;
+        const currentStage = tournament.value.stages[tournament.value.currentStageIndex]!;
+        return currentStage.groups.every(g => getRaceCount(g) >= currentStage.racesRequired);
     });
 
     const canEndTournament = computed(() => {
         if (!tournament.value) return false;
         if (tournament.value.status === 'completed') return false;
-        const finalsRaces = Object.values(tournament.value.races).filter(r => r.stage === 'finals').length;
-        return finalsRaces >= 5;
+        const lastStage = getLastStageName(tournament.value);
+        const lastStageConfig = tournament.value.stages[tournament.value.stages.length - 1]!;
+        const lastStageRaces = Object.values(tournament.value.races).filter(r => r.stage === lastStage).length;
+        return lastStageRaces >= lastStageConfig.racesRequired;
     });
 
-    const canShowFinals = computed(() => tournament.value && tournament.value.stage === 'finals');
+    const canShowFinals = computed(() => tournament.value && isAtLastStage(tournament.value));
 
     // --- LOGIC: Advancing Teams Calculation ---
     const advancingTeamIds = computed(() => {
@@ -392,13 +392,16 @@ export function useGameLogic(
         const team = tournament.value?.teams.find(t => t.id === teamId);
         if (!team) return 'none';
 
-        const points = currentView.value === 'finals' ? (team.finalsPoints || 0) : (team.points || 0);
+        const points = team.stagePoints[currentView.value] ?? 0;
         if (points === 0) return 'none';
 
-        const isPastGroupStage = tournament.value?.stage === 'finals' || tournament.value?.status === 'completed';
+        const isPastCurrentStage = tournament.value
+            ? isAtLastStage(tournament.value) || tournament.value.status === 'completed'
+            : false;
 
-        if (isPastGroupStage && currentView.value === 'groups') {
-            return team.inFinals ? 'safe' : 'none';
+        if (isPastCurrentStage && tournament.value && currentView.value !== getLastStageName(tournament.value)) {
+            const nextStageName = tournament.value.stages[tournament.value.currentStageIndex]?.name ?? '';
+            return team.qualifiedStages.includes(nextStageName) ? 'safe' : 'none';
         }
 
         if (projectedProgression.value.safe.includes(teamId)) return 'safe';
@@ -408,15 +411,25 @@ export function useGameLogic(
 
     const finalizeFinals = async (finalIds: string[]) => {
         if (!tournament.value) return;
-        const updatedTeams = tournament.value.teams.map(t => ({
-            ...t,
-            inFinals: finalIds.includes(t.id),
-            finalsPoints: 0
-        }));
-        await secureUpdate({ teams: updatedTeams, stage: 'finals' });
+        const nextStageIndex = tournament.value.currentStageIndex + 1;
+        const nextStage = tournament.value.stages[nextStageIndex]!;
+        const nextStageGroup = nextStage.groups[0] ?? 'A'; // default all advancers to first group for now
+
+        const updatedTeams = tournament.value.teams.map(t => {
+            const isAdvancing = finalIds.includes(t.id);
+            return {
+                ...t,
+                qualifiedStages: isAdvancing ? [...t.qualifiedStages, nextStage.name] : t.qualifiedStages,
+                stageGroups: isAdvancing
+                    ? { ...t.stageGroups, [nextStage.name]: nextStageGroup }
+                    : t.stageGroups,
+            };
+        });
+
+        await secureUpdate({ teams: updatedTeams, currentStageIndex: nextStageIndex });
 
         showTieBreakerModal.value = false;
-        currentView.value = 'finals';
+        currentView.value = nextStage.name;
     };
 
     const advanceToFinals = async () => {
@@ -484,7 +497,9 @@ export function useGameLogic(
 
     const getRaceResultsForPlayer = (playerId: string) => {
         if (!tournament.value || !tournament.value.races) return [];
-        const stagePriority: Record<string, number> = { 'groups': 1, 'finals': 2 };
+        const stagePriority: Record<string, number> = Object.fromEntries(
+            tournament.value.stages.map((s, i) => [s.name, i + 1])
+        );
 
         const relevantRaces = Object.values(tournament.value.races)
             .filter(r => Object.keys(r.placements).includes(playerId))
@@ -506,18 +521,21 @@ export function useGameLogic(
         });
     };
 
-    const activeStagePlayers = (targetGroup: 'A' | 'B' | 'C' | 'Finals') : Player[] => {
+    const activeStagePlayers = (targetGroup: string): Player[] => {
         if (!tournament.value) return [];
+        const t = tournament.value;
+        const lastStage = getLastStageName(t);
+        const stageName = currentView.value;
 
         let targetTeams: Team[] = [];
-        if (currentView.value === 'finals' || targetGroup === 'Finals') {
-            targetTeams = tournament.value.teams.filter(t => t.inFinals).sort((a,b) => b.finalsPoints - a.finalsPoints);
+        if (stageName === lastStage || targetGroup === lastStage) {
+            targetTeams = t.teams
+                .filter(tm => tm.qualifiedStages.includes(lastStage))
+                .sort((a, b) => (b.stagePoints[lastStage] ?? 0) - (a.stagePoints[lastStage] ?? 0));
         } else if (targetGroup) {
-            if(tournament.value.teams.length >= 6) {
-                targetTeams = tournament.value.teams.filter(t => t.group === targetGroup).sort((a,b) => b.points - a.points);
-            } else {
-                targetTeams = tournament.value.teams.sort((a,b) => b.points - a.points);
-            }
+            targetTeams = t.teams
+                .filter(tm => tm.stageGroups[stageName] === targetGroup)
+                .sort((a, b) => (b.stagePoints[stageName] ?? 0) - (a.stagePoints[stageName] ?? 0));
         }
 
         let players: {id: string, name: string, isCaptain: boolean, uma: string}[] = [];
@@ -528,7 +546,7 @@ export function useGameLogic(
 
         // B. NEW: Get Wildcards for this Group
         const groupWildcards = (tournament.value.wildcards || [])
-            .filter(w => w.group === targetGroup)
+            .filter(w => w.stage === currentView.value && w.group === targetGroup)
             .map(w => tournament.value!.players[w.playerId])
             .filter((p): p is Player => !!p); // Type guard to remove undefined
 
@@ -555,7 +573,7 @@ export function useGameLogic(
     const isAdvancing = (teamId: string) => {
         if (!tournament.value || !advancingTeamIds.value.has(teamId)) return false;
         const team = tournament.value.teams.find(t => t.id === teamId);
-        return (team?.points ?? 0) > 0;
+        return (team?.stagePoints[currentView.value] ?? 0) > 0;
     };
 
     // --- 3. NEW FEATURE: Add Penalty/Bonus ---
@@ -625,12 +643,10 @@ export function useGameLogic(
         if (!tournament.value || sortedFinalsTeams.value.length === 0) return [];
 
         const topTeam = sortedFinalsTeams.value[0]!;
+        const lastStage = getLastStageName(tournament.value);
 
-        // Filter the list for teams that are perfectly tied with the top team
-        // Arg 3 (useIdFallback) = false: We want to know if they are actually tied, don't force a winner by ID
-        // Arg 5 (isFinals) = true: Use finals points/logic
         return sortedFinalsTeams.value.filter(t =>
-            compareTeams(topTeam, t, false, tournament.value!, true) === 0
+            compareTeams(topTeam, t, false, tournament.value!, lastStage) === 0
         );
     });
 
@@ -647,7 +663,7 @@ export function useGameLogic(
 
         // We use compareTeams with `useIdFallback = false`.
         // If it returns 0, they are perfectly tied regarding points and placements.
-        const isTied = compareTeams(currentTeam, prevTeam, false, tournament.value!, currentView.value === 'finals') === 0;
+        const isTied = compareTeams(currentTeam, prevTeam, false, tournament.value!, currentView.value) === 0;
 
         if (isTied) {
             // Recursively get the rank of the previous team
@@ -662,7 +678,7 @@ export function useGameLogic(
     const editingRaceKey = ref<string | null>(null);
     const entryMap = ref<Record<number, string>>({});
 
-    const toggleEditRace = (stage: 'groups' | 'finals', group: string, raceNum: number) => {
+    const toggleEditRace = (stage: string, group: string, raceNum: number) => {
         if (!tournament.value) return;
         const key = raceKey(stage, group, raceNum);
         if (editingRaceKey.value === key) {

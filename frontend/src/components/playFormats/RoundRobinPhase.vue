@@ -39,7 +39,7 @@ const roundRobinRaces = computed(() => {
 
 // 2. Global Leaderboard (No A/B/C separation)
 const globalLeaderboard = computed(() => {
-  return [...tData.value.teams].sort((a, b) => compareTeams(a, b, true, tData.value, false));
+  return [...tData.value.teams].sort((a, b) => compareTeams(a, b, true, tData.value));
 });
 </script>
 
@@ -60,7 +60,7 @@ const globalLeaderboard = computed(() => {
             <span class="font-bold text-lg">{{ team.name }}</span>
           </div>
           <div class="text-2xl font-black text-white tabular-nums">
-            {{ team.points }} <span class="text-xs text-slate-500">pts</span>
+            {{ Object.values(team.stagePoints).reduce((s, v) => s + v, 0) }} <span class="text-xs text-slate-500">pts</span>
           </div>
         </div>
       </div>
