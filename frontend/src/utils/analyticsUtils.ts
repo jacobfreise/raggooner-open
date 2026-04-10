@@ -75,17 +75,17 @@ export function getWinningTeam(tournament: Tournament): Team | undefined {
   const teams = tournament.teams;
   if (!teams || teams.length === 0) return undefined;
 
-  const firstStage = tournament.stages[0]?.name ?? 'groups';
-  const lastStage = tournament.stages[tournament.stages.length - 1]?.name ?? 'finals';
+  const firstStage = tournament.stages?.[0]?.name ?? 'groups';
+  const lastStage = tournament.stages?.[tournament.stages.length - 1]?.name ?? 'finals';
 
   // Early exit: multi-group with no finalists — no winner to determine
-  const hasFinalists = teams.some(t => t.qualifiedStages.includes(lastStage));
-  const hasGroups = new Set(teams.map(tm => tm.stageGroups[firstStage])).size > 1;
+  const hasFinalists = teams.some(t => t.qualifiedStages?.includes(lastStage));
+  const hasGroups = new Set(teams.map(tm => tm.stageGroups?.[firstStage])).size > 1;
   if (!hasFinalists && hasGroups) return undefined;
 
   const { teams: scoredTeams } = recalculateTournamentScores(tournament);
 
-  const finalistTeams = scoredTeams.filter(team => team.qualifiedStages.includes(lastStage));
+  const finalistTeams = scoredTeams.filter(team => team.qualifiedStages?.includes(lastStage));
   if (finalistTeams.length > 0) {
     return [...finalistTeams].sort((a, b) => compareTeams(a, b, true, tournament, lastStage))[0];
   }

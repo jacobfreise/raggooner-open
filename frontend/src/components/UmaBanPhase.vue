@@ -195,8 +195,14 @@ const resetBanTimer = async () => {
              class="bg-slate-900 border rounded-lg p-4 transition-colors"
              :class="currentDrafter?.id === team.captainId ? 'border-amber-500 ring-1 ring-amber-500/50' : 'border-slate-800'">
           <div class="flex justify-between items-center mb-2">
-            <span class="font-bold text-white" :style="{ color: team.color }">{{ team.name }}</span>
-            <i v-if="currentDrafter?.id === team.captainId" class="ph-fill ph-pencil-simple text-amber-500 animate-pulse"></i>
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="font-bold text-white truncate" :style="{ color: team.color }">{{ team.name }}</span>
+              <span v-if="team.stageGroups[tournament.stages?.[0]?.name ?? 'groups']"
+                    class="shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 border border-slate-600">
+                {{ team.stageGroups[tournament.stages?.[0]?.name ?? 'groups'] }}
+              </span>
+            </div>
+            <i v-if="currentDrafter?.id === team.captainId" class="ph-fill ph-pencil-simple text-amber-500 animate-pulse shrink-0"></i>
           </div>
           <div class="space-y-2">
             <div class="flex items-center gap-2 text-sm text-amber-400">

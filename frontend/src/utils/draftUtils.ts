@@ -8,18 +8,17 @@ export function generateDraftStructure(tournament: Tournament) {
     const numTeams = captains.length;
     const preset = getStagePreset(numTeams);
     const firstStageName = preset[0]!.name;
+    const firstStageGroups = preset[0]!.groups;
 
     // Build a flat deck of group labels matching the first stage's group distribution
-    let groupDeck: string[] = [];
-    if (numTeams === 9) {
-        groupDeck = ['A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'];
-    } else if (numTeams === 8) {
-        groupDeck = ['A', 'A', 'A', 'A', 'B', 'B', 'B', 'B'];
-    } else if (numTeams === 6) {
-        groupDeck = ['A', 'A', 'A', 'B', 'B', 'B'];
-    } else {
-        groupDeck = Array(numTeams).fill('A');
+    const teamsPerGroup = Math.round(numTeams / firstStageGroups.length);
+    const groupDeck: string[] = [];
+    for (const group of firstStageGroups) {
+        for (let i = 0; i < teamsPerGroup; i++) groupDeck.push(group);
     }
+    // Pad or trim to exact length in case of rounding edge cases
+    while (groupDeck.length < numTeams) groupDeck.push(firstStageGroups[0] ?? 'A');
+    groupDeck.length = numTeams;
 
     // Shuffle groups
     groupDeck.sort(() => Math.random() - 0.5);

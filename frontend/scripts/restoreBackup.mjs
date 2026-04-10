@@ -12,9 +12,31 @@
  */
 
 import { readFileSync } from 'fs';
-import { confirmLiveMode, IS_LIVE, DRY_RUN, getDb, BASE_PATH } from './config.mjs';
+import { confirmLiveMode, IS_LIVE, DRY_RUN, getDb } from './config.mjs';
 
-const BACKUP_FILE = '../../backups/live-s3-database-backup.json';
+const BACKUP_FILE = new URL('../scripts/emulator-import.json', import.meta.url);
+
+/**
+ * Recursively walks the nested backup format:
+ *   { collectionName: { docId: { ...fields, _subcollections?: { ... } } } }
+ *
+ * Yields { path, data } for every document that has at least one field.
+ * Intermediate container documents with no fields are skipped.
+ */
+function* walkCollections(collections, parentPath = '') {
+  for (const [colName, docs] of Object.entries(collections)) {
+    for (const [docId, docData] of Object.entries(docs)) {
+      const docPath = parentPath ? `${parentPath}/${colName}/${docId}` : `${colName}/${docId}`;
+      const { _subcollections, ...fields } = docData;
+      if (Object.keys(fields).length > 0) {
+        yield { path: docPath, data: fields };
+      }
+      if (_subcollections) {
+        yield* walkCollections(_subcollections, docPath);
+      }
+    }
+  }
+}
 
 async function main() {
   await confirmLiveMode();
@@ -23,29 +45,26 @@ async function main() {
   console.log('Loading backup file...');
   const rawData = JSON.parse(readFileSync(BACKUP_FILE, 'utf8'));
 
-  const entries = Object.entries(rawData);
-  console.log(`Found ${entries.length} documents to import.`);
+  const docs = [...walkCollections(rawData)];
+  console.log(`Found ${docs.length} documents to import.`);
 
   const db = getDb();
   let success = 0;
   let errors = 0;
 
-  for (const [fullPath, data] of entries) {
-    // Skip non-document entries (e.g. "metadata" key at the end of the export)
-    if (!fullPath.includes('/')) continue;
-
+  for (const { path, data } of docs) {
     if (DRY_RUN) {
       success++;
-      if (success % 50 === 0 || success <= 5) console.log(`  [preview] ${fullPath}`);
+      if (success % 50 === 0 || success <= 5) console.log(`  [preview] ${path}`);
       continue;
     }
 
     try {
-      await db.doc(fullPath).set(data);
+      await db.doc(path).set(data);
       success++;
       if (success % 50 === 0) console.log(`  ...imported ${success} documents`);
     } catch (err) {
-      console.error(`FAILED [${fullPath}]: ${err.message}`);
+      console.error(`FAILED [${path}]: ${err.message}`);
       errors++;
     }
   }

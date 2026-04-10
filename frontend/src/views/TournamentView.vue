@@ -448,6 +448,38 @@ const savePointsSystem = async () => {
                 </div>
               </div>
 
+              <template v-if="tournament?.format === 'uma-draft'">
+                <div class="pt-4 mt-4 border-t border-slate-700/50">
+                  <div class="flex items-center justify-between gap-4">
+                    <div class="flex flex-col">
+                      <label class="text-xs text-slate-500 uppercase font-bold">Uma Draft Limit</label>
+                      <span class="text-[10px] text-slate-500">Max times the same uma can be drafted across all teams</span>
+                    </div>
+                    <input type="number" min="1" max="99"
+                           :value="tournament?.umaDraftLimit ?? 1"
+                           @change="secureUpdate({ umaDraftLimit: Math.max(1, parseInt(($event.target as HTMLInputElement).value) || 1) })"
+                           class="w-16 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white text-sm text-center focus:outline-none focus:border-indigo-500 transition-colors" />
+                  </div>
+                </div>
+                <div class="pt-4 mt-4 border-t border-slate-700/50">
+                  <div class="flex items-center justify-between">
+                    <div class="flex flex-col">
+                      <label class="text-xs text-slate-500 uppercase font-bold">Same-Group Uma Duplicates</label>
+                      <span class="text-[10px] text-slate-500">
+                        {{ tournament?.allowSameGroupUmaDuplicates ? 'Teams in the same group can draft the same uma' : 'Teams in the same group cannot draft the same uma' }}
+                      </span>
+                    </div>
+                    <button @click="secureUpdate({ allowSameGroupUmaDuplicates: !tournament?.allowSameGroupUmaDuplicates })"
+                            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+                            :class="tournament?.allowSameGroupUmaDuplicates ? 'bg-indigo-600' : 'bg-slate-700'">
+                      <span class="sr-only">Allow Same-Group Uma Duplicates</span>
+                      <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                            :class="tournament?.allowSameGroupUmaDuplicates ? 'translate-x-6' : 'translate-x-1'"/>
+                    </button>
+                  </div>
+                </div>
+              </template>
+
               <div class="border-t border-slate-700 pt-6 mb-6">
                 <div class="flex items-center justify-between mb-3">
                   <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">

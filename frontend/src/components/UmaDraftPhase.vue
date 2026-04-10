@@ -33,6 +33,7 @@ const {
   currentPicker,
   allUmas,
   umaOwnerMap,
+  isUmaPickableForCurrentTeam,
   remainingPicks,
   isDraftComplete,
   pickUma,
@@ -102,15 +103,7 @@ const selectedTrackData = computed(() => {
   return TRACK_DICT[props.tournament.selectedTrack] || null;
 });
 
-const umaToTeamMap = computed(() => {
-  const map = new Map<string, Team>();
-  props.tournament.teams.forEach(t => {
-    t.umaPool?.forEach(uma => {
-      map.set(uma, t);
-    });
-  });
-  return map;
-});
+const firstStageName = computed(() => props.tournament.stages?.[0]?.name ?? 'groups');
 
 onMounted(async () => {
   const draft = props.tournament.draft;
@@ -197,6 +190,10 @@ const sinceLastPick = computed(() => {
             <h2 class="text-3xl font-bold text-white flex items-center gap-3">
               <i class="ph-fill ph-horse text-indigo-400"></i>
               Uma Draft
+              <span v-if="(tournament.umaDraftLimit ?? 1) > 1"
+                    class="text-base font-bold text-indigo-300 bg-indigo-500/20 border border-indigo-500/40 px-2 py-0.5 rounded-lg">
+                Limit ×{{ tournament.umaDraftLimit }}
+              </span>
             </h2>
             <p class="text-slate-400 text-sm">Teams draft their Uma pool in snake order.</p>
           </div>
@@ -322,14 +319,14 @@ const sinceLastPick = computed(() => {
             <UmaCard v-for="uma in filteredUmas" :key="uma"
                      :uma-name="uma"
                      :is-banned="isBanned(uma)"
-                     :owner-team="umaToTeamMap.get(uma)"
+                     :owner-teams="umaOwnerMap.get(uma)"
                      :highlight-aptitude="selectedAptitude"
-                     :disabled="(!isAdmin && !isCaptainTurn) || umaOwnerMap.has(uma) || isBanned(uma)"
+                     :disabled="(!isAdmin && !isCaptainTurn) || !isUmaPickableForCurrentTeam(uma) || isBanned(uma)"
                      action-type="pick"
                      :surface-aptitude="selectedTrackData?.surface"
                      :distance-aptitude="selectedTrackData?.distanceType"
-                     @click="!umaOwnerMap.has(uma) && !isBanned(uma) && (isCaptainTurn ? onCaptainPickUma?.(uma) : pickUma(uma))"
-                     @mouseenter="(isAdmin || isCaptainTurn) && !umaOwnerMap.has(uma) && !isBanned(uma) && playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3')" />
+                     @click="isUmaPickableForCurrentTeam(uma) && !isBanned(uma) && (isCaptainTurn ? onCaptainPickUma?.(uma) : pickUma(uma))"
+                     @mouseenter="(isAdmin || isCaptainTurn) && isUmaPickableForCurrentTeam(uma) && !isBanned(uma) && playLocalSfx('/assets/sound-effects/sfx-button-hover.mp3')" />
           </div>
         </div>
 
@@ -340,8 +337,14 @@ const sinceLastPick = computed(() => {
                class="bg-slate-900 border rounded-lg p-4 transition-colors"
                :class="currentPicker?.id === team.id ? 'border-indigo-500 ring-1 ring-indigo-500/50' : 'border-slate-800'">
             <div class="flex justify-between items-center mb-2">
-              <span class="font-bold text-white" :style="{ color: team.color }">{{ team.name }}</span>
-              <i v-if="currentPicker?.id === team.id" class="ph-fill ph-crosshair text-indigo-400 animate-pulse"></i>
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="font-bold text-white truncate" :style="{ color: team.color }">{{ team.name }}</span>
+                <span v-if="team.stageGroups[firstStageName]"
+                      class="shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 border border-slate-600">
+                  {{ team.stageGroups[firstStageName] }}
+                </span>
+              </div>
+              <i v-if="currentPicker?.id === team.id" class="ph-fill ph-crosshair text-indigo-400 animate-pulse shrink-0"></i>
             </div>
             <div class="space-y-2">
               <div class="flex items-center gap-2 text-sm text-amber-400">

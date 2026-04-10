@@ -8,7 +8,7 @@ import type { Tournament } from '../../types';
 const props = defineProps<{
   raceNum: number;
   groupId: string;
-  stageId: 'groups' | 'finals';
+  stageId: string;
   tournament: Tournament;
   currentView: string;
   isAdmin: boolean;

@@ -32,3 +32,4 @@ index-backup.html
 emulator-data/
 analytics.json
 *-database-backup.json
+/scripts/emulator-import.json

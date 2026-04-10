@@ -1,5 +1,5 @@
 import {computed, type Ref} from 'vue';
-import type {FirestoreUpdate, Tournament} from '../types';
+import type {FirestoreUpdate, Team, Tournament} from '../types';
 import {generateUmaDraftOrder} from '../utils/draftUtils';
 import {UMA_DICT} from '../utils/umaData';
 import {useUmaRoller} from './useUmaRoller';
@@ -42,17 +42,41 @@ export function useUmaDraft(
         return team ?? null;
     });
 
-    // Maps each drafted uma to the team that owns it
+    // Maps each drafted uma to all teams that own it
     const umaOwnerMap = computed(() => {
-        const map = new Map<string, { teamName: string; teamColor: string }>();
+        const map = new Map<string, Team[]>();
         if (!tournament.value) return map;
         tournament.value.teams.forEach(t => {
             t.umaPool?.forEach(uma => {
-                map.set(uma, { teamName: t.name, teamColor: t.color || '#94a3b8' });
+                if (!map.has(uma)) map.set(uma, []);
+                map.get(uma)!.push(t);
             });
         });
         return map;
     });
+
+    // Returns true if the current picking team can still pick the given uma
+    const isUmaPickableForCurrentTeam = (uma: string): boolean => {
+        if (!tournament.value?.draft) return false;
+        const t = tournament.value;
+        const currentTeamId = t.draft!.order[t.draft!.currentIdx];
+        const currentTeam = t.teams.find(team => team.id === currentTeamId);
+        if (!currentTeam) return false;
+        // Team can't draft the same uma twice
+        if (currentTeam.umaPool?.includes(uma)) return false;
+        const limit = t.umaDraftLimit ?? 1;
+        const owners = umaOwnerMap.value.get(uma) ?? [];
+        if (owners.length >= limit) return false;
+        // Same-group duplicate check
+        if (!(t.allowSameGroupUmaDuplicates ?? false)) {
+            const firstStageName = t.stages?.[0]?.name ?? 'groups';
+            const currentGroup = currentTeam.stageGroups?.[firstStageName];
+            if (currentGroup && owners.some(ownerTeam =>
+                ownerTeam.stageGroups?.[firstStageName] === currentGroup
+            )) return false;
+        }
+        return true;
+    };
 
     // All umas sorted
     const allUmas = computed(() => {
@@ -60,9 +84,9 @@ export function useUmaDraft(
         return Object.keys(UMA_DICT).sort();
     });
 
-    // Only unpicked umas (used for random selection)
+    // Only pickable umas for current team (used for random selection)
     const availableUmas = computed(() => {
-        return allUmas.value.filter(uma => !umaOwnerMap.value.has(uma));
+        return allUmas.value.filter(uma => isUmaPickableForCurrentTeam(uma));
     });
 
     const remainingPicks = computed(() => {
@@ -141,6 +165,7 @@ export function useUmaDraft(
         allUmas,
         availableUmas,
         umaOwnerMap,
+        isUmaPickableForCurrentTeam,
         remainingPicks,
         isDraftComplete,
         pickUma,

@@ -3,7 +3,7 @@ import type { Tournament } from '../../types';
 import RaceCard from './RaceCard.vue';
 
 defineProps<{
-  groupData: { id: string; title: string; color: string; focusColor: string; stageId: 'groups' | 'finals' };
+  groupData: { id: string; title: string; color: string; focusColor: string; stageId: string };
   tournament: Tournament;
   currentView: string;
   isAdmin: boolean;
@@ -17,7 +17,7 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'toggleEdit', stageId: 'groups' | 'finals', groupId: string, raceNum: number): void;
+  (e: 'toggleEdit', stageId: string, groupId: string, raceNum: number): void;
   (e: 'cancelEdit'): void;
   (e: 'clearEntry'): void;
   (e: 'saveTap', groupId: string, raceNum: number): void;

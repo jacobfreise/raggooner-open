@@ -3,6 +3,7 @@ import {arrayUnion, arrayRemove, deleteField} from 'firebase/firestore';
 import type { Tournament, Player, Wildcard, FirestoreUpdate } from '../types';
 import { UMA_DICT } from '../utils/umaData';
 import {getPlayerName, getPlayerUma, getCurrentStageName} from "../utils/utils.ts";
+import { buildBalancedBracket } from '../utils/constants';
 
 
 type SecureUpdateFn = (data: FirestoreUpdate<Tournament> | Record<string, any>) => Promise<void>;
@@ -25,9 +26,10 @@ export function useRoster(
     // --- COMPUTED: VALIDATION ---
     const validTeamCount = computed(() => {
         if (!tournament.value) return false;
-        const playerValues = Object.values(tournament.value.players);
-        const caps = playerValues.filter(p => p.isCaptain).length;
-        return caps >= 3 && caps <= 9 && caps !== 7;
+        const caps = Object.values(tournament.value.players).filter(p => p.isCaptain).length;
+        if (caps < 3) return false;
+        if (caps <= 5) return true; // small tournament (single-group finals)
+        return buildBalancedBracket(caps, 3) !== null || buildBalancedBracket(caps, 4) !== null;
     });
 
     const validTotalPlayers = computed(() => {

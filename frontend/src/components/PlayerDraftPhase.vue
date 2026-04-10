@@ -283,8 +283,14 @@ const sortedAvailablePlayers = computed(() => {
                  class="bg-slate-900 border rounded-lg p-4 transition-colors"
                  :class="currentDrafter?.id === team.id ? 'border-indigo-500 ring-1 ring-indigo-500/50' : 'border-slate-800'">
               <div class="flex justify-between items-center mb-2">
-                <span class="font-bold text-white" :style="{ color: team.color }">{{ team.name }}</span>
-                <i v-if="currentDrafter?.id === team.id" class="ph-fill ph-crosshair text-indigo-400 animate-pulse"></i>
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="font-bold text-white truncate" :style="{ color: team.color }">{{ team.name }}</span>
+                  <span v-if="team.stageGroups[tournament.stages?.[0]?.name ?? 'groups']"
+                        class="shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 border border-slate-600">
+                    {{ team.stageGroups[tournament.stages?.[0]?.name ?? 'groups'] }}
+                  </span>
+                </div>
+                <i v-if="currentDrafter?.id === team.id" class="ph-fill ph-crosshair text-indigo-400 animate-pulse shrink-0"></i>
               </div>
               <div class="space-y-2">
                 <div class="flex items-center gap-2 text-sm text-amber-400">
@@ -349,10 +355,16 @@ const sortedAvailablePlayers = computed(() => {
                }">
 
             <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-700/50">
-              <h4 class="text-xl font-black tracking-wide drop-shadow-sm" :style="{ color: team.color }">
-                {{ team.name }}
-              </h4>
-              <div class="text-[10px] font-bold text-slate-400 bg-slate-900/80 px-2 py-1 rounded border border-slate-700 uppercase tracking-wider">
+              <div class="flex items-center gap-2 min-w-0">
+                <h4 class="text-xl font-black tracking-wide drop-shadow-sm truncate" :style="{ color: team.color }">
+                  {{ team.name }}
+                </h4>
+                <span v-if="team.stageGroups[tournament.stages?.[0]?.name ?? 'groups']"
+                      class="shrink-0 text-xs font-black px-2 py-0.5 rounded bg-slate-700 text-slate-300 border border-slate-600">
+                  {{ team.stageGroups[tournament.stages?.[0]?.name ?? 'groups'] }}
+                </span>
+              </div>
+              <div class="text-[10px] font-bold text-slate-400 bg-slate-900/80 px-2 py-1 rounded border border-slate-700 uppercase tracking-wider shrink-0">
                 {{ team.memberIds.length + 1 }} Players
               </div>
             </div>

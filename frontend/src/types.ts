@@ -222,6 +222,8 @@ export interface Tournament {
     activeTimerElapsed?: number;
     draftPhaseTimerStart?: string;
     draftLastPickTime?: string;
+    umaDraftLimit?: number;
+    allowSameGroupUmaDuplicates?: boolean;
 }
 
 

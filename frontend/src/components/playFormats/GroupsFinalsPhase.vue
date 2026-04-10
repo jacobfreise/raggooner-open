@@ -290,13 +290,16 @@ const sortedTeamsForModal = computed(() => {
   });
 });
 
-const currentStageConfig = computed(() =>
-  tournament.value?.stages[tournament.value?.currentStageIndex ?? 0]
-);
+const currentStageConfig = computed(() => {
+  if (!tournament.value) return undefined;
+  return tournament.value.stages.find(s => s.name === currentView.value)
+    ?? tournament.value.stages[tournament.value.currentStageIndex ?? 0];
+});
 
 const isLastStage = computed(() => {
   if (!tournament.value) return false;
-  return tournament.value.currentStageIndex >= tournament.value.stages.length - 1;
+  const lastStageName = tournament.value.stages[tournament.value.stages.length - 1]?.name;
+  return currentView.value === lastStageName;
 });
 
 const currentStageGroupedTeams = computed(() => {

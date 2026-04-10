@@ -125,7 +125,11 @@ export function useGameLogic(
         if (isAtLastStage(tournament.value)) return false;
 
         const currentStage = tournament.value.stages[tournament.value.currentStageIndex]!;
-        return currentStage.groups.every(g => getRaceCount(g) >= currentStage.racesRequired);
+        const actualStageName = getCurrentStageName(tournament.value);
+        const races = Object.values(tournament.value.races);
+        return currentStage.groups.every(g =>
+            races.filter(r => r.stage === actualStageName && r.group === g).length >= currentStage.racesRequired
+        );
     });
 
     const canEndTournament = computed(() => {
@@ -142,243 +146,210 @@ export function useGameLogic(
     // --- LOGIC: Advancing Teams Calculation ---
     const advancingTeamIds = computed(() => {
         if (!tournament.value) return new Set<string>();
+        if (isAtLastStage(tournament.value)) return new Set<string>();
+
+        const t = tournament.value;
+        const currentStage = t.stages[t.currentStageIndex]!;
+        const stageName = currentView.value;
+        const numGroups = currentStage.groups.length;
+        const advancing = currentStage.teamsAdvancingPerGroup;
         const ids = new Set<string>();
-        const teamCount = tournament.value.teams.length;
 
-        // Re-using logic: 9 Teams (Top 1)
-        if (teamCount === 9) {
-            // Add top team from each group
-            [sortedTeamsA, sortedTeamsB, sortedTeamsC].forEach(list => {
-                if (list.value[0]) ids.add(list.value[0].id);
-                // Check for ties at the top
-                let i = 1;
-                while (i < list.value.length && compareTeams(list.value[0]!, list.value[i]!, false, tournament.value!) === 0) {
-                    ids.add(list.value[i]!.id);
-                    i++;
-                }
-            });
-        }
-        // 8 Teams (Top 2)
-        else if (teamCount === 8) {
-            [sortedTeamsA, sortedTeamsB].forEach(list => {
-                if (list.value[0]) ids.add(list.value[0].id);
-                if (list.value[1]) ids.add(list.value[1].id);
-                // Check ties for 2nd place
-                let i = 2;
-                while (i < list.value.length && compareTeams(list.value[1]!, list.value[i]!, false, tournament.value!) === 0) {
-                    ids.add(list.value[i]!.id);
-                    i++;
-                }
-            });
-        }
-        // 6 Teams (Top 1 + Best Runner Up)
-        else {
-            if (sortedTeamsA.value[0]) ids.add(sortedTeamsA.value[0].id);
-            if (sortedTeamsB.value[0]) ids.add(sortedTeamsB.value[0].id);
+        const groupedSorted = currentStage.groups.map(group =>
+            t.teams
+                .filter(tm => tm.stageGroups[stageName] === group)
+                .sort((a, b) => compareTeams(a, b, true, t, stageName))
+        );
 
-            const runnerA = sortedTeamsA.value[1];
-            const runnerB = sortedTeamsB.value[1];
-            const lastA = sortedTeamsA.value[2];
-            const lastB = sortedTeamsB.value[2];
+        const isWildcard = numGroups === 2 && advancing === 1;
+
+        if (isWildcard) {
+            // 2 groups, top 1 each + best runner-up wildcard
+            const sortedA = groupedSorted[0] ?? [];
+            const sortedB = groupedSorted[1] ?? [];
+
+            if (sortedA[0]) ids.add(sortedA[0].id);
+            if (sortedB[0]) ids.add(sortedB[0].id);
+
+            const runnerA = sortedA[1];
+            const runnerB = sortedB[1];
+            const lastA = sortedA[2];
+            const lastB = sortedB[2];
 
             if (runnerA && runnerB) {
-                const comparison = compareTeams(runnerA, runnerB, false, tournament.value!);
+                const comparison = compareTeams(runnerA, runnerB, false, t);
                 if (comparison < 0) ids.add(runnerA.id);
                 else if (comparison > 0) ids.add(runnerB.id);
                 else {
                     ids.add(runnerA.id);
                     ids.add(runnerB.id);
                 }
-                // Check ties within groups for runner-up spot
-                if (lastA && ids.has(runnerA.id) && compareTeams(runnerA, lastA, false, tournament.value!) === 0) ids.add(lastA.id);
-                if (lastB && ids.has(runnerB.id) && compareTeams(runnerB, lastB, false, tournament.value!) === 0) ids.add(lastB.id);
+                if (lastA && ids.has(runnerA.id) && compareTeams(runnerA, lastA, false, t) === 0) ids.add(lastA.id);
+                if (lastB && ids.has(runnerB.id) && compareTeams(runnerB, lastB, false, t) === 0) ids.add(lastB.id);
             } else if (runnerA) ids.add(runnerA.id);
             else if (runnerB) ids.add(runnerB.id);
+        } else {
+            // General: top N per group + ties at boundary
+            groupedSorted.forEach(sorted => {
+                for (let rank = 0; rank < advancing; rank++) {
+                    if (sorted[rank]) ids.add(sorted[rank]!.id);
+                }
+                const lastAdvancer = sorted[advancing - 1];
+                if (lastAdvancer) {
+                    let i = advancing;
+                    while (i < sorted.length && compareTeams(lastAdvancer, sorted[i]!, false, t) === 0) {
+                        ids.add(sorted[i]!.id);
+                        i++;
+                    }
+                }
+            });
         }
+
         return ids;
     });
 
     const projectedProgression = computed(() => {
         if (!tournament.value) return { tied: [], safe: [], needed: 0 };
+        if (isAtLastStage(tournament.value)) return { tied: [], safe: [], needed: 0 };
 
-        const teamCount = tournament.value.teams.length;
-        const safeIds: string[] = []; // Using local array for easier checks
+        const t = tournament.value;
+        const currentStage = t.stages[t.currentStageIndex]!;
+        const stageName = currentView.value;
+        const numGroups = currentStage.groups.length;
+        const advancing = currentStage.teamsAdvancingPerGroup;
+
+        const safeIds: string[] = [];
         const tiedSet = new Set<string>();
         let needed = 0;
 
-        // --- SCENARIO 1: 9 Teams (3 Groups, 1 Winner each) ---
-        if (teamCount === 9) {
-            const groups = [
-                { list: sortedTeamsA.value, name: 'A' },
-                { list: sortedTeamsB.value, name: 'B' },
-                { list: sortedTeamsC.value, name: 'C' }
-            ];
+        const groupedSorted = currentStage.groups.map(group =>
+            t.teams
+                .filter(tm => tm.stageGroups[stageName] === group)
+                .sort((a, b) => compareTeams(a, b, true, t, stageName))
+        );
 
-            groups.forEach(g => {
-                const top = g.list[0]!;
-                const runner = g.list[1]!;
-                if (compareTeams(top, runner, false, tournament.value!) === 0) {
-                    tiedSet.add(top.id);
-                    tiedSet.add(runner.id);
-                    if (g.list[2] && compareTeams(top, g.list[2], false, tournament.value!) === 0) {
-                        tiedSet.add(g.list[2].id);
-                    }
-                    needed++;
-                } else {
-                    safeIds.push(top.id);
-                }
-            });
-        }
+        const isWildcard = numGroups === 2 && advancing === 1;
 
-        // --- SCENARIO 2: 8 Teams (2 Groups, 2 Winners each) ---
-        else if (teamCount === 8) {
-            const groups = [sortedTeamsA, sortedTeamsB];
-            groups.forEach(list => {
-                const first = list.value[0]!;
-                const second = list.value[1]!;
-                const third = list.value[2]!;
+        if (isWildcard) {
+            // 2 groups, top 1 each + best runner-up wildcard
+            const sortedA = groupedSorted[0] ?? [];
+            const sortedB = groupedSorted[1] ?? [];
 
-                if (compareTeams(second, third, false, tournament.value!) === 0) {
-                    if (compareTeams(first, second, false, tournament.value!) === 0) {
-                        // 1, 2, 3 tied
-                        tiedSet.add(first.id);
-                        tiedSet.add(second.id);
-                        tiedSet.add(third.id);
-                        if (list.value[3] && compareTeams(first, list.value[3], false, tournament.value!) === 0) {
-                            tiedSet.add(list.value[3].id);
-                        }
-                        needed += 2;
-                    } else {
-                        // 1 Safe. 2, 3 tied
-                        safeIds.push(first.id);
-                        tiedSet.add(second.id);
-                        tiedSet.add(third.id);
-                        if (list.value[3] && compareTeams(second, list.value[3], false, tournament.value!) === 0) {
-                            tiedSet.add(list.value[3].id);
-                        }
-                        needed += 1;
-                    }
-                } else {
-                    safeIds.push(first.id);
-                    safeIds.push(second.id);
-                }
-            });
-        }
-
-        // --- SCENARIO 3: 6 Teams (2 Groups, 1 Winner each + 1 Wildcard) ---
-        else {
             let slotsAvailable = 0;
             const wildCardPool: Team[] = [];
 
-            // 1. Analyze Group A Winner
-            const topA = sortedTeamsA.value[0]!;
-            const runA = sortedTeamsA.value[1]!;
-            const thirdA = sortedTeamsA.value[2]; // Get the 3rd team
-
-            if (compareTeams(topA, runA, false, tournament.value!) === 0) {
-                // Tie for 1st detected
+            const topA = sortedA[0];
+            const runA = sortedA[1];
+            const thirdA = sortedA[2];
+            if (topA && runA && compareTeams(topA, runA, false, t) === 0) {
                 tiedSet.add(topA.id);
                 tiedSet.add(runA.id);
                 wildCardPool.push(topA, runA);
-
-                // FIX 2: Check if 3rd team is also part of this tie
-                if (thirdA && compareTeams(topA, thirdA, false, tournament.value!) === 0) {
+                if (thirdA && compareTeams(topA, thirdA, false, t) === 0) {
                     tiedSet.add(thirdA.id);
                     wildCardPool.push(thirdA);
                 }
-
                 slotsAvailable++;
-            } else {
+            } else if (topA) {
                 safeIds.push(topA.id);
-                wildCardPool.push(runA);
-
-                if (thirdA && compareTeams(runA, thirdA, false, tournament.value!) === 0) {
-                    wildCardPool.push(thirdA);
+                if (runA) {
+                    wildCardPool.push(runA);
+                    if (thirdA && compareTeams(runA, thirdA, false, t) === 0) wildCardPool.push(thirdA);
                 }
             }
 
-            // 2. Analyze Group B Winner
-            const topB = sortedTeamsB.value[0]!;
-            const runB = sortedTeamsB.value[1]!;
-            const thirdB = sortedTeamsB.value[2]; // Get the 3rd team
-
-            if (compareTeams(topB, runB, false, tournament.value!) === 0) {
-                // Tie for 1st detected
+            const topB = sortedB[0];
+            const runB = sortedB[1];
+            const thirdB = sortedB[2];
+            if (topB && runB && compareTeams(topB, runB, false, t) === 0) {
                 tiedSet.add(topB.id);
                 tiedSet.add(runB.id);
                 wildCardPool.push(topB, runB);
-
-                // FIX 2: Check if 3rd team is also part of this tie
-                if (thirdB && compareTeams(topB, thirdB, false, tournament.value!) === 0) {
+                if (thirdB && compareTeams(topB, thirdB, false, t) === 0) {
                     tiedSet.add(thirdB.id);
                     wildCardPool.push(thirdB);
                 }
-
                 slotsAvailable++;
-            } else {
+            } else if (topB) {
                 safeIds.push(topB.id);
-                wildCardPool.push(runB);
-
-                if (thirdB && compareTeams(runB, thirdB, false, tournament.value!) === 0) {
-                    wildCardPool.push(thirdB);
+                if (runB) {
+                    wildCardPool.push(runB);
+                    if (thirdB && compareTeams(runB, thirdB, false, t) === 0) wildCardPool.push(thirdB);
                 }
             }
 
-            // 3. Analyze Wildcard Pool
-            slotsAvailable++; // Add the 1 dedicated wildcard slot
+            slotsAvailable++; // dedicated wildcard slot
 
-            // Sort pool to find the best scores (Descending)
-            wildCardPool.sort((a, b) => compareTeams(a, b, false, tournament.value!));
+            wildCardPool.sort((a, b) => compareTeams(a, b, false, t));
 
-            // Logic to handle pool boundary
             if (wildCardPool.length > slotsAvailable) {
                 const lastQualifier = wildCardPool[slotsAvailable - 1]!;
                 const firstLoser = wildCardPool[slotsAvailable]!;
-
-                // Check if the "Cutoff Line" is blurry (Tie between last in and first out)
-                if (compareTeams(lastQualifier, firstLoser, false, tournament.value!) === 0) {
-                    // TIE BOUNDARY HIT
+                if (compareTeams(lastQualifier, firstLoser, false, t) === 0) {
                     wildCardPool.forEach(p => {
-                        const comparison = compareTeams(p, lastQualifier, false, tournament.value!);
-
+                        const comparison = compareTeams(p, lastQualifier, false, t);
                         if (comparison < 0) {
-                            // This team is BETTER than the tie boundary -> They are SAFE
                             if (tiedSet.has(p.id)) tiedSet.delete(p.id);
                             if (!safeIds.includes(p.id)) safeIds.push(p.id);
                             slotsAvailable--;
                         } else if (comparison === 0) {
-                            // This team is TIED at the boundary -> They are in the TIEBREAKER
                             tiedSet.add(p.id);
                         }
                     });
-
                     needed = slotsAvailable;
                 } else {
-                    // CLEAR BOUNDARY
-                    for(let i=0; i<slotsAvailable; i++) {
+                    for (let i = 0; i < slotsAvailable; i++) {
                         const p = wildCardPool[i]!;
                         if (tiedSet.has(p.id)) tiedSet.delete(p.id);
                         if (!safeIds.includes(p.id)) safeIds.push(p.id);
                     }
-                    tiedSet.clear()
+                    tiedSet.clear();
                     needed = 0;
                 }
             } else {
-                // Everyone fits
                 wildCardPool.forEach(p => {
                     if (tiedSet.has(p.id)) tiedSet.delete(p.id);
                     if (!safeIds.includes(p.id)) safeIds.push(p.id);
                 });
                 needed = 0;
             }
+        } else {
+            // General: top N per group with tie detection at the boundary
+            groupedSorted.forEach(sorted => {
+                if (sorted.length === 0) return;
+
+                const cutoffIdx = Math.min(advancing, sorted.length) - 1;
+                const lastAdvancer = sorted[cutoffIdx]!;
+                const firstLoser = sorted[cutoffIdx + 1];
+                const hasBoundaryTie = firstLoser !== undefined
+                    && compareTeams(lastAdvancer, firstLoser, false, t) === 0;
+
+                if (!hasBoundaryTie) {
+                    for (let i = 0; i <= cutoffIdx; i++) safeIds.push(sorted[i]!.id);
+                } else {
+                    // Find start of the tied block at the cutoff boundary
+                    let tieStartIdx = cutoffIdx;
+                    while (tieStartIdx > 0 && compareTeams(sorted[tieStartIdx - 1]!, lastAdvancer, false, t) === 0) {
+                        tieStartIdx--;
+                    }
+                    for (let i = 0; i < tieStartIdx; i++) safeIds.push(sorted[i]!.id);
+
+                    // Collect all teams in the tied block (includes those below the cutoff)
+                    let tieEndIdx = cutoffIdx + 1;
+                    while (tieEndIdx < sorted.length && compareTeams(sorted[tieEndIdx]!, lastAdvancer, false, t) === 0) {
+                        tieEndIdx++;
+                    }
+                    for (let i = tieStartIdx; i < tieEndIdx; i++) tiedSet.add(sorted[i]!.id);
+
+                    needed += advancing - tieStartIdx;
+                }
+            });
         }
 
-        // Final Cleanup: ensure Safe IDs are not in Tied Set
-        safeIds.forEach(id => {
-            if (tiedSet.has(id)) tiedSet.delete(id);
-        });
+        // Cleanup: safe IDs should not appear in tiedSet
+        safeIds.forEach(id => { if (tiedSet.has(id)) tiedSet.delete(id); });
 
-        const tiedTeamsList = tournament.value.teams.filter(t => tiedSet.has(t.id));
+        const tiedTeamsList = t.teams.filter(tm => tiedSet.has(tm.id));
         return { tied: tiedTeamsList, safe: safeIds, needed };
     })
 
@@ -413,16 +384,16 @@ export function useGameLogic(
         if (!tournament.value) return;
         const nextStageIndex = tournament.value.currentStageIndex + 1;
         const nextStage = tournament.value.stages[nextStageIndex]!;
-        const nextStageGroup = nextStage.groups[0] ?? 'A'; // default all advancers to first group for now
 
+        // Distribute advancing teams across next-stage groups via round-robin
         const updatedTeams = tournament.value.teams.map(t => {
-            const isAdvancing = finalIds.includes(t.id);
+            const advancerIdx = finalIds.indexOf(t.id);
+            if (advancerIdx === -1) return t;
+            const nextGroup = nextStage.groups[advancerIdx % nextStage.groups.length] ?? nextStage.groups[0] ?? 'A';
             return {
                 ...t,
-                qualifiedStages: isAdvancing ? [...t.qualifiedStages, nextStage.name] : t.qualifiedStages,
-                stageGroups: isAdvancing
-                    ? { ...t.stageGroups, [nextStage.name]: nextStageGroup }
-                    : t.stageGroups,
+                qualifiedStages: [...t.qualifiedStages, nextStage.name],
+                stageGroups: { ...t.stageGroups, [nextStage.name]: nextGroup },
             };
         });
 

@@ -244,8 +244,8 @@ const copyTrackImage = async () => {
 };
 
 // Registration status hint
-const VALID_TEAM_COUNTS = [3, 4, 5, 6, 8, 9];
-const VALID_PLAYER_TOTALS = [9, 12, 15, 18, 24, 27];
+const VALID_TEAM_COUNTS = [3, 4, 5, 6, 8, 9, 16, 18, 27];
+const VALID_PLAYER_TOTALS = [9, 12, 15, 18, 24, 27, 48, 54, 81];
 
 const registrationHint = computed(() => {
   const playerCount = Object.keys(props.tournament.players).length;
@@ -266,7 +266,7 @@ const registrationHint = computed(() => {
 
     // Too many captains. Can also fix by adding players up to captainCount*3 (if that's a valid total ≤ 27).
     const targetTotal = captainCount * 3;
-    const canAdd = VALID_TEAM_COUNTS.includes(captainCount) && targetTotal > playerCount && targetTotal <= 27;
+    const canAdd = VALID_TEAM_COUNTS.includes(captainCount) && targetTotal > playerCount && targetTotal <= 81;
     const addCount = targetTotal - playerCount;
     const absDiff = Math.abs(diff);
     return { type: 'captain' as const, text: `Demote ${absDiff} captain${absDiff > 1 ? 's' : ''}`, options: canAdd ? `or add ${addCount} player${addCount > 1 ? 's' : ''}` : null };
@@ -276,8 +276,8 @@ const registrationHint = computed(() => {
   const prev = [...VALID_PLAYER_TOTALS].reverse().find(t => t < playerCount);
 
   if (!next) {
-    const removeCount = playerCount - 27;
-    return { type: 'over' as const, text: 'Over max (27)', options: `remove ${removeCount} player${removeCount > 1 ? 's' : ''}` };
+    const removeCount = playerCount - 81;
+    return { type: 'over' as const, text: 'Over max (81)', options: `remove ${removeCount} player${removeCount > 1 ? 's' : ''}` };
   }
 
   const needed = next - playerCount;
@@ -417,7 +417,7 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
             <div class="text-sm text-slate-400">Total Players</div>
             <div class="text-2xl font-bold text-white font-mono">
               {{ Object.keys(tournament.players).length }}
-              <span class="text-sm font-normal text-slate-500">/ 27 max</span>
+              <span class="text-sm font-normal text-slate-500">/ 81 max</span>
             </div>
           </div>
         </div>
@@ -524,7 +524,7 @@ const handlePlayerSelect = async (globalPlayer: GlobalPlayer) => {
                   class="ph-fill"
                   :class="validTeamCount ? 'ph-check-circle text-green-500' : 'ph-x-circle text-red-500'"
               ></i>
-              3 to 9 Captains (not 7)
+              Valid captain count (3–27)
             </li>
             <li class="flex items-center gap-2">
               <i

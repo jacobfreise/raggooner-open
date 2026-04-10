@@ -2,7 +2,7 @@ import { ref, computed } from 'vue';
 import { collection, query, getDocs, orderBy, where, doc, setDoc, increment } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import type { GlobalPlayer, Tournament, Season } from '../../types';
-import { migrateRaces, migratePlayers } from "../../utils/utils.ts";
+import { migrateRaces, migratePlayers, migrateTournament } from "../../utils/utils.ts";
 import { getCached, setCache } from "../../utils/cache.ts";
 import { deriveFromTournaments, type TierCriterion } from '../../utils/analyticsUtils';
 import { TRACK_DICT } from '../../utils/trackData';
@@ -85,6 +85,7 @@ export function useAnalyticsData() {
             const data = { id: doc.id, ...doc.data() } as Tournament;
             data.races = migrateRaces(data.races);
             data.players = migratePlayers(data.players);
+            migrateTournament(data);
             if (!data.format) data.format = 'uma-ban';
             return data;
           });

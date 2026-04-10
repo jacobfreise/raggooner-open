@@ -379,7 +379,11 @@ describe('useGameLogic', () => {
                 makeTeam('b1', 'c4', 'B', 90), makeTeam('b2', 'c5', 'B', 70),
                 makeTeam('b3', 'c6', 'B', 50), makeTeam('b4', 'c7', 'B', 30),
             ];
-            const { isAdvancing } = useGameLogic(ref(makeTournament({ teams, usePlacementTiebreaker: false })), secureUpdate);
+            const preset8 = [
+                { name: 'groups', label: 'Group Stage', groups: ['A', 'B'], racesRequired: 5, teamsAdvancingPerGroup: 2 },
+                { name: 'finals', label: 'Finals', groups: ['A'], racesRequired: 5, teamsAdvancingPerGroup: 0 },
+            ];
+            const { isAdvancing } = useGameLogic(ref(makeTournament({ teams, stages: preset8, usePlacementTiebreaker: false })), secureUpdate);
             expect(isAdvancing('a1')).toBe(true);
             expect(isAdvancing('a2')).toBe(true);
             expect(isAdvancing('b1')).toBe(true);

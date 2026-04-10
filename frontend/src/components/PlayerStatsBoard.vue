@@ -24,28 +24,31 @@ const { getPlayerColor } = useRoster(tournamentRef, props.secureUpdate, isAdminR
 // --- Local State & Helpers ---
 const isSmallTournament = computed(() => (props.tournament.teams?.length || 0) < 6);
 
+const lastStageName = computed(() =>
+  props.tournament.stages?.[props.tournament.stages.length - 1]?.name ?? 'finals'
+);
+
 const getSplitResults = (playerId: string) => {
   const allResults = getRaceResultsForPlayer(playerId);
   return {
-    groups: allResults.filter(r => r.stage === 'groups'),
-    finals: allResults.filter(r => r.stage === 'finals')
+    groups: allResults.filter(r => r.stage !== lastStageName.value),
+    finals: allResults.filter(r => r.stage === lastStageName.value)
   };
 };
 
-const playerEliminated = (playerId: string) => {
-  if (!props.tournament) return false;
-  if (isSmallTournament.value) return false;
-
-  const isFinalsPhase = props.currentView === 'finals' || props.tournament.status === 'completed';
-  if (!isFinalsPhase) return false;
-
-  const team = props.tournament.teams.find(t =>
-      t.captainId === playerId || t.memberIds.includes(playerId)
-  );
-  if (!team) return false;
-  const lastStage = props.tournament.stages[props.tournament.stages.length - 1]?.name ?? 'finals';
-  return !team.qualifiedStages.includes(lastStage);
+const getResultsByStage = (playerId: string) => {
+  const allResults = getRaceResultsForPlayer(playerId);
+  return (props.tournament.stages ?? []).map(s => ({
+    stageName: s.name,
+    label: s.label,
+    isLast: s.name === lastStageName.value,
+    results: allResults.filter(r => r.stage === s.name)
+  }));
 };
+
+const stageHasRaces = (stageName: string): boolean =>
+  Object.values(props.tournament.races || {}).some(r => r.stage === stageName);
+
 
 const getPhaseTotal = (results: any[]) => {
   return results.reduce((sum, r) => sum + r.points, 0);
@@ -181,8 +184,8 @@ const getPlayerBackStats = (playerId: string) => {
     { label: 'Avg Pos.', value: avgPos ?? '—' },
     { label: 'Races', value: totalRaces },
   ];
-  const groupResults = allResults.filter(r => r.stage === 'groups');
-  const finalsResults = allResults.filter(r => r.stage === 'finals');
+  const groupResults = allResults.filter(r => r.stage !== lastStageName.value);
+  const finalsResults = allResults.filter(r => r.stage === lastStageName.value);
   const avgGroupPts = groupResults.length > 0 ? (getPhaseTotal(groupResults) / groupResults.length).toFixed(1) : null;
   const avgFinalsPts = finalsResults.length > 0 ? (getPhaseTotal(finalsResults) / finalsResults.length).toFixed(1) : null;
   let totalBeaten = 0;
@@ -323,83 +326,53 @@ const playerFameMap = computed(() => {
                 </div>
 
                 <div class="flex-1 flex flex-col gap-2">
-                  <template v-for="results in [getSplitResults(player.id)]" :key="player.id">
-                    <div v-if="isSmallTournament">
+                  <!-- Small tournament: single Races section -->
+                  <div v-if="isSmallTournament">
+                    <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">
+                      Races <div class="h-px bg-slate-700 flex-1"></div>
+                    </div>
+                    <div class="min-h-[60px] flex flex-col justify-center">
+                      <div v-if="getSplitResults(player.id).finals.length === 0" class="flex items-center justify-center">
+                        <span class="text-xs text-slate-600 italic">No races recorded yet</span>
+                      </div>
+                      <div v-else class="grid grid-cols-5 gap-2">
+                        <div v-for="(result, idx) in getSplitResults(player.id).finals" :key="'r'+idx" class="flex flex-col items-center gap-1">
+                          <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110" :class="getPositionStyle(result.position, 'finals')">
+                            {{ result.position || '-' }}
+                          </div>
+                          <span class="text-[10px] font-mono text-slate-500">
+                            {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Multi-stage: one section per stage -->
+                  <template v-else>
+                    <div v-for="stageData in getResultsByStage(player.id)" :key="stageData.stageName">
                       <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">
-                        Races <div class="h-px bg-slate-700 flex-1"></div>
+                        <span :class="stageData.isLast ? 'text-amber-500' : ''">{{ stageData.label }}</span>
+                        <div class="h-px bg-slate-700 flex-1"></div>
+                        <span class="font-mono text-slate-400">{{ getPhaseTotal(stageData.results) }} pts</span>
                       </div>
                       <div class="min-h-[60px] flex flex-col justify-center">
-                        <div v-if="results.finals.length === 0" class="flex items-center justify-center">
+                        <div v-if="stageData.results.length === 0 && stageHasRaces(stageData.stageName)"
+                             class="bg-slate-900/50 rounded-lg border border-slate-700 border-dashed p-3 text-center">
+                          <span class="text-xs text-slate-500 italic">Did not qualify</span>
+                        </div>
+                        <div v-else-if="stageData.results.length === 0" class="flex items-center justify-center">
                           <span class="text-xs text-slate-600 italic">No races recorded yet</span>
                         </div>
                         <div v-else class="grid grid-cols-5 gap-2">
-                          <div v-for="(result, idx) in results.finals" :key="'r'+idx" class="flex flex-col items-center gap-1">
-                            <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110" :class="getPositionStyle(result.position, 'finals')">
+                          <div v-for="(result, idx) in stageData.results" :key="idx" class="flex flex-col items-center gap-1">
+                            <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110"
+                                 :class="getPositionStyle(result.position, stageData.isLast ? 'finals' : 'groups')">
                               {{ result.position || '-' }}
                             </div>
                             <span class="text-[10px] font-mono text-slate-500">
                               {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
                             </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div v-else class="contents">
-                      <div>
-                        <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 flex items-center gap-2">
-                          Group Stage <div class="h-px bg-slate-700 flex-1"></div>
-                          <span class="font-mono text-slate-400">{{ getPhaseTotal(results.groups) }} pts</span>
-                        </div>
-                        <div class="min-h-[60px] flex flex-col justify-center">
-                          <div v-if="results.groups.length === 0" class="flex items-center justify-center">
-                            <span class="text-xs text-slate-600 italic">No races recorded yet</span>
-                          </div>
-                          <div v-else class="grid grid-cols-5 gap-2">
-                            <div v-for="(result, idx) in results.groups" :key="'g'+idx" class="flex flex-col items-center gap-1">
-                              <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110" :class="getPositionStyle(result.position, 'groups')">
-                                {{ result.position || '-' }}
-                              </div>
-                              <span class="text-[10px] font-mono text-slate-500">
-                                {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div v-if="!playerEliminated(player.id) || results.finals.length > 0">
-                        <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 mt-1 flex items-center gap-2">
-                          <span class="text-amber-500">Finals</span>
-                          <div class="h-px bg-slate-700 flex-1"></div>
-                          <span class="font-mono text-slate-400">{{ getPhaseTotal(results.finals) }} pts</span>
-                        </div>
-                        <div class="min-h-[60px] flex flex-col justify-center">
-                          <div v-if="results.finals.length === 0" class="flex items-center justify-center">
-                            <span class="text-xs text-slate-600 italic">No races recorded yet</span>
-                          </div>
-                          <div v-else class="grid grid-cols-5 gap-2">
-                            <div v-for="(result, idx) in results.finals" :key="'f'+idx" class="flex flex-col items-center gap-1">
-                              <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold border shadow-sm transition-transform hover:scale-110" :class="getPositionStyle(result.position, 'finals')">
-                                {{ result.position || '-' }}
-                              </div>
-                              <span class="text-[10px] font-mono text-slate-500">
-                                {{ result.points > 0 ? '+' + result.points : (result.points === 0 ? '0' : result.points) }}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div v-else-if="playerEliminated(player.id)" class="mt-auto">
-                        <div class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-2 mt-1 flex items-center gap-2">
-                          <span class="text-amber-500">Finals</span>
-                          <div class="h-px bg-slate-700 flex-1"></div>
-                          <span class="font-mono text-slate-400">{{ getPhaseTotal(results.finals) }} pts</span>
-                        </div>
-                        <div class="min-h-[60px] flex flex-col justify-center">
-                          <div class="bg-slate-900/50 rounded-lg border border-slate-700 border-dashed p-3 text-center">
-                            <span class="text-xs text-slate-500 italic">Did not qualify for finals</span>
                           </div>
                         </div>
                       </div>

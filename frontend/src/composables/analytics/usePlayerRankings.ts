@@ -188,9 +188,9 @@ export function usePlayerRankings(
     const tournamentHasGroupsMap = new Map<string, boolean>();
     const tournamentLastStageMap = new Map<string, string>();
     filteredTournaments.value.forEach(t => {
-      const firstStage = t.stages[0]?.name ?? 'groups';
-      const lastStage = t.stages[t.stages.length - 1]?.name ?? 'finals';
-      const uniqueGroups = new Set(t.teams.map(tm => tm.stageGroups[firstStage]));
+      const firstStage = t.stages?.[0]?.name ?? 'groups';
+      const lastStage = t.stages?.[t.stages.length - 1]?.name ?? 'finals';
+      const uniqueGroups = new Set(t.teams.map(tm => tm.stageGroups?.[firstStage]));
       tournamentHasGroupsMap.set(t.id, uniqueGroups.size > 1);
       tournamentLastStageMap.set(t.id, lastStage);
     });
@@ -350,9 +350,9 @@ export function usePlayerRankings(
     const hasGroupsMap = new Map<string, boolean>();
     const lastStageMap = new Map<string, string>();
     filteredTournaments.value.forEach(t => {
-      const firstStage = t.stages[0]?.name ?? 'groups';
-      const lastStage = t.stages[t.stages.length - 1]?.name ?? 'finals';
-      const uniqueGroups = new Set(t.teams.map(tm => tm.stageGroups[firstStage]));
+      const firstStage = t.stages?.[0]?.name ?? 'groups';
+      const lastStage = t.stages?.[t.stages.length - 1]?.name ?? 'finals';
+      const uniqueGroups = new Set(t.teams.map(tm => tm.stageGroups?.[firstStage]));
       hasGroupsMap.set(t.id, uniqueGroups.size > 1);
       lastStageMap.set(t.id, lastStage);
     });
@@ -468,11 +468,11 @@ export function usePlayerRankings(
       const pointSystem = t?.pointsSystem || POINTS_SYSTEM;
       const teams = t?.teams || [];
       const playerTeam = teams.find(tm => (part.teamId && tm.id === part.teamId) || tm.captainId === playerId || tm.memberIds.includes(playerId));
-      const firstStage = t?.stages[0]?.name ?? 'groups';
-      const lastStage = t ? t.stages[t.stages.length - 1]?.name ?? 'finals' : 'finals';
-      const uniqueGroupSet = new Set(teams.map(tm => tm.stageGroups[firstStage]));
+      const firstStage = t?.stages?.[0]?.name ?? 'groups';
+      const lastStage = t ? t.stages?.[t.stages.length - 1]?.name ?? 'finals' : 'finals';
+      const uniqueGroupSet = new Set(teams.map(tm => tm.stageGroups?.[firstStage]));
       const hasGroups = uniqueGroupSet.size > 1;
-      const finalistTeams = teams.filter(tm => tm.qualifiedStages.includes(lastStage));
+      const finalistTeams = teams.filter(tm => tm.qualifiedStages?.includes(lastStage));
 
       const winningTeam = t ? (getWinningTeam(t) ?? null) : null;
 
@@ -484,7 +484,7 @@ export function usePlayerRankings(
         if (teams.length === 0 && tStatus === 'active') finalsStatus = '-';
         else if (winningTeam && playerTeam.id === winningTeam.id && tStatus === 'completed') finalsStatus = 'winner';
         else if (!hasGroups) finalsStatus = 'no-groups';
-        else if (playerTeam.qualifiedStages.includes(lastStage)) finalsStatus = 'finals';
+        else if (playerTeam.qualifiedStages?.includes(lastStage)) finalsStatus = 'finals';
         else if (hasGroups) finalsStatus = 'eliminated';
 
         let teamRank = null;
@@ -493,7 +493,7 @@ export function usePlayerRankings(
           const sorted = [...finalistTeams].sort((a, b) => compareTeams(a, b, true, t, lastStage));
           teamRank = sorted.findIndex(tm => tm.id === playerTeam.id) + 1 || null;
         } else if (finalsStatus === 'eliminated' && t) {
-          const groupTeams = teams.filter(tm => tm.stageGroups[firstStage] === playerTeam.stageGroups[firstStage]);
+          const groupTeams = teams.filter(tm => tm.stageGroups?.[firstStage] === playerTeam.stageGroups?.[firstStage]);
           const sorted = [...groupTeams].sort((a, b) => compareTeams(a, b, true, t, firstStage));
           teamRank = sorted.findIndex(tm => tm.id === playerTeam.id) + 1 || null;
         } else if (finalsStatus === 'no-groups' && t) {
@@ -506,9 +506,9 @@ export function usePlayerRankings(
           teamRank = sorted.findIndex(tm => tm.id === playerTeam.id) + 1 || null;
         }
 
-        const playerGroup = playerTeam.stageGroups[firstStage];
+        const playerGroup = playerTeam.stageGroups?.[firstStage];
         const teamGroups = new Set<string>(playerGroup ? [playerGroup] : []);
-        if (playerTeam.qualifiedStages.includes(lastStage)) teamGroups.add(lastStage);
+        if (playerTeam.qualifiedStages?.includes(lastStage)) teamGroups.add(lastStage);
         const stats = computeRaceStats(part.tournamentId, pointSystem, hasGroups ? teamGroups : undefined);
         let groupRowStats = emptyStats, finalsRowStats = emptyStats;
         if (hasGroups) {

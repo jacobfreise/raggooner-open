@@ -37,39 +37,50 @@ const { getPlayerColor } = useRoster(tournament, props.secureUpdate, isAdminRef)
 const raceInputMode = ref<'tap' | 'dropdown'>('tap');
 const captainSaving = ref(false);
 
-// 1. Define the specific literal type
-type ValidGroupId = 'A' | 'B' | 'C' | 'Finals';
-
-// 2. Define the shape of your stage object
-interface StageConfig {
-  id: ValidGroupId;
+interface VisibleStage {
+  id: string;
   title: string;
-  stageId: 'groups' | 'finals';
+  stageId: string;
   color: string;
   focusColor: string;
 }
 
-// Unify all group logic into a single configuration array
-const visibleStages = computed(() => {
-  const stages: StageConfig[] = [];
-  const t = tournament.value;
-  const isFinals = currentView.value === 'finals';
+const GROUP_COLORS = [
+  { color: 'text-indigo-400', focusColor: 'focus:border-indigo-500 focus:ring-indigo-500' },
+  { color: 'text-rose-400',   focusColor: 'focus:border-rose-500 focus:ring-rose-500' },
+  { color: 'text-emerald-400',focusColor: 'focus:border-emerald-500 focus:ring-emerald-500' },
+  { color: 'text-violet-400', focusColor: 'focus:border-violet-500 focus:ring-violet-500' },
+  { color: 'text-cyan-400',   focusColor: 'focus:border-cyan-500 focus:ring-cyan-500' },
+  { color: 'text-orange-400', focusColor: 'focus:border-orange-500 focus:ring-orange-500' },
+  { color: 'text-pink-400',   focusColor: 'focus:border-pink-500 focus:ring-pink-500' },
+  { color: 'text-teal-400',   focusColor: 'focus:border-teal-500 focus:ring-teal-500' },
+  { color: 'text-lime-400',   focusColor: 'focus:border-lime-500 focus:ring-lime-500' },
+];
 
-  if (!isFinals) {
-    if (t.teams.length < 6) {
-      stages.push({ id: 'A', title: 'Race', stageId: 'groups' as const, color: 'text-indigo-400', focusColor: 'focus:border-indigo-500 focus:ring-indigo-500' });
-    } else {
-      stages.push({ id: 'A', title: 'Group A', stageId: 'groups' as const, color: 'text-indigo-400', focusColor: 'focus:border-indigo-500 focus:ring-indigo-500' });
-      stages.push({ id: 'B', title: 'Group B', stageId: 'groups' as const, color: 'text-rose-400', focusColor: 'focus:border-rose-500 focus:ring-rose-500' });
-      if (t.teams.length === 9) {
-        stages.push({ id: 'C', title: 'Group C', stageId: 'groups' as const, color: 'text-emerald-400', focusColor: 'focus:border-emerald-500 focus:ring-emerald-500' });
-      }
-    }
-  } else {
-    stages.push({ id: 'Finals', title: 'Finals', stageId: 'finals' as const, color: 'text-amber-500', focusColor: 'focus:border-amber-500 focus:ring-amber-500' });
+const visibleStages = computed((): VisibleStage[] => {
+  const t = tournament.value;
+  const stageName = currentView.value;
+  const stageConfig = t.stages.find(s => s.name === stageName) ?? t.stages[t.currentStageIndex];
+  if (!stageConfig) return [];
+
+  const lastStageName = t.stages[t.stages.length - 1]?.name;
+  const isLastStage = stageName === lastStageName;
+
+  if (isLastStage) {
+    // Use 'Finals' as group id for backwards compat with existing race records
+    return [{ id: 'Finals', title: stageConfig.label, stageId: stageName, color: 'text-amber-500', focusColor: 'focus:border-amber-500 focus:ring-amber-500' }];
   }
 
-  return stages;
+  return stageConfig.groups.map((group, idx) => {
+    const c = GROUP_COLORS[idx % GROUP_COLORS.length]!;
+    return {
+      id: group,
+      title: stageConfig.groups.length === 1 ? 'Race' : `Group ${group}`,
+      stageId: stageName,
+      color: c.color,
+      focusColor: c.focusColor,
+    };
+  });
 });
 
 // Resolves whether the captain can edit a given group.
@@ -139,7 +150,7 @@ const handleUpdatePlacement = async (groupId: string, raceNum: number, pos: numb
         :is-admin="isAdminRef"
         :can-captain-edit="stage.id === captainEditableGroupId"
         :active-players="activeStagePlayers(stage.id)"
-        :saving="(saving || captainSaving) && (stage.id === 'A' || stage.id ==='Finals')"
+        :saving="saving || captainSaving"
         :editing-race-key="editingRaceKey"
         :entry-map="entryMap"
         :get-player-color="getPlayerColor"

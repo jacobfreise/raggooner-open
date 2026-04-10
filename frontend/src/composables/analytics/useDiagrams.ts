@@ -68,8 +68,8 @@ export function useDiagrams(
   const tournamentHasGroupsMap = computed(() => {
     const map = new Map<string, boolean>();
     filteredTournaments.value.forEach(t => {
-      const firstStage = t.stages[0]?.name ?? 'groups';
-      const uniqueGroups = new Set((t.teams ?? []).map(tm => tm.stageGroups[firstStage]));
+      const firstStage = t.stages?.[0]?.name ?? 'groups';
+      const uniqueGroups = new Set((t.teams ?? []).map(tm => tm.stageGroups?.[firstStage]));
       map.set(t.id, uniqueGroups.size > 1);
     });
     return map;

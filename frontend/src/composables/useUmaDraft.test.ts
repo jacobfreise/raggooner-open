@@ -117,10 +117,12 @@ describe('useUmaDraft', () => {
     });
 
     describe('computed: availableUmas', () => {
-        it('filters out already picked umas', () => {
+        it('filters out umas already owned by current team', () => {
+            // team1 has already picked Special Week; team1 is the current picker (idx=0)
             const tournament = ref(makeTournament({
                 teams: [
-                    { id: 't1', name: 'T1', captainId: 'p1', memberIds: [], points: 0, finalsPoints: 0, group: 'A', umaPool: ['Special Week'] }
+                    { id: 'team1', name: 'Team 1', captainId: 'p1', memberIds: [], points: 0, finalsPoints: 0, group: 'A', color: '#ff0000', umaPool: ['Special Week'] },
+                    { id: 'team2', name: 'Team 2', captainId: 'p2', memberIds: [], points: 0, finalsPoints: 0, group: 'A', color: '#00ff00' }
                 ]
             }));
             const { availableUmas } = useUmaDraft(tournament, secureUpdate, isAdmin);
