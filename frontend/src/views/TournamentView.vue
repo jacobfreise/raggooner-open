@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import {ref, computed, watch, onUnmounted, onMounted, inject, type Ref} from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { doc, onSnapshot, updateDoc, collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
+import { doc, getDoc, onSnapshot, updateDoc, collection, getDocs } from 'firebase/firestore';
+import { db, auth } from '../firebase';
 import type { FirestoreUpdate, Tournament, GlobalPlayer, Season } from '../types';
 import { recalculateTournamentScores, migrateRaces, migratePlayers } from "../utils/utils.ts";
 import { POINTS_SYSTEM } from "../utils/constants.ts";
