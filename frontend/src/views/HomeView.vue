@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, reactive } from 'vue';
+import { ref, computed, watch, onMounted, reactive, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { collection, doc, getDocs, orderBy, query, where, writeBatch, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
@@ -17,7 +17,7 @@ const router = useRouter();
 const appId = 'default-app';
 
 const { isOfficialCreator } = useUserRoles();
-const { linkedPlayer } = useAuth();
+const { linkedPlayer, isDiscordUser, loading: authLoading } = useAuth();
 const { settings } = useGlobalSettings();
 
 // State
@@ -264,13 +264,20 @@ const formatTournamentStatus = (t: Tournament): string => {
   return statusMap[t.status] || t.status;
 };
 
-onMounted(() => {
-  fetchSeasons();
-  fetchActiveTournaments();
-  auth.onAuthStateChanged(user => {
-    if (user) console.log('[Auth] Your UID:', user.uid);
-  });
-});
+// Fetch tournament data only when signed in with Discord; clear when signed out.
+const stopAuthWatch = watch(isDiscordUser, (loggedIn) => {
+  if (loggedIn) {
+    fetchSeasons();
+    fetchActiveTournaments();
+  } else {
+    activeTournaments.value = [];
+    availableSeasons.value = [];
+    homeListLoading.value = false;
+  }
+}, { immediate: true });
+
+onMounted(() => {});
+onUnmounted(() => stopAuthWatch());
 </script>
 
 <template>
@@ -290,87 +297,98 @@ onMounted(() => {
             <p class="text-xl text-slate-400 max-w-2xl mx-auto">Organize Racc Open. Draft a Team, low-roll your career, mald a lot and race against the other teams.</p>
           </div>
 
-          <div class="glass-panel p-6 rounded-2xl grid  gap-8 items-center bg-slate-800/40 border border-slate-700/50 shadow-2xl">
-            <div class="space-y-4">
-              <h2 class="text-2xl font-bold text-white mb-4">Create New Tournament</h2>
-              <div class="space-y-3">
-                <input v-model="newTournamentName"
-                       @keydown.enter="createTournament"
-                       :disabled="isCreating"
-                       type="text"
-                       placeholder="Tournament Name"
-                       class="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all disabled:opacity-50">
+          <div class="glass-panel p-6 rounded-2xl grid gap-8 items-center bg-slate-800/40 border border-slate-700/50 shadow-2xl">
+            <!-- Create form: only visible when signed in with Discord -->
+            <template v-if="isDiscordUser">
+              <div class="space-y-4">
+                <h2 class="text-2xl font-bold text-white mb-4">Create New Tournament</h2>
+                <div class="space-y-3">
+                  <input v-model="newTournamentName"
+                         @keydown.enter="createTournament"
+                         :disabled="isCreating"
+                         type="text"
+                         placeholder="Tournament Name"
+                         class="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all disabled:opacity-50">
 
-                <select v-model="selectedSeasonId"
-                        :disabled="isCreating || availableSeasons.length === 0"
-                        class="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all disabled:opacity-50 appearance-none cursor-pointer">
-                  <option v-if="availableSeasons.length === 0" value="" class="text-slate-500">No Season</option>
-                  <option v-for="season in availableSeasons" :key="season.id" :value="season.id">
-                    {{ season.name }}
-                  </option>
-                </select>
+                  <select v-model="selectedSeasonId"
+                          :disabled="isCreating || availableSeasons.length === 0"
+                          class="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all disabled:opacity-50 appearance-none cursor-pointer">
+                    <option v-if="availableSeasons.length === 0" value="" class="text-slate-500">No Season</option>
+                    <option v-for="season in availableSeasons" :key="season.id" :value="season.id">
+                      {{ season.name }}
+                    </option>
+                  </select>
 
-                <div class="flex gap-2">
-                  <button v-for="(fmt, key) in TOURNAMENT_FORMATS" :key="key"
-                          @click="selectedFormat = key"
-                          :disabled="isCreating"
-                          class="flex-1 p-3 rounded-lg border-2 text-left transition-all"
-                          :class="selectedFormat === key
-                            ? 'border-indigo-500 bg-indigo-900/30'
-                            : 'border-slate-700 bg-slate-900 hover:border-slate-600'">
-                    <div class="text-sm font-bold" :class="selectedFormat === key ? 'text-indigo-300' : 'text-slate-300'">{{ fmt.name }}</div>
-                    <div class="text-[10px] mt-0.5" :class="selectedFormat === key ? 'text-indigo-400/70' : 'text-slate-500'">{{ fmt.description }}</div>
+                  <div class="flex gap-2">
+                    <button v-for="(fmt, key) in TOURNAMENT_FORMATS" :key="key"
+                            @click="selectedFormat = key"
+                            :disabled="isCreating"
+                            class="flex-1 p-3 rounded-lg border-2 text-left transition-all"
+                            :class="selectedFormat === key
+                              ? 'border-indigo-500 bg-indigo-900/30'
+                              : 'border-slate-700 bg-slate-900 hover:border-slate-600'">
+                      <div class="text-sm font-bold" :class="selectedFormat === key ? 'text-indigo-300' : 'text-slate-300'">{{ fmt.name }}</div>
+                      <div class="text-[10px] mt-0.5" :class="selectedFormat === key ? 'text-indigo-400/70' : 'text-slate-500'">{{ fmt.description }}</div>
+                    </button>
+                  </div>
+
+                  <div class="flex flex-col gap-1.5">
+                    <div class="flex gap-2" :class="!isOfficialCreator ? 'opacity-50 pointer-events-none' : ''">
+                      <button @click="isOfficial = false"
+                              :disabled="isCreating"
+                              class="flex-1 p-3 rounded-lg border-2 text-left transition-all"
+                              :class="!isOfficial ? 'border-slate-500 bg-slate-800/60' : 'border-slate-700 bg-slate-900 hover:border-slate-600'">
+                        <div class="text-sm font-bold" :class="!isOfficial ? 'text-slate-200' : 'text-slate-400'">Unofficial</div>
+                        <div class="text-[10px] mt-0.5 text-slate-500">Does not count in stats</div>
+                      </button>
+                      <button @click="isOfficial = true"
+                              :disabled="isCreating"
+                              class="flex-1 p-3 rounded-lg border-2 text-left transition-all"
+                              :class="isOfficial ? 'border-amber-500 bg-amber-900/20' : 'border-slate-700 bg-slate-900 hover:border-slate-600'">
+                        <div class="text-sm font-bold" :class="isOfficial ? 'text-amber-300' : 'text-slate-400'">Official</div>
+                        <div class="text-[10px] mt-0.5" :class="isOfficial ? 'text-amber-400/70' : 'text-slate-500'">Counts toward player stats</div>
+                      </button>
+                    </div>
+                    <p v-if="!isOfficialCreator" class="text-[11px] text-slate-500 flex items-center gap-1">
+                      <i class="ph ph-lock-simple"></i>
+                      Only tournament creators can create official tournaments.
+                    </p>
+                  </div>
+
+                  <button @click="createTournament"
+                          :disabled="!newTournamentName || isCreating"
+                          class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg transition-all shadow-lg shadow-indigo-900/30 flex items-center justify-center gap-2">
+
+                    <template v-if="isCreating">
+                      <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Creating...</span>
+                    </template>
+
+                    <template v-else>
+                      <i class="ph-bold ph-plus-circle"></i>
+                      <span>Start</span>
+                    </template>
+
                   </button>
                 </div>
 
-                <div class="flex flex-col gap-1.5">
-                  <div class="flex gap-2" :class="!isOfficialCreator ? 'opacity-50 pointer-events-none' : ''">
-                    <button @click="isOfficial = false"
-                            :disabled="isCreating"
-                            class="flex-1 p-3 rounded-lg border-2 text-left transition-all"
-                            :class="!isOfficial ? 'border-slate-500 bg-slate-800/60' : 'border-slate-700 bg-slate-900 hover:border-slate-600'">
-                      <div class="text-sm font-bold" :class="!isOfficial ? 'text-slate-200' : 'text-slate-400'">Unofficial</div>
-                      <div class="text-[10px] mt-0.5 text-slate-500">Does not count in stats</div>
-                    </button>
-                    <button @click="isOfficial = true"
-                            :disabled="isCreating"
-                            class="flex-1 p-3 rounded-lg border-2 text-left transition-all"
-                            :class="isOfficial ? 'border-amber-500 bg-amber-900/20' : 'border-slate-700 bg-slate-900 hover:border-slate-600'">
-                      <div class="text-sm font-bold" :class="isOfficial ? 'text-amber-300' : 'text-slate-400'">Official</div>
-                      <div class="text-[10px] mt-0.5" :class="isOfficial ? 'text-amber-400/70' : 'text-slate-500'">Counts toward player stats</div>
-                    </button>
-                  </div>
-                  <p v-if="!isOfficialCreator" class="text-[11px] text-slate-500 flex items-center gap-1">
-                    <i class="ph ph-lock-simple"></i>
-                    Only tournament creators can create official tournaments.
-                  </p>
+                <div class="relative">
+                  <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-700"></div></div>
+                  <div class="relative flex justify-center text-sm"><span class="px-2 bg-slate-800 text-slate-500 rounded">Or join existing</span></div>
                 </div>
-
-                <button @click="createTournament"
-                        :disabled="!newTournamentName || isCreating"
-                        class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg transition-all shadow-lg shadow-indigo-900/30 flex items-center justify-center gap-2">
-
-                  <template v-if="isCreating">
-                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span>Creating...</span>
-                  </template>
-
-                  <template v-else>
-                    <i class="ph-bold ph-plus-circle"></i>
-                    <span>Start</span>
-                  </template>
-
-                </button>
               </div>
+            </template>
 
-              <div class="relative">
-                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-700"></div></div>
-                <div class="relative flex justify-center text-sm"><span class="px-2 bg-slate-800 text-slate-500 rounded">Or join existing</span></div>
+            <!-- Guest: sign-in prompt -->
+            <template v-else-if="!authLoading">
+              <div class="space-y-3 text-center py-2">
+                <i class="ph-fill ph-discord-logo text-5xl text-indigo-400"></i>
+                <p class="text-slate-300 font-medium">Sign in with Discord to create or browse tournaments.</p>
               </div>
-            </div>
+            </template>
 
             <div class="space-y-4">
               <h2 class="text-2xl font-bold text-white mb-4">Join by ID</h2>
@@ -383,7 +401,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <div v-if="scheduledTournamentsList.length > 0">
+          <div v-if="isDiscordUser && scheduledTournamentsList.length > 0">
             <div class="flex items-center gap-3 mb-6">
               <div class="h-8 w-2 bg-violet-500 rounded-full"></div>
               <h2 class="text-2xl font-bold text-white">Scheduled Events</h2>
@@ -417,7 +435,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <div>
+          <div v-if="isDiscordUser">
             <div class="flex items-center gap-3 mb-6">
               <div class="h-8 w-2 bg-indigo-500 rounded-full"></div>
               <h2 class="text-2xl font-bold text-white">Ongoing Events</h2>
@@ -474,7 +492,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="border-t border-slate-800 pt-8 pb-12">
+          <div v-if="isDiscordUser" class="border-t border-slate-800 pt-8 pb-12">
             <button
                 @click="showHistory = !showHistory"
                 class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mx-auto px-4 py-2 hover:bg-slate-800 rounded-lg"

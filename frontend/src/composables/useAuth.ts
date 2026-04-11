@@ -2,7 +2,6 @@ import { ref, computed } from 'vue';
 import {
     onAuthStateChanged,
     signInWithPopup,
-    signInAnonymously,
     signOut,
     OAuthProvider,
     getAdditionalUserInfo,
@@ -115,7 +114,6 @@ export function useAuth() {
     const logout = async () => {
         try {
             await signOut(auth);
-            await signInAnonymously(auth);
         } catch (e) {
             console.error('Logout failed:', e);
         }

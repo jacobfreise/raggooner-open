@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 defineOptions({ inheritAttrs: false });
 import LineChart from './analytics/LineChart.vue';
@@ -17,7 +17,10 @@ import SiteNav from './shared/SiteNav.vue';
 import PlayerAvatar from './shared/PlayerAvatar.vue';
 import PlayerProfileModal from './PlayerProfileModal.vue';
 import type { GlobalPlayer } from '../types';
+import { useAuth } from '../composables/useAuth';
 
+
+const { isDiscordUser, loading: authLoading } = useAuth();
 
 const activeTab = ref<'overview' | 'players' | 'umas' | 'tierlist' | 'tournaments' | 'diagrams'>('overview');
 
@@ -68,7 +71,9 @@ const {
   toggleDiagramPlayer, toggleDiagramUma
 } = useDiagrams(players, filteredTournaments, filteredRaces, playerRankings, activeTab, stageView);
 
-onMounted(loadData);
+watch(isDiscordUser, (loggedIn) => {
+  if (loggedIn) loadData();
+}, { immediate: true });
 
 const tournamentSortKey = ref('date');
 const tournamentSortDesc = ref(true);
@@ -204,6 +209,18 @@ function perfIndicator(
 
       <SiteNav />
 
+      <!-- Guest gate: analytics requires Discord login -->
+      <template v-if="!isDiscordUser && !authLoading">
+        <div class="flex flex-col items-center justify-center py-24 gap-6 text-center">
+          <i class="ph-fill ph-discord-logo text-7xl text-indigo-400"></i>
+          <div>
+            <h2 class="text-2xl font-bold text-white mb-2">Sign in to view Analytics</h2>
+            <p class="text-slate-400 max-w-sm">Player rankings, uma stats, and tournament history require a Discord account.</p>
+          </div>
+        </div>
+      </template>
+
+      <template v-else-if="isDiscordUser">
 
       <div class="flex items-center justify-between">
         <div>
@@ -1650,6 +1667,8 @@ function perfIndicator(
 
       </div>
       <!-- ==================== END DIAGRAMS TAB ==================== -->
+
+      </template> <!-- end v-else-if="isDiscordUser" -->
 
     </main>
 

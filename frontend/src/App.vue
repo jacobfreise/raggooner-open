@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, provide } from 'vue';
 import type { Tournament } from './types';
-import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
+import { signInWithCustomToken } from 'firebase/auth';
 import { auth } from './firebase';
 import { APP_VERSION } from './data/changelog';
 import ChangelogModal from './components/ChangelogModal.vue';
@@ -31,8 +31,6 @@ const init = async () => {
   const initialToken = (window as any).__initial_auth_token;
   if (initialToken) {
     await signInWithCustomToken(auth, initialToken);
-  } else if (!auth.currentUser) {
-    await signInAnonymously(auth);
   }
 };
 

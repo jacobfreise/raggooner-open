@@ -11,6 +11,12 @@ service cloud.firestore {
         : null;
     }
 
+    function isDiscordUser() {
+        return request.auth != null &&
+            request.auth.token.firebase.sign_in_provider == 'oidc.discord';
+            // Note: 'oidc.discord' is the standard provider ID for Firebase + Discord
+    }
+
     function isSuperAdmin() {
       return getUserRole() == 'superadmin';
     }
@@ -28,7 +34,11 @@ service cloud.firestore {
 
       // 1. PLAYERS
       match /players/{playerId} {
-        allow read, create: if request.auth != null;
+        // Anyone can read a single player doc by ID (e.g. avatar lookups).
+        // Listing the collection requires Discord login to prevent scraping.
+        allow get: if true;
+        allow list: if request.auth != null;
+        allow create: if request.auth != null;
         // Admins can update any player (needed for role sync in setUserRole).
         // Own doc update or linking an unlinked player to yourself also allowed.
         allow update: if isAdmin() ||
@@ -39,13 +49,17 @@ service cloud.firestore {
 
       // 2. SEASONS
       match /seasons/{seasonId} {
-        allow read: if request.auth != null;
+        allow get: if true;
+        allow list: if request.auth != null;
         allow write: if isSuperAdmin() || request.auth != null;
       }
 
       // 3. TOURNAMENTS
       match /tournaments/{tournamentId} {
-        allow read: if request.auth != null;
+        // Anyone can fetch a single tournament by ID (direct link access).
+        // Listing the collection requires Discord login to prevent scraping.
+        allow get: if true;
+        allow list: if request.auth != null;
         allow create: if request.auth != null &&
           (!('isOfficial' in request.resource.data) || !request.resource.data.isOfficial || isOfficialCreator());
         allow update, delete: if isSuperAdmin() ||
@@ -75,7 +89,8 @@ service cloud.firestore {
 
       // 6. GLOBAL SETTINGS
       match /settings/{docId} {
-        allow read: if request.auth != null;
+        allow get: if true;
+        allow list: if request.auth != null;
         allow write: if isOfficialCreator();
       }
 
