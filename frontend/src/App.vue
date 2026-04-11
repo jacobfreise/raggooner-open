@@ -12,8 +12,6 @@ import { useUserRoles } from './composables/useUserRoles';
 
 const { user, linkedPlayer, loading: authLoading, isDiscordUser } = useAuth();
 const { isSuperAdmin } = useUserRoles();
-// import SeasonSetup from "./components/SeasonSetup.vue";
-// import Migrate from "./components/Migrate.vue";
 
 const showChangelog = ref(false);
 const hasNewUpdates = ref(false);
@@ -63,10 +61,6 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen flex flex-col">
-
-
-<!--          <SeasonSetup></SeasonSetup>-->
-<!--          <Migrate></Migrate>-->
 
     <div v-if="isSuperAdmin"
          class="fixed left-0 top-1/2 -translate-y-1/2 z-[100] transition-transform duration-300"
