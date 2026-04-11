@@ -18,6 +18,7 @@ import type {GlobalPlayer} from "../../types.ts";
 import RaceInputs from "../race/RaceInputs.vue";
 import PlayerStatsBoard from "../PlayerStatsBoard.vue";
 import PlayerProfileModal from "../PlayerProfileModal.vue";
+import TournamentBracket from "./TournamentBracket.vue";
 
 const props = withDefaults(defineProps<{
   tournamentProp: Tournament;
@@ -115,6 +116,7 @@ const showBans = ref(false);
 const showRules = ref(false);
 const showUmaPools = ref(false);
 const showDraftOrder = ref(false);
+const showBracket = ref(false);
 const draftOrderTab = ref<'players' | 'umas'>('players');
 
 const getUnassignedUmaPool = (team: Team): string[] => {
@@ -425,12 +427,22 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
       </div>
 
       <div v-if="tournament.stages.length > 1" class="flex gap-2 justify-center">
+        <!-- Bracket overview tab -->
+        <button @click="showBracket = true"
+                class="pb-3 px-4 md:px-6 text-sm font-bold uppercase tracking-widest border-b-2 transition-all -mb-[1px] flex items-center gap-1.5"
+                :class="showBracket
+                  ? 'border-violet-500 text-violet-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-300'">
+          <i class="ph-bold ph-tree-structure text-base"></i>
+          <span class="hidden sm:inline">Bracket</span>
+        </button>
+        <!-- Stage tabs -->
         <button v-for="(stage, idx) in tournament.stages"
                 :key="stage.name"
-                @click="currentView = stage.name"
+                @click="showBracket = false; currentView = stage.name"
                 :disabled="idx > tournament.currentStageIndex"
                 class="pb-3 px-4 md:px-6 text-sm font-bold uppercase tracking-widest border-b-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed -mb-[1px]"
-                :class="currentView === stage.name
+                :class="!showBracket && currentView === stage.name
                   ? (idx === tournament.stages.length - 1 ? 'border-amber-500 text-amber-500' : 'border-indigo-500 text-indigo-400')
                   : 'border-transparent text-slate-500 hover:text-slate-300'">
           {{ stage.label }}
@@ -469,6 +481,10 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
 
     </div>
 
+    <!-- Bracket overview -->
+    <TournamentBracket v-if="showBracket" :tournament="tournament" />
+
+    <template v-if="!showBracket">
     <div v-if="!isLastStage && tournament.stages.length > 1"
          class="mb-6 bg-indigo-900/20 border border-indigo-500/20 p-3 rounded-lg flex items-center gap-3 text-sm text-indigo-200">
       <i class="ph-fill ph-info text-indigo-400"></i>
@@ -746,6 +762,8 @@ const handleUmaChange = async (playerId: string, umaId: string) => {
         </div>
       </div>
     </div>
+
+    </template><!-- end v-if="!showBracket" -->
 
 <!--    RACE RESULT INPUTS-->
     <RaceInputs

@@ -360,21 +360,27 @@ export function useGameLogic(
 
     // 3. NEW: Helper for UI to check status
     const getProgressionStatus = (teamId: string): 'safe' | 'tied' | 'none' => {
-        const team = tournament.value?.teams.find(t => t.id === teamId);
+        if (!tournament.value) return 'none';
+        const team = tournament.value.teams.find(t => t.id === teamId);
         if (!team) return 'none';
 
         const points = team.stagePoints[currentView.value] ?? 0;
         if (points === 0) return 'none';
 
-        const isPastCurrentStage = tournament.value
-            ? isAtLastStage(tournament.value) || tournament.value.status === 'completed'
-            : false;
+        const t = tournament.value;
+        const viewedStageIndex = t.stages.findIndex(s => s.name === currentView.value);
+        if (viewedStageIndex === -1) return 'none';
 
-        if (isPastCurrentStage && tournament.value && currentView.value !== getLastStageName(tournament.value)) {
-            const nextStageName = tournament.value.stages[tournament.value.currentStageIndex]?.name ?? '';
-            return team.qualifiedStages.includes(nextStageName) ? 'safe' : 'none';
+        // Stage is concluded if the tournament has moved past it or is completed
+        const isConcluded = viewedStageIndex < t.currentStageIndex || t.status === 'completed';
+
+        if (isConcluded) {
+            // Show actual qualification for the stage immediately after the viewed stage
+            const nextStageName = t.stages[viewedStageIndex + 1]?.name ?? '';
+            return nextStageName && team.qualifiedStages.includes(nextStageName) ? 'safe' : 'none';
         }
 
+        // Viewing the live current stage — show live projection
         if (projectedProgression.value.safe.includes(teamId)) return 'safe';
         if (projectedProgression.value.tied.some(t => t.id === teamId)) return 'tied';
         return 'none';
@@ -382,18 +388,27 @@ export function useGameLogic(
 
     const finalizeFinals = async (finalIds: string[]) => {
         if (!tournament.value) return;
-        const nextStageIndex = tournament.value.currentStageIndex + 1;
-        const nextStage = tournament.value.stages[nextStageIndex]!;
+        const t = tournament.value;
+        const nextStageIndex = t.currentStageIndex + 1;
+        const nextStage = t.stages[nextStageIndex]!;
+        const currentStage = t.stages[t.currentStageIndex]!;
+        const stageName = getCurrentStageName(t);
+        const numCurrent = currentStage.groups.length;
+        const numNext = nextStage.groups.length;
 
-        // Distribute advancing teams across next-stage groups via round-robin
-        const updatedTeams = tournament.value.teams.map(t => {
-            const advancerIdx = finalIds.indexOf(t.id);
-            if (advancerIdx === -1) return t;
-            const nextGroup = nextStage.groups[advancerIdx % nextStage.groups.length] ?? nextStage.groups[0] ?? 'A';
+        // Deterministically assign next-stage group based on current-stage group index.
+        // Group at index i → next-stage group at index floor(i * numNext / numCurrent).
+        // This ensures Round1-A winners always face Round1-B winners in Semi-A, etc.
+        const updatedTeams = t.teams.map(team => {
+            if (!finalIds.includes(team.id)) return team;
+            const currentGroup = team.stageGroups[stageName];
+            const currentGroupIdx = currentGroup ? currentStage.groups.indexOf(currentGroup) : 0;
+            const nextGroupIdx = numNext <= 1 ? 0 : Math.min(Math.floor(currentGroupIdx * numNext / numCurrent), numNext - 1);
+            const nextGroup = nextStage.groups[nextGroupIdx] ?? nextStage.groups[0] ?? 'A';
             return {
-                ...t,
-                qualifiedStages: [...t.qualifiedStages, nextStage.name],
-                stageGroups: { ...t.stageGroups, [nextStage.name]: nextGroup },
+                ...team,
+                qualifiedStages: [...team.qualifiedStages, nextStage.name],
+                stageGroups: { ...team.stageGroups, [nextStage.name]: nextGroup },
             };
         });
 
