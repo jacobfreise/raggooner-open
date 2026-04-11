@@ -138,15 +138,37 @@ const addGlobalPlayer = (player: GlobalPlayer) => {
 };
 
 onMounted(async () => {
+  if (auth.currentUser) {
+    // Authenticated: bulk-load all players and seasons (needed for registration/draft phases).
+    try {
+      const [playersSnap, seasonsSnap] = await Promise.all([
+        getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'players')),
+        getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'seasons')),
+      ]);
+      globalPlayers.value = playersSnap.docs.map(d => ({ id: d.id, ...d.data() } as GlobalPlayer));
+      seasons.value = seasonsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Season));
+    } catch (e) {
+      console.error('Failed to fetch global players/seasons:', e);
+    }
+  }
+});
+
+// Guests can't list collections but can get individual docs.
+// Once the tournament loads, fetch only the players in it so the profile viewer works.
+const guestDataLoaded = ref(false);
+watch(tournament, async (t) => {
+  if (!t || auth.currentUser || guestDataLoaded.value) return;
+  guestDataLoaded.value = true;
   try {
-    const [playersSnap, seasonsSnap] = await Promise.all([
-      getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'players')),
-      getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'seasons')),
+    const playerIds = Object.keys(t.players || {});
+    const [playerDocs, seasonDoc] = await Promise.all([
+      Promise.all(playerIds.map(id => getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', id)))),
+      t.seasonId ? getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'seasons', t.seasonId)) : Promise.resolve(null),
     ]);
-    globalPlayers.value = playersSnap.docs.map(d => ({ id: d.id, ...d.data() } as GlobalPlayer));
-    seasons.value = seasonsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Season));
+    globalPlayers.value = playerDocs.filter(d => d.exists()).map(d => ({ id: d.id, ...d.data() } as GlobalPlayer));
+    if (seasonDoc?.exists()) seasons.value = [{ id: seasonDoc.id, ...seasonDoc.data() } as Season];
   } catch (e) {
-    console.error('Failed to fetch global players/seasons:', e);
+    console.error('Failed to fetch guest player/season data:', e);
   }
 });
 
