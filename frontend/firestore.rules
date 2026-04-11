@@ -13,7 +13,7 @@ service cloud.firestore {
 
     function isDiscordUser() {
         return request.auth != null &&
-            request.auth.token.firebase.sign_in_provider == 'oidc.discord';
+            request.auth.token.firebase.sign_in_provider == 'oidc.discord.com';
             // Note: 'oidc.discord' is the standard provider ID for Firebase + Discord
     }
 
