@@ -30,3 +30,4 @@ replay_pid*
 # Local database backups and gitleaks reports — never commit these
 /backups/
 report.json
+/frontend/scripts/emulator-import.json
